@@ -1,0 +1,6 @@
+{
+  "name": "DSSME Native Calculation Engine",
+  "description": "Deterministic Vedic astronomy calculation engine conforming to canonical type contracts and Swiss Ephemeris",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
