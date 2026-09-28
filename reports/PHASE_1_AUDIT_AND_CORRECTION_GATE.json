@@ -1,0 +1,145 @@
+{
+  "gate": "PHASE_1_AUDIT_AND_CORRECTION_GATE",
+  "date": "2026-09-27",
+  "final_status": "PHASE_1_CONDITIONAL_FOR_GOOGLE_AI_STUDIO",
+  "patch_integration": {
+    "status": "VERIFIED",
+    "files": [
+      { "path": "src/engine/astronomy/timezone.ts", "insertions": 15, "deletions": 0 },
+      { "path": "src/engine/astronomy/ephemeris.ts", "insertions": 16, "deletions": 0 },
+      { "path": "server.ts", "insertions": 32, "deletions": 7 },
+      { "path": "tests/astronomy/timezone.test.ts", "insertions": 23, "deletions": 0 }
+    ]
+  },
+  "functional_verification": {
+    "invalid_calendar_dates_rejected": {
+      "status": "PASS",
+      "cases": [
+        { "input": "2024-02-30", "expected": "reject", "actual": "INVALID_INPUT" },
+        { "input": "2023-04-31", "expected": "reject", "actual": "INVALID_INPUT" },
+        { "input": "2023-02-29", "expected": "reject", "actual": "INVALID_INPUT", "note": "2023 is not a leap year" }
+      ]
+    },
+    "leap_dates_accepted": {
+      "status": "PASS",
+      "cases": [ { "input": "2024-02-29", "expected": "accept", "actual": "localIso 2024-02-29T10:00:00+00:00" } ]
+    },
+    "ephemeris_fallback_never_silent": {
+      "status": "PASS",
+      "method": "empirically forced by hiding both local swisseph.wasm copies and re-running in a fresh process",
+      "observed_warnings": [
+        "[DSSME ephemeris] FALLBACK ENGINE ACTIVE for calculateLahiriAyanamsa",
+        "[DSSME ephemeris] FALLBACK ENGINE ACTIVE for calculateAscendant",
+        "[DSSME ephemeris] FALLBACK ENGINE ACTIVE for calculateBodyPosition(Sun)"
+      ],
+      "fallback_still_returned_usable_values": true
+    },
+    "health_endpoint_accuracy": {
+      "status": "PASS",
+      "method": "empirically forced, live HTTP test",
+      "healthy_response": { "status": "ok", "ephemeris": "swisseph-wasm" },
+      "degraded_response": { "status": "degraded", "ephemeris": "fallback", "ephemerisError_present": true }
+    },
+    "existing_tests": { "status": "PASS", "passed": 7, "total": 7 },
+    "typecheck": { "status": "PASS", "command": "tsc --noEmit", "exit_code": 0 },
+    "lint": { "status": "PASS", "note": "lint script is literally `tsc --noEmit`; no separate linter (ESLint/Biome) configured in this repo, so lint and typecheck are one and the same check here" },
+    "production_build": { "status": "PASS", "command": "vite build", "exit_code": 0 }
+  },
+  "ephemeris_fallback_machine_readability": {
+    "EPHEMERIS_FALLBACK_STATUS": "LOGGED_ONLY",
+    "mechanisms_present": ["console.warn at 3 fallback sites", "/api/health live probe"],
+    "gap": "CanonicalChart carries no per-request provenance; the /api/canonical-chart response carries only a hardcoded static meta.ephemeris label, which is not provenance",
+    "static_label_warning": "server.ts emits meta.ephemeris = 'SwissEphemeris-WASM-2.10.03' on every successful response regardless of which engine ran; it would read identically for a fallback-computed chart",
+    "revision": "2026-09-28: original wording said the response body carried no engine information at all; corrected. Status LOGGED_ONLY unchanged.",
+    "schema_altered": false,
+    "recommended_minimum_safe_change": "add meta.ephemerisEngine ('swisseph-wasm'|'fallback') to server.ts's existing ad hoc response meta object (not to the frozen CanonicalChart/DssmeApiResponseSuccess types); requires generateCanonicalChart to report per-call fallback usage alongside (not merged into) the chart",
+    "implemented": false
+  },
+  "dependency_audit": {
+    "actively_used": [
+      "@swisseph/browser", "astronomy-engine", "express", "react", "react-dom",
+      "lucide-react", "vite", "@tailwindcss/vite", "@vitejs/plugin-react", "tailwindcss"
+    ],
+    "unused_removed_this_gate": ["swisseph-v2", "@fusionstrings/swiss-eph", "esbuild"],
+    "unused_not_removed_out_of_scope": ["@google/genai", "dotenv", "motion"],
+    "unused_low_priority_not_removed": ["autoprefixer"],
+    "duplicated_capability": {
+      "capability": "Swiss Ephemeris binding",
+      "packages": ["@swisseph/browser (used)", "@fusionstrings/swiss-eph (removed, unused)", "swisseph-v2 (removed, unused)"]
+    },
+    "install_failure_root_causes": [
+      {
+        "cause": "esbuild version pin conflicts with vite's peer requirement",
+        "detail": "devDependency esbuild ^0.25.0 vs vite@8.3.1 peerOptional esbuild ^0.27.0 || ^0.28.0",
+        "network_dependent": false,
+        "reproduced": true
+      },
+      {
+        "cause": "swisseph-v2 native compilation via node-gyp",
+        "detail": "node-gyp rebuild fetches Node headers from nodejs.org; 403 in this sandbox's restricted network",
+        "network_dependent": true,
+        "sandbox_specific_caveat": "the exact 403 is this sandbox's network allowlist; the underlying fragility (native compile step needed for an unused capability) is not sandbox-specific",
+        "reproduced": true
+      }
+    ],
+    "licensing_finding": {
+      "package": "@swisseph/browser",
+      "license": "AGPL-3.0",
+      "in_use": true,
+      "shipped_in_client_bundle": true,
+      "evidence": "dist/assets/swisseph-*.wasm and swisseph-*.js present in the vite build output",
+      "note": "Swiss Ephemeris is dual-licensed by Astrodienst (AGPL-3.0 or paid commercial license). Not legal advice; flagged for a deliberate decision before further commercial build-out.",
+      "also_true_of_removed_package": "@fusionstrings/swiss-eph was also AGPL-3.0"
+    }
+  },
+  "dependency_cleanup": {
+    "removed": ["swisseph-v2", "@fusionstrings/swiss-eph", "esbuild"],
+    "search_method": "grep -rnE \"(from|require\\() ?['\\\"]<pkg>(/|['\\\"])\" --include=*.ts --include=*.tsx --exclude-dir=node_modules .",
+    "affected_files": [],
+    "lockfile_updated": true,
+    "lockfile_tool": "bun install",
+    "lockfile_diff_summary": "Removed: 3 (matches the 3 package.json removals)"
+  },
+  "audit_results": {
+    "before": { "vulnerabilities": 5, "high": 4, "critical": 1, "source": "swisseph-v2's node-gyp toolchain (deprecated tar@6.2.1, glob@10.5.0)" },
+    "after_npm": { "vulnerabilities": 0 },
+    "after_bun_audit": { "vulnerabilities": 0, "packages_checked": 262 },
+    "audit_fix_run": false,
+    "forced_upgrades": false,
+    "categorization_A_to_F": "not applicable — zero findings remain to categorize"
+  },
+  "clean_install_chain": {
+    "npm": {
+      "command": "rm -rf node_modules package-lock.json && npm install",
+      "flags_required": "none",
+      "packages_added": 183,
+      "vulnerabilities": 0,
+      "typecheck": "PASS", "tests": "PASS 7/7", "build": "PASS"
+    },
+    "bun": {
+      "command": "rm -rf node_modules && bun install",
+      "packages_installed": 188,
+      "vulnerabilities": 0,
+      "typecheck": "PASS", "tests": "PASS 7/7", "build": "PASS",
+      "caveat": "bun obtained via `npm install -g bun` for this sandbox; real bun binary and real bun.lock, but user should re-verify once in their own environment"
+    }
+  },
+  "vercel_compatibility": {
+    "dependency_graph": "IMPROVED — no native/node-gyp binaries remain",
+    "entrypoint_shape": "NOT_SERVERLESS_SHAPED — server.ts calls app.listen() unconditionally; would need restructuring into /api routes or a Vercel Node server preset",
+    "vercel_json_present": false,
+    "assessment_basis": "structural code read, not a live deployment test",
+    "licensing_caveat_applies": true
+  },
+  "outstanding_items": [
+    "EPHEMERIS_FALLBACK_STATUS = LOGGED_ONLY — minimum safe fix recommended, not implemented",
+    "@swisseph/browser AGPL-3.0, already shipped client-side — needs a deliberate decision",
+    "server.ts not yet Vercel-serverless-shaped",
+    "@google/genai, dotenv, motion declared but unused — not removed, out of this gate's scope",
+    "autoprefixer likely redundant under Tailwind v4 — low priority",
+    "package.json name field still 'react-example' (cosmetic)",
+    "vite.config.ts __dirname deprecation warning (cosmetic, forward-looking)"
+  ],
+  "blocking_issues": [],
+  "verdict_rationale": "Install/typecheck/test/build chain verified clean on two independent toolchains (npm and bun) with zero flags and zero vulnerabilities — strong enough to rule out BLOCKED. Three real, undecided items (fallback machine-readability, AGPL licensing already in the client bundle, and Vercel entrypoint shape) are carried forward deliberately rather than silently, which is why this is CONDITIONAL rather than unconditional READY. None of the three require Phase 2 work to stop."
+}
