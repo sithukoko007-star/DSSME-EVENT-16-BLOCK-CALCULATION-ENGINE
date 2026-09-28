@@ -37,19 +37,19 @@ const PRESET_CHOFU: DssmeCalculationInput = {
 };
 
 const PRESET_PVR: DssmeCalculationInput = {
-  date: "1970-11-01",
-  time: "07:20:00",
-  latitude: 16.18,
-  longitude: 81.13,
-  timezone: "Asia/Kolkata",
-  timezoneOffset: 5.5,
+  date: "1980-11-04",
+  time: "21:35:00",
+  latitude: 16.80,
+  longitude: 96.15,
+  timezone: "Asia/Yangon",
+  timezoneOffset: 6.5,
   ayanamsa: "Lahiri",
   bodyMode: "Full",
   chartMode: "Standard",
 };
 
 export default function App() {
-  const [input, setInput] = useState<DssmeCalculationInput>(PRESET_CHOFU);
+  const [input, setInput] = useState<DssmeCalculationInput>(PRESET_PVR);
   const [chart, setChart] = useState<CanonicalChart | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [calcTimeMs, setCalcTimeMs] = useState<number | null>(null);
@@ -59,7 +59,7 @@ export default function App() {
 
   // Auto-run initial chart on mount
   useEffect(() => {
-    handleCalculate(PRESET_CHOFU);
+    handleCalculate(PRESET_PVR);
   }, []);
 
   async function handleCalculate(inputData: DssmeCalculationInput = input) {
@@ -117,7 +117,7 @@ export default function App() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold tracking-tight text-white">
-                  DSSME Native Calculation Engine
+                  DSSME EVENT Calculation Engine
                 </h1>
                 <span className="text-xs px-2 py-0.5 rounded-full font-mono bg-amber-500/10 text-amber-400 border border-amber-500/30">
                   Phase 1 Foundation
@@ -180,7 +180,7 @@ export default function App() {
                 }}
                 className="px-2.5 py-1 rounded text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
               >
-                PVR 1970-11-01
+                Yangon 1980-11-04
               </button>
             </div>
           </div>
@@ -593,7 +593,7 @@ export default function App() {
       <footer className="border-t border-slate-800/80 bg-slate-950 py-4 px-6 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <div>
-            DSSME Native Calculation Engine · Built with Swiss Ephemeris WASM & TypeScript
+            DSSME EVENT Calculation Engine · Built with Swiss Ephemeris WASM & TypeScript
           </div>
           <div className="flex items-center gap-3">
             <span>Reference Oracle: naturalstupid/PyJHora</span>
