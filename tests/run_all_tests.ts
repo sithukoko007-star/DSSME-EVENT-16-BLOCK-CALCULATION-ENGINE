@@ -13,6 +13,7 @@ import { runTimezoneHelperTests } from "./astronomy/timezoneHelper.test.ts";
 import { runCanonicalChartTests } from "./canonical/canonicalChart.test.ts";
 import { runCanonicalValidationTests } from "./canonical/canonicalValidation.test.ts";
 import { runPyjhoraDifferentialTests } from "./differential/pyjhoraDifferential.test.ts";
+import { runPanchangaTests } from "./panchanga/panchanga.test.ts";
 
 interface TestSuiteEntry {
   name: string;
@@ -30,6 +31,7 @@ const REGISTERED_SUITES: TestSuiteEntry[] = [
   { name: "CanonicalChart Builder & Determinism", run: runCanonicalChartTests },
   { name: "Canonical Validation & Consistency", run: runCanonicalValidationTests },
   { name: "PyJHora-Derived Reference Fixtures", run: runPyjhoraDifferentialTests },
+  { name: "Panchanga Engine (Phase 2 - Gates A-G)", run: runPanchangaTests },
 ];
 
 async function runAll() {

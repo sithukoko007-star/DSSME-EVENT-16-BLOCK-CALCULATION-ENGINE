@@ -60,6 +60,55 @@ app.post("/api/canonical-chart", async (req: Request, res: Response) => {
   }
 });
 
+// Phase 2: Native Panchanga Endpoint
+app.post("/api/panchanga", async (req: Request, res: Response) => {
+  try {
+    const { fromCanonicalChart, computePanchanga, validatePanchanga, createSwissLongitudeProvider, createSunriseProvider } = await import("./src/engine/panchanga/index.ts");
+    const input = req.body as DssmeCalculationInput;
+    const chart = await generateCanonicalChart(input);
+    const src = fromCanonicalChart(chart);
+    const provider = await createSwissLongitudeProvider();
+    const sunrise = createSunriseProvider();
+    const includeBoundaries = req.query.boundaries === "true" || req.body.includeBoundaries === true;
+    const varaMode = req.body.varaMode === "civil" ? "civil" : "sunrise";
+
+    const panchanga = computePanchanga(src, { provider, sunrise }, { includeBoundaries, varaMode });
+    const validationIssues = validatePanchanga(panchanga, src, provider);
+
+    return res.status(200).json({
+      success: true,
+      data: panchanga,
+      meta: {
+        engine: "DSSME",
+        phase: "PHASE_2_PANCHANGA",
+        validationIssues,
+        generatedAt: new Date().toISOString(),
+      },
+      errors: [],
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    let code = "CALCULATION_ERROR";
+
+    if (message.startsWith("INVALID_INPUT")) code = "INVALID_INPUT";
+    else if (message.startsWith("TIMEZONE_ERROR")) code = "TIMEZONE_ERROR";
+    else if (message.startsWith("EPHEMERIS_ERROR")) code = "EPHEMERIS_ERROR";
+    else if (message.startsWith("VALIDATION_ERROR")) code = "VALIDATION_ERROR";
+
+    return res.status(400).json({
+      success: false,
+      data: null,
+      meta: {},
+      errors: [
+        {
+          code,
+          message,
+        },
+      ],
+    });
+  }
+});
+
 // Health check endpoint with live Swiss Ephemeris probe
 app.get("/api/health", async (_req: Request, res: Response) => {
   try {
