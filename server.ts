@@ -6,6 +6,7 @@
 import express, { Request, Response } from "express";
 import path from "path";
 import { generateCanonicalChart } from "./src/engine/canonical/canonicalChart.ts";
+import { getSwissEphemeris } from "./src/engine/astronomy/ephemeris.ts";
 import { DssmeCalculationInput } from "./src/types/dssme-canonical-types.ts";
 
 const app = express();
@@ -57,14 +58,28 @@ app.post("/api/canonical-chart", async (req: Request, res: Response) => {
   }
 });
 
-// Health check endpoint
-app.get("/api/health", (_req: Request, res: Response) => {
-  res.json({
-    status: "ok",
-    phase: "PHASE_1_FOUNDATION",
-    ayanamsa: "Lahiri",
-    timestamp: new Date().toISOString(),
-  });
+// Health check endpoint with live Swiss Ephemeris probe
+app.get("/api/health", async (_req: Request, res: Response) => {
+  try {
+    await getSwissEphemeris();
+    return res.status(200).json({
+      status: "ok",
+      phase: "PHASE_1_FOUNDATION",
+      ephemeris: "swisseph-wasm",
+      ayanamsa: "Lahiri",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    return res.status(200).json({
+      status: "degraded",
+      phase: "PHASE_1_FOUNDATION",
+      ephemeris: "fallback",
+      ephemerisError: errorMsg,
+      ayanamsa: "Lahiri",
+      timestamp: new Date().toISOString(),
+    });
+  }
 });
 
 async function startServer() {

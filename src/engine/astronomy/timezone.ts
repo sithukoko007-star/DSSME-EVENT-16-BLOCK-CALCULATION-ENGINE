@@ -52,6 +52,16 @@ export function resolveDateTimeToUtc(
   if (day < 1 || day > 31) {
     throw new Error(`INVALID_INPUT: Day must be 1-31, received: ${day}`);
   }
+
+  // Round-trip calendar validation to reject non-existent calendar dates (e.g. Feb 30, Apr 31)
+  const calendarCheck = new Date(Date.UTC(year, month - 1, day));
+  if (
+    calendarCheck.getUTCFullYear() !== year ||
+    calendarCheck.getUTCMonth() + 1 !== month ||
+    calendarCheck.getUTCDate() !== day
+  ) {
+    throw new Error(`INVALID_INPUT: "${dateStr}" is not a valid calendar date`);
+  }
   if (hour < 0 || hour > 23) {
     throw new Error(`INVALID_INPUT: Hour must be 0-23, received: ${hour}`);
   }

@@ -40,5 +40,25 @@ export function runTimezoneTests() {
     /TIMEZONE_ERROR/
   );
 
+  // Test 5: Calendar round-trip validation regression tests
+  // Non-existent calendar dates rejected
+  assert.throws(
+    () => resolveDateTimeToUtc("2024-02-30", "12:00:00", 0),
+    /is not a valid calendar date/
+  );
+  assert.throws(
+    () => resolveDateTimeToUtc("2023-04-31", "12:00:00", 0),
+    /is not a valid calendar date/
+  );
+  assert.throws(
+    () => resolveDateTimeToUtc("2023-02-29", "12:00:00", 0),
+    /is not a valid calendar date/
+  );
+
+  // Valid leap year date accepted
+  const leapDay = resolveDateTimeToUtc("2024-02-29", "10:00:00", 0);
+  assert.equal(leapDay.localIso, "2024-02-29T10:00:00+00:00");
+  assert.equal(leapDay.utcIso, "2024-02-29T10:00:00.000Z");
+
   console.log("✓ Timezone & UTC Resolution Tests Passed!");
 }

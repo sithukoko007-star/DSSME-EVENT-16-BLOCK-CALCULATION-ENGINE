@@ -104,6 +104,13 @@ export function normalize360(deg: number): number {
   return val;
 }
 
+function logEphemerisFallback(funcName: string, error: unknown): void {
+  const reason = error instanceof Error ? error.message : String(error);
+  console.warn(
+    `[DSSME ephemeris] FALLBACK ENGINE ACTIVE for ${funcName} — Swiss Ephemeris WASM failed: ${reason}`
+  );
+}
+
 /**
  * Calculates Lahiri Ayanamsa for a given Julian Day UT.
  * Primary: Swiss Ephemeris WASM SE_SIDM_LAHIRI
@@ -115,6 +122,7 @@ export async function calculateLahiriAyanamsa(julianDayUt: number): Promise<numb
     swe.setSiderealMode(SiderealMode.Lahiri);
     return swe.getAyanamsa(julianDayUt);
   } catch (err) {
+    logEphemerisFallback("calculateLahiriAyanamsa", err);
     // Pure mathematical Lahiri formulation fallback
     // Standard IAU/Lahiri epoch J2000.0 (JD 2451545.0) = 23° 51' 25.532" = 23.85709222°
     // Precession rate ~ 50.290966" / year = 0.01396971278° / year = 0.000038246989° / day
@@ -192,6 +200,7 @@ export async function calculateBodyPosition(
       isRetrograde: pos.longitudeSpeed < 0,
     };
   } catch (err) {
+    logEphemerisFallback(`calculateBodyPosition(${body})`, err);
     // Pure Astronomy Engine fallback
     return calculateBodyWithAstronomyEngine(julianDayUt, body, ayanamsa);
   }
@@ -286,6 +295,7 @@ export async function calculateAscendant(
       siderealLongitude: siderealAscendant,
     };
   } catch (err) {
+    logEphemerisFallback("calculateAscendant", err);
     // Pure astronomical Ascendant fallback via Sidereal Time
     return calculateAscendantPure(julianDayUt, latitude, longitude, ayanamsa);
   }
