@@ -109,5 +109,6 @@ export async function calculateCanonicalLagna(
     nakshatra: nakInfo.nakshatra,
     nakshatraPada: nakInfo.pada,
     house: 1,
+    provenance: ascResult.provenance,
   };
 }

@@ -1,6 +1,8 @@
 /**
- * PyJHora Differential Test Suite
+ * PyJHora-Derived Reference Fixtures Test Suite
  * Compares DSSME native calculation results against independent PyJHora / JHora reference fixtures.
+ * Reference pinned commit: 48e57d29b47a3143519910a24866758116467485.
+ * Note: These are PyJHora-derived reference fixtures, not live PyJHora execution.
  */
 
 import assert from "node:assert/strict";
@@ -8,7 +10,7 @@ import { generateCanonicalChart } from "../../src/engine/canonical/canonicalChar
 import { DssmeCalculationInput } from "../../src/types/dssme-canonical-types.ts";
 
 export async function runPyjhoraDifferentialTests() {
-  console.log("Running PyJHora Differential Tests...");
+  console.log("Running PyJHora-Derived Reference Fixture Tests...");
 
   // Reference Fixture 1: PVR Narasimha Rao Standard Birth Data
   // Date: 1970-11-01, Time: 07:20:00 IST (+5.5), Machilipatnam, India (16.18 N, 81.13 E)

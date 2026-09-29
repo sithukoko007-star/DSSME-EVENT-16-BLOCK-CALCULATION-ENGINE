@@ -73,6 +73,7 @@ export async function calculateCanonicalBody(
     nakshatra: nakInfo.nakshatra,
     nakshatraPada: nakInfo.pada,
     house: houseNumber,
+    provenance: raw.provenance,
   };
 }
 

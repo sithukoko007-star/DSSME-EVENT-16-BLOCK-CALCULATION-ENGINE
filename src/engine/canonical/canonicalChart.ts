@@ -6,17 +6,23 @@
 
 import {
   CanonicalChart,
+  ChartProvenance,
   DssmeCalculationInput,
+  NineBody,
 } from "../../types/dssme-canonical-types.ts";
 import { calculateCanonicalLagna } from "../astronomy/ascendant.ts";
 import { getLahiriAyanamsa } from "../astronomy/ayanamsa.ts";
 import { buildCanonicalHouses } from "../astronomy/houses.ts";
 import { dateToJulianDayUt } from "../astronomy/julianDay.ts";
-import { calculateAllCanonicalBodies } from "../astronomy/planetaryPositions.ts";
+import {
+  calculateAllCanonicalBodies,
+  NINE_BODIES_ORDER,
+} from "../astronomy/planetaryPositions.ts";
 import { resolveDateTimeToUtc } from "../astronomy/timezone.ts";
 import {
   validateCalculationInput,
   validateCanonicalChart,
+  validateAstronomicalConsistency,
 } from "./canonicalValidation.ts";
 
 /**
@@ -56,7 +62,32 @@ export async function generateCanonicalChart(
   // 7. House Cusps and Occupancy Calculation
   const houses = buildCanonicalHouses(lagna, planets);
 
-  // 8. Assemble CanonicalChart
+  // 8. Ephemeris Provenance Accounting
+  const lagnaSource = lagna.provenance || "swisseph-wasm";
+  const planetSources: Record<NineBody, "swisseph-wasm" | "fallback"> = {} as any;
+  let allSwe = lagnaSource === "swisseph-wasm";
+  let allFallback = lagnaSource === "fallback";
+
+  for (const body of NINE_BODIES_ORDER) {
+    const src = planets[body].provenance || "swisseph-wasm";
+    planetSources[body] = src;
+    if (src !== "swisseph-wasm") allSwe = false;
+    if (src !== "fallback") allFallback = false;
+  }
+
+  const overallEphemeris = allSwe ? "swisseph-wasm" : allFallback ? "fallback" : "mixed";
+  const isDegraded = overallEphemeris !== "swisseph-wasm";
+
+  const provenance: ChartProvenance = {
+    ephemeris: overallEphemeris,
+    isDegraded,
+    sources: {
+      lagna: lagnaSource,
+      planets: planetSources,
+    },
+  };
+
+  // 9. Assemble CanonicalChart
   const chart: CanonicalChart = {
     input,
     time: {
@@ -77,13 +108,21 @@ export async function generateCanonicalChart(
     lagna,
     planets,
     houses,
+    provenance,
   };
 
-  // 9. Schema Validation
+  // 10. Layer A: Structural Schema Validation
   const valResult = validateCanonicalChart(chart);
   if (!valResult.isValid) {
     const issueMessages = valResult.issues.map((i) => `${i.field}: ${i.message}`).join("; ");
-    throw new Error(`VALIDATION_ERROR: Canonical chart validation failed: ${issueMessages}`);
+    throw new Error(`VALIDATION_ERROR: Canonical chart structural validation failed: ${issueMessages}`);
+  }
+
+  // 11. Layer B: Astronomical Mathematical Consistency Validation
+  const consistencyResult = validateAstronomicalConsistency(chart);
+  if (!consistencyResult.isValid) {
+    const consistencyMessages = consistencyResult.issues.map((i) => `${i.field}: ${i.message}`).join("; ");
+    throw new Error(`VALIDATION_ERROR: Canonical chart astronomical consistency failed: ${consistencyMessages}`);
   }
 
   return chart;

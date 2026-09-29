@@ -25,95 +25,92 @@ interface TimezoneSelectProps {
   onOffsetChange?: (newOffset: number) => void;
 }
 
-export interface CommonTimezoneOption {
-  tz: string;
-  city: string;
-  region: string;
-}
-
 /**
- * Curated static list of ~50 common IANA timezone identifiers covering
- * all major global regions, including:
- * UTC, Asia/Tokyo, America/New_York, Europe/London, Pacific/Auckland, Asia/Yangon.
+ * Array of ~50 common IANA timezone identifiers covering
+ * all major global regions, including core standards:
+ * UTC, Asia/Tokyo, America/New_York, Europe/London, Pacific/Auckland.
  */
-export const COMMON_IANA_TIMEZONES: readonly CommonTimezoneOption[] = [
+export const COMMON_IANA_TIMEZONES: readonly string[] = [
   // Universal
-  { tz: "UTC", city: "UTC", region: "Coordinated Universal Time" },
+  "UTC",
 
   // Asia & Middle East
-  { tz: "Asia/Tokyo", city: "Tokyo", region: "Japan" },
-  { tz: "Asia/Yangon", city: "Yangon", region: "Myanmar (Burma)" },
-  { tz: "Asia/Kolkata", city: "Kolkata / New Delhi", region: "India" },
-  { tz: "Asia/Dubai", city: "Dubai", region: "United Arab Emirates" },
-  { tz: "Asia/Singapore", city: "Singapore", region: "Singapore" },
-  { tz: "Asia/Bangkok", city: "Bangkok", region: "Thailand / Indochina" },
-  { tz: "Asia/Hong_Kong", city: "Hong Kong", region: "Hong Kong" },
-  { tz: "Asia/Shanghai", city: "Shanghai / Beijing", region: "China" },
-  { tz: "Asia/Seoul", city: "Seoul", region: "South Korea" },
-  { tz: "Asia/Taipei", city: "Taipei", region: "Taiwan" },
-  { tz: "Asia/Jakarta", city: "Jakarta", region: "Indonesia" },
-  { tz: "Asia/Kathmandu", city: "Kathmandu", region: "Nepal" },
-  { tz: "Asia/Dhaka", city: "Dhaka", region: "Bangladesh" },
-  { tz: "Asia/Karachi", city: "Karachi", region: "Pakistan" },
-  { tz: "Asia/Manila", city: "Manila", region: "Philippines" },
-  { tz: "Asia/Jerusalem", city: "Jerusalem", region: "Israel" },
-  { tz: "Asia/Riyadh", city: "Riyadh", region: "Saudi Arabia" },
+  "Asia/Tokyo",
+  "Asia/Yangon",
+  "Asia/Kolkata",
+  "Asia/Dubai",
+  "Asia/Singapore",
+  "Asia/Bangkok",
+  "Asia/Hong_Kong",
+  "Asia/Shanghai",
+  "Asia/Seoul",
+  "Asia/Taipei",
+  "Asia/Jakarta",
+  "Asia/Kathmandu",
+  "Asia/Dhaka",
+  "Asia/Karachi",
+  "Asia/Manila",
+  "Asia/Jerusalem",
+  "Asia/Riyadh",
 
-  // Americas - North & Central
-  { tz: "America/New_York", city: "New York", region: "US Eastern" },
-  { tz: "America/Chicago", city: "Chicago", region: "US Central" },
-  { tz: "America/Denver", city: "Denver", region: "US Mountain" },
-  { tz: "America/Los_Angeles", city: "Los Angeles", region: "US Pacific" },
-  { tz: "America/Phoenix", city: "Phoenix", region: "US Mountain (No DST)" },
-  { tz: "America/Anchorage", city: "Anchorage", region: "US Alaska" },
-  { tz: "America/Toronto", city: "Toronto / Montreal", region: "Canada Eastern" },
-  { tz: "America/Vancouver", city: "Vancouver", region: "Canada Pacific" },
-  { tz: "America/Mexico_City", city: "Mexico City", region: "Mexico" },
+  // Americas - North
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "America/Phoenix",
+  "America/Anchorage",
+  "America/Toronto",
+  "America/Vancouver",
+  "America/Mexico_City",
 
   // Americas - South
-  { tz: "America/Sao_Paulo", city: "São Paulo / Rio", region: "Brazil" },
-  { tz: "America/Buenos_Aires", city: "Buenos Aires", region: "Argentina" },
-  { tz: "America/Bogota", city: "Bogota", region: "Colombia" },
-  { tz: "America/Lima", city: "Lima", region: "Peru" },
-  { tz: "America/Santiago", city: "Santiago", region: "Chile" },
+  "America/Sao_Paulo",
+  "America/Buenos_Aires",
+  "America/Bogota",
+  "America/Lima",
+  "America/Santiago",
 
   // Europe
-  { tz: "Europe/London", city: "London", region: "United Kingdom (GMT/BST)" },
-  { tz: "Europe/Paris", city: "Paris", region: "France (CET/CEST)" },
-  { tz: "Europe/Berlin", city: "Berlin / Frankfurt", region: "Germany (CET/CEST)" },
-  { tz: "Europe/Rome", city: "Rome", region: "Italy" },
-  { tz: "Europe/Madrid", city: "Madrid / Barcelona", region: "Spain" },
-  { tz: "Europe/Amsterdam", city: "Amsterdam", region: "Netherlands" },
-  { tz: "Europe/Brussels", city: "Brussels", region: "Belgium" },
-  { tz: "Europe/Zurich", city: "Zurich / Geneva", region: "Switzerland" },
-  { tz: "Europe/Vienna", city: "Vienna", region: "Austria" },
-  { tz: "Europe/Warsaw", city: "Warsaw", region: "Poland" },
-  { tz: "Europe/Athens", city: "Athens", region: "Greece" },
-  { tz: "Europe/Dublin", city: "Dublin", region: "Ireland" },
-  { tz: "Europe/Stockholm", city: "Stockholm", region: "Sweden" },
-  { tz: "Europe/Helsinki", city: "Helsinki", region: "Finland" },
-  { tz: "Europe/Lisbon", city: "Lisbon", region: "Portugal" },
-  { tz: "Europe/Moscow", city: "Moscow", region: "Russia" },
+  "Europe/London",
+  "Europe/Paris",
+  "Europe/Berlin",
+  "Europe/Rome",
+  "Europe/Madrid",
+  "Europe/Amsterdam",
+  "Europe/Brussels",
+  "Europe/Zurich",
+  "Europe/Vienna",
+  "Europe/Warsaw",
+  "Europe/Athens",
+  "Europe/Dublin",
+  "Europe/Stockholm",
+  "Europe/Helsinki",
+  "Europe/Lisbon",
+  "Europe/Moscow",
 
   // Pacific & Australasia
-  { tz: "Pacific/Auckland", city: "Auckland / Wellington", region: "New Zealand" },
-  { tz: "Pacific/Honolulu", city: "Honolulu", region: "Hawaii" },
-  { tz: "Pacific/Fiji", city: "Suva", region: "Fiji" },
-  { tz: "Australia/Sydney", city: "Sydney", region: "Australia Eastern" },
-  { tz: "Australia/Melbourne", city: "Melbourne", region: "Australia Eastern" },
-  { tz: "Australia/Brisbane", city: "Brisbane", region: "Australia (No DST)" },
-  { tz: "Australia/Adelaide", city: "Adelaide", region: "Australia Central" },
-  { tz: "Australia/Perth", city: "Perth", region: "Australia Western" },
+  "Pacific/Auckland",
+  "Pacific/Honolulu",
+  "Pacific/Fiji",
+  "Australia/Sydney",
+  "Australia/Melbourne",
+  "Australia/Brisbane",
+  "Australia/Adelaide",
+  "Australia/Perth",
 
   // Africa
-  { tz: "Africa/Cairo", city: "Cairo", region: "Egypt" },
-  { tz: "Africa/Johannesburg", city: "Johannesburg", region: "South Africa" },
-  { tz: "Africa/Nairobi", city: "Nairobi", region: "Kenya" },
-  { tz: "Africa/Lagos", city: "Lagos", region: "Nigeria" },
-  { tz: "Africa/Casablanca", city: "Casablanca", region: "Morocco" },
+  "Africa/Cairo",
+  "Africa/Johannesburg",
+  "Africa/Nairobi",
+  "Africa/Lagos",
+  "Africa/Casablanca",
 ] as const;
 
-const QUICK_PRESETS = [
+/**
+ * Quick access shortcuts for the most frequently used standards
+ */
+const QUICK_SHORTCUTS = [
   { label: "UTC", tz: "UTC" },
   { label: "Tokyo", tz: "Asia/Tokyo" },
   { label: "New York", tz: "America/New_York" },
@@ -121,6 +118,17 @@ const QUICK_PRESETS = [
   { label: "Auckland", tz: "Pacific/Auckland" },
   { label: "Yangon", tz: "Asia/Yangon" },
 ];
+
+/**
+ * Helper to display human-friendly city/region names alongside IANA identifiers
+ */
+function formatTimezoneDescriptor(tz: string): string {
+  if (tz === "UTC") return "Coordinated Universal Time";
+  const parts = tz.split("/");
+  const city = parts[parts.length - 1]?.replace(/_/g, " ") || tz;
+  const region = parts[0] || "";
+  return `${city} (${region})`;
+}
 
 export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
   timezone,
@@ -131,18 +139,18 @@ export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
   onOffsetChange,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState(timezone);
-  const [isUserTyping, setIsUserTyping] = useState(false);
+  const [filterText, setFilterText] = useState(timezone);
+  const [isTyping, setIsTyping] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
 
-  // Sync internal display when parent timezone prop changes
+  // Sync internal filter query when parent timezone updates from outside
   useEffect(() => {
-    setSearchQuery(timezone);
-    setIsUserTyping(false);
+    setFilterText(timezone);
+    setIsTyping(false);
   }, [timezone]);
 
   // Derive offset for current civil datetime
@@ -150,49 +158,49 @@ export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
     return deriveTimezoneOffset(timezone, date, time);
   }, [timezone, date, time]);
 
-  // Filter ~50 common IANA options based on user typing
+  // Filter ~50 common IANA timezone options as the user types
   const filteredOptions = useMemo(() => {
-    // If user hasn't started typing a custom search, or query exactly matches current selection, show all ~50 options
-    if (!isUserTyping || !searchQuery.trim() || searchQuery.trim().toLowerCase() === timezone.toLowerCase()) {
+    const raw = filterText.trim().toLowerCase();
+    // If query is empty or unchanged from active selection (and user is not actively typing), show all options
+    if (!raw || (!isTyping && raw === timezone.toLowerCase())) {
       return COMMON_IANA_TIMEZONES;
     }
 
-    const raw = searchQuery.trim().toLowerCase();
-    const underscoreQuery = raw.replace(/\s+/g, "_");
-    const spaceQuery = raw.replace(/_/g, " ");
+    const underscore = raw.replace(/\s+/g, "_");
+    const space = raw.replace(/_/g, " ");
 
-    return COMMON_IANA_TIMEZONES.filter((item) => {
-      const tzLower = item.tz.toLowerCase();
-      const cityLower = item.city.toLowerCase();
-      const regionLower = item.region.toLowerCase();
+    return COMMON_IANA_TIMEZONES.filter((tz) => {
+      const lower = tz.toLowerCase();
+      const spaced = lower.replace(/_/g, " ");
+      const city = lower.split("/").pop() || "";
+      const citySpaced = city.replace(/_/g, " ");
 
       return (
-        tzLower.includes(raw) ||
-        tzLower.includes(underscoreQuery) ||
-        tzLower.replace(/_/g, " ").includes(spaceQuery) ||
-        cityLower.includes(raw) ||
-        regionLower.includes(raw)
+        lower.includes(raw) ||
+        lower.includes(underscore) ||
+        spaced.includes(space) ||
+        city.includes(raw) ||
+        citySpaced.includes(space)
       );
     });
-  }, [searchQuery, isUserTyping, timezone]);
+  }, [filterText, isTyping, timezone]);
 
-  // Highlight current timezone when combobox opens
+  // Highlight selected timezone when dropdown opens
   useEffect(() => {
     if (isOpen) {
-      const targetIndex = filteredOptions.findIndex((opt) => opt.tz === timezone);
-      setHighlightedIndex(targetIndex >= 0 ? targetIndex : 0);
+      const idx = filteredOptions.findIndex((opt) => opt === timezone);
+      setHighlightedIndex(idx >= 0 ? idx : 0);
     }
   }, [isOpen]);
 
-  // Close combobox when clicking outside
+  // Close dropdown on click outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
-        setIsUserTyping(false);
-        // Reset query text to current valid timezone if dismissed
+        setIsTyping(false);
         if (timezone) {
-          setSearchQuery(timezone);
+          setFilterText(timezone);
         }
       }
     }
@@ -211,18 +219,19 @@ export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
   }, [highlightedIndex, isOpen]);
 
   /**
-   * Select a timezone option and trigger onTimezoneChange with derived offset
+   * Select a timezone value and trigger the offset derivation logic
    */
-  const handleSelectTimezone = (selectedTz: string) => {
-    setSearchQuery(selectedTz);
-    setIsUserTyping(false);
+  const selectTimezone = (selectedTz: string) => {
+    setFilterText(selectedTz);
+    setIsTyping(false);
     setIsOpen(false);
 
-    // Compute automatic offset for target date/time
-    const res = deriveTimezoneOffset(selectedTz, date, time);
-    const derivedOffset = res.valid && res.offsetHours !== undefined ? res.offsetHours : undefined;
+    // Derive astronomical UTC offset for current date and time
+    const result = deriveTimezoneOffset(selectedTz, date, time);
+    const derivedOffset =
+      result.valid && result.offsetHours !== undefined ? result.offsetHours : undefined;
 
-    // Trigger parent callbacks to ensure both timezone and offset update
+    // Trigger parent callback to update timezone and offset
     onTimezoneChange(selectedTz, derivedOffset);
     if (onOffsetChange && derivedOffset !== undefined) {
       onOffsetChange(derivedOffset);
@@ -234,15 +243,16 @@ export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
    */
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    setSearchQuery(val);
-    setIsUserTyping(true);
+    setFilterText(val);
+    setIsTyping(true);
     setIsOpen(true);
     setHighlightedIndex(0);
 
-    // If typed value exactly matches a valid IANA identifier, trigger onTimezoneChange immediately
+    // If typed value is an exact valid IANA identifier, trigger callback immediately
     if (isValidIanaTimezone(val.trim())) {
-      const res = deriveTimezoneOffset(val.trim(), date, time);
-      const derived = res.valid && res.offsetHours !== undefined ? res.offsetHours : undefined;
+      const result = deriveTimezoneOffset(val.trim(), date, time);
+      const derived =
+        result.valid && result.offsetHours !== undefined ? result.offsetHours : undefined;
       onTimezoneChange(val.trim(), derived);
       if (onOffsetChange && derived !== undefined) {
         onOffsetChange(derived);
@@ -251,16 +261,15 @@ export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
   };
 
   /**
-   * Handle focus on input (select all for easy replacement)
+   * Handle focus on input
    */
-  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
     setIsOpen(true);
-    // Select all text so typing immediately filters
     e.target.select();
   };
 
   /**
-   * Handle keyboard navigation within combobox
+   * Handle keyboard navigation within the combobox
    */
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!isOpen) {
@@ -279,17 +288,17 @@ export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (filteredOptions.length > 0 && highlightedIndex < filteredOptions.length) {
-        handleSelectTimezone(filteredOptions[highlightedIndex].tz);
-      } else if (isValidIanaTimezone(searchQuery.trim())) {
-        handleSelectTimezone(searchQuery.trim());
+        selectTimezone(filteredOptions[highlightedIndex]);
+      } else if (isValidIanaTimezone(filterText.trim())) {
+        selectTimezone(filterText.trim());
       }
     } else if (e.key === "Escape") {
       setIsOpen(false);
-      setIsUserTyping(false);
-      setSearchQuery(timezone);
+      setIsTyping(false);
+      setFilterText(timezone);
     } else if (e.key === "Tab") {
       if (isOpen && filteredOptions.length > 0) {
-        handleSelectTimezone(filteredOptions[highlightedIndex].tz);
+        selectTimezone(filteredOptions[highlightedIndex]);
       }
     }
   };
@@ -300,7 +309,7 @@ export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
     <div id="timezone-input-container" ref={containerRef} className="relative">
       {/* Label and Live Offset Indicator */}
       <label
-        htmlFor="timezone-combobox-input"
+        htmlFor="timezone-input"
         className="block text-xs font-medium text-slate-400 mb-1 flex items-center justify-between"
       >
         <span className="flex items-center gap-1">
@@ -323,21 +332,22 @@ export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
 
         <input
           ref={inputRef}
-          id="timezone-combobox-input"
+          id="timezone-input"
+          data-testid="timezone-input"
           role="combobox"
           aria-expanded={isOpen}
           aria-autocomplete="list"
-          aria-controls="timezone-combobox-listbox"
+          aria-controls="timezone-dropdown"
           type="text"
-          value={searchQuery}
+          value={filterText}
           onChange={handleInputChange}
-          onFocus={handleInputFocus}
+          onFocus={handleFocus}
           onKeyDown={handleKeyDown}
           placeholder="Search e.g. UTC, Asia/Tokyo, America/New_York..."
           autoComplete="off"
           spellCheck={false}
           className={`w-full pl-8 pr-16 py-1.5 bg-slate-950 border rounded-lg text-sm text-slate-100 focus:outline-none font-mono transition ${
-            !isExactValid && searchQuery.trim() !== ""
+            !isExactValid && filterText.trim() !== ""
               ? "border-rose-500/80 focus:border-rose-400"
               : isExactValid
               ? "border-emerald-600/70 focus:border-emerald-400"
@@ -345,14 +355,14 @@ export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
           }`}
         />
 
-        {/* Clear & Toggle Actions */}
+        {/* Clear & Dropdown Toggle Actions */}
         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-          {searchQuery && (
+          {filterText && (
             <button
               type="button"
               onClick={() => {
-                setSearchQuery("");
-                setIsUserTyping(true);
+                setFilterText("");
+                setIsTyping(true);
                 onTimezoneChange("");
                 inputRef.current?.focus();
                 setIsOpen(true);
@@ -391,7 +401,7 @@ export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
             <CheckCircle2 className="h-3 w-3 text-emerald-400" />
             Valid IANA · Auto-synced
           </span>
-        ) : searchQuery.trim() === "" ? (
+        ) : filterText.trim() === "" ? (
           <span className="text-slate-500">Select or search an IANA timezone</span>
         ) : (
           <span className="text-rose-400 flex items-center gap-1 font-mono">
@@ -422,13 +432,13 @@ export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
           )}
       </div>
 
-      {/* Quick Curated Presets Bar */}
+      {/* Quick Curated Shortcuts */}
       <div className="mt-1.5 flex flex-wrap gap-1 items-center">
-        {QUICK_PRESETS.map((p) => (
+        {QUICK_SHORTCUTS.map((p) => (
           <button
             key={p.tz}
             type="button"
-            onClick={() => handleSelectTimezone(p.tz)}
+            onClick={() => selectTimezone(p.tz)}
             className={`px-1.5 py-0.5 rounded text-[10px] font-mono transition border ${
               timezone === p.tz
                 ? "bg-amber-500/20 text-amber-300 border-amber-500/50"
@@ -440,7 +450,7 @@ export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
         ))}
       </div>
 
-      {/* Searchable Combobox Options Listbox */}
+      {/* Searchable Dropdown Options List */}
       {isOpen && (
         <div className="absolute left-0 min-w-[320px] sm:min-w-[420px] max-w-[480px] top-full mt-1.5 z-50 bg-slate-900 border border-slate-700/80 rounded-lg shadow-2xl overflow-hidden backdrop-blur-xl">
           {/* Listbox Header */}
@@ -454,32 +464,40 @@ export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
             </span>
           </div>
 
-          {/* Scrollable Options List */}
+          {/* Options List */}
           <ul
             ref={listboxRef}
-            id="timezone-combobox-listbox"
+            id="timezone-dropdown"
+            data-testid="timezone-dropdown"
             role="listbox"
             className="max-h-64 overflow-y-auto divide-y divide-slate-800/50 text-xs font-mono"
           >
             {filteredOptions.length === 0 ? (
               <li className="px-3 py-5 text-center text-slate-500">
-                No common timezones match "{searchQuery}"
+                No common timezones match "{filterText}"
                 <div className="text-[11px] text-slate-400 mt-1">
-                  You can press Enter to apply "{searchQuery}" directly if valid.
+                  Press Enter to apply "{filterText}" directly if it's a valid IANA zone.
                 </div>
               </li>
             ) : (
-              filteredOptions.map((opt, index) => {
+              filteredOptions.map((tz, index) => {
                 const isHighlighted = index === highlightedIndex;
-                const isSelected = timezone === opt.tz;
-                const preview = deriveTimezoneOffset(opt.tz, date, time);
+                const isSelected = timezone === tz;
+                const preview = deriveTimezoneOffset(tz, date, time);
+                const descriptor = formatTimezoneDescriptor(tz);
 
                 return (
                   <li
-                    key={opt.tz}
+                    key={tz}
                     role="option"
+                    data-testid="timezone-option"
+                    data-value={tz}
                     aria-selected={isSelected}
-                    onClick={() => handleSelectTimezone(opt.tz)}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      selectTimezone(tz);
+                    }}
+                    onClick={() => selectTimezone(tz)}
                     onMouseEnter={() => setHighlightedIndex(index)}
                     className={`px-3 py-2 cursor-pointer flex items-center justify-between transition ${
                       isHighlighted
@@ -492,11 +510,9 @@ export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
                     <div className="flex flex-col">
                       <div className="font-semibold text-slate-100 flex items-center gap-1.5">
                         {isSelected && <Check className="h-3 w-3 text-amber-400 flex-shrink-0" />}
-                        <span>{opt.tz}</span>
+                        <span>{tz}</span>
                       </div>
-                      <span className="text-[10px] text-slate-400">
-                        {opt.city} · {opt.region}
-                      </span>
+                      <span className="text-[10px] text-slate-400">{descriptor}</span>
                     </div>
 
                     <div className="text-right flex-shrink-0 ml-3">

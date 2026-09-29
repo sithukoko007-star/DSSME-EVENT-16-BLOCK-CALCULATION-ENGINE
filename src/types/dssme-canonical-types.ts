@@ -117,6 +117,7 @@ export interface CanonicalBodyPosition {
   nakshatra: string;
   nakshatraPada: 1 | 2 | 3 | 4;
   house: number;               // 1-12
+  provenance?: "swisseph-wasm" | "fallback";
 }
 
 export interface CanonicalHouse {
@@ -126,6 +127,15 @@ export interface CanonicalHouse {
   cuspLongitude?: number;      // bhava madhya, decimal degrees, where the house system needs it
   occupants: NineBody[];
   type: HouseType;
+}
+
+export interface ChartProvenance {
+  ephemeris: "swisseph-wasm" | "fallback" | "mixed";
+  isDegraded: boolean;
+  sources: {
+    lagna: "swisseph-wasm" | "fallback";
+    planets: Record<NineBody, "swisseph-wasm" | "fallback">;
+  };
 }
 
 export interface CanonicalChart {
@@ -153,6 +163,7 @@ export interface CanonicalChart {
   lagna: CanonicalBodyPosition;
   planets: Record<NineBody, CanonicalBodyPosition>;
   houses: Record<HouseKey, CanonicalHouse>;
+  provenance?: ChartProvenance;
 }
 
 // ============================================================================

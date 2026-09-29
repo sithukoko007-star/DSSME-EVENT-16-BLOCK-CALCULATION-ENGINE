@@ -20,11 +20,13 @@ export interface BodyAstronomyResult {
   eclipticLatitude: number;
   speedLongitude: number;
   isRetrograde: boolean;
+  provenance: "swisseph-wasm" | "fallback";
 }
 
 export interface AscendantAstronomyResult {
   tropicalLongitude: number;
   siderealLongitude: number;
+  provenance: "swisseph-wasm" | "fallback";
 }
 
 let sweInstance: SwissEphemeris | null = null;
@@ -171,6 +173,7 @@ export async function calculateBodyPosition(
         eclipticLatitude: pos.latitude,
         speedLongitude: pos.longitudeSpeed,
         isRetrograde: pos.longitudeSpeed < 0,
+        provenance: "swisseph-wasm",
       };
     }
 
@@ -184,6 +187,7 @@ export async function calculateBodyPosition(
         eclipticLatitude: -posRahu.latitude,
         speedLongitude: posRahu.longitudeSpeed,
         isRetrograde: posRahu.longitudeSpeed < 0,
+        provenance: "swisseph-wasm",
       };
     }
 
@@ -198,6 +202,7 @@ export async function calculateBodyPosition(
       eclipticLatitude: pos.latitude,
       speedLongitude: pos.longitudeSpeed,
       isRetrograde: pos.longitudeSpeed < 0,
+      provenance: "swisseph-wasm",
     };
   } catch (err) {
     logEphemerisFallback(`calculateBodyPosition(${body})`, err);
@@ -240,6 +245,7 @@ function calculateBodyWithAstronomyEngine(
       eclipticLatitude: 0,
       speedLongitude: dailyMotion,
       isRetrograde: true,
+      provenance: "fallback",
     };
   }
 
@@ -267,6 +273,7 @@ function calculateBodyWithAstronomyEngine(
     eclipticLatitude: ecl1.elat,
     speedLongitude,
     isRetrograde: speedLongitude < 0,
+    provenance: "fallback",
   };
 }
 
@@ -293,6 +300,7 @@ export async function calculateAscendant(
     return {
       tropicalLongitude: tropicalAscendant,
       siderealLongitude: siderealAscendant,
+      provenance: "swisseph-wasm",
     };
   } catch (err) {
     logEphemerisFallback("calculateAscendant", err);
@@ -303,8 +311,16 @@ export async function calculateAscendant(
 
 /**
  * Pure trigonometric Ascendant calculation from Greenwich Sidereal Time (GST) and Obliquity.
+ * Conforms to standard spherical astronomy (Meeus, Astronomical Algorithms).
+ *
+ * The Ascendant is the intersection of the ecliptic with the eastern horizon:
+ * tan(Asc) = cos(RAMC) / (-sin(RAMC) * cos(eps) - tan(lat) * sin(eps))
+ *
+ * In atan2(y, x):
+ * y = cos(RAMC) = cos(theta)
+ * x = -sin(RAMC) * cos(eps) - tan(lat) * sin(eps) = -(sin(theta) * cos(eps) + tan(phi) * sin(eps))
  */
-function calculateAscendantPure(
+export function calculateAscendantPure(
   julianDayUt: number,
   latitude: number,
   longitude: number,
@@ -321,29 +337,34 @@ function calculateAscendantPure(
     (T * T * T) / 38710000.0;
   gmst = normalize360(gmst);
 
-  // Local Sidereal Time (degrees)
+  // Local Sidereal Time (degrees) = RAMC
   const lst = normalize360(gmst + longitude);
   const theta = (lst * Math.PI) / 180.0;
 
-  // True Obliquity of the Ecliptic (degrees)
+  // Mean Obliquity of the Ecliptic (degrees) - Laskar formula
   const eps0 = 23.4392911 - 0.0130042 * T - 0.00000016 * T * T;
   const eps = (eps0 * Math.PI) / 180.0;
 
   const phi = (latitude * Math.PI) / 180.0;
 
-  // Ascendant formula:
-  // tan(Asc) = -cos(RAMC) / (sin(RAMC) * cos(eps) + tan(lat) * sin(eps))
-  const y = -Math.cos(theta);
-  const x = Math.sin(theta) * Math.cos(eps) + Math.tan(phi) * Math.sin(eps);
+  // Correct Ascendant formula (Eastern rising horizon intersection):
+  // y = cos(theta)
+  // x = -(sin(theta) * cos(eps) + tan(phi) * sin(eps))
+  const y = Math.cos(theta);
+  const x = -(Math.sin(theta) * Math.cos(eps) + Math.tan(phi) * Math.sin(eps));
 
-  let ascRad = Math.atan2(y, x);
-  let ascDeg = normalize360((ascRad * 180.0) / Math.PI);
+  const ascRad = Math.atan2(y, x);
+  const ascDeg = normalize360((ascRad * 180.0) / Math.PI);
 
-  // Ensure ascendant is in rising eastern hemisphere
+  if (isNaN(ascDeg) || !isFinite(ascDeg)) {
+    throw new Error("EPHEMERIS_ERROR: Failed to compute valid Ascendant via trigonometric fallback");
+  }
+
   const siderealAsc = normalize360(ascDeg - ayanamsa);
 
   return {
     tropicalLongitude: ascDeg,
     siderealLongitude: siderealAsc,
+    provenance: "fallback",
   };
 }
