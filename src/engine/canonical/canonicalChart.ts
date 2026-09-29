@@ -10,8 +10,12 @@ import {
   DssmeCalculationInput,
   NineBody,
 } from "../../types/dssme-canonical-types.ts";
-import { calculateCanonicalLagna } from "../astronomy/ascendant.ts";
-import { getLahiriAyanamsa } from "../astronomy/ayanamsa.ts";
+import {
+  calculateCanonicalLagna,
+} from "../astronomy/ascendant.ts";
+import {
+  getLahiriAyanamsaWithProvenance,
+} from "../astronomy/ayanamsa.ts";
 import { buildCanonicalHouses } from "../astronomy/houses.ts";
 import { dateToJulianDayUt } from "../astronomy/julianDay.ts";
 import {
@@ -42,7 +46,9 @@ export async function generateCanonicalChart(
   const julianDayUt = dateToJulianDayUt(timeRes.utcDate);
 
   // 4. Lahiri Ayanamsa Calculation
-  const ayanamsaValue = await getLahiriAyanamsa(julianDayUt);
+  const ayanamsaRes = await getLahiriAyanamsaWithProvenance(julianDayUt);
+  const ayanamsaValue = ayanamsaRes.value;
+  const ayanamsaSource = ayanamsaRes.provenance;
 
   // 5. Lagna (Ascendant) Calculation
   const lagna = await calculateCanonicalLagna(
@@ -65,8 +71,8 @@ export async function generateCanonicalChart(
   // 8. Ephemeris Provenance Accounting
   const lagnaSource = lagna.provenance || "swisseph-wasm";
   const planetSources: Record<NineBody, "swisseph-wasm" | "fallback"> = {} as any;
-  let allSwe = lagnaSource === "swisseph-wasm";
-  let allFallback = lagnaSource === "fallback";
+  let allSwe = lagnaSource === "swisseph-wasm" && ayanamsaSource === "swisseph-wasm";
+  let allFallback = lagnaSource === "fallback" && ayanamsaSource === "fallback";
 
   for (const body of NINE_BODIES_ORDER) {
     const src = planets[body].provenance || "swisseph-wasm";
@@ -78,13 +84,22 @@ export async function generateCanonicalChart(
   const overallEphemeris = allSwe ? "swisseph-wasm" : allFallback ? "fallback" : "mixed";
   const isDegraded = overallEphemeris !== "swisseph-wasm";
 
+  const runtimeMetadata = {
+    node: typeof process !== "undefined" ? process.version : "browser",
+    platform: typeof process !== "undefined" ? process.platform : "browser",
+    icu: typeof process !== "undefined" ? process.versions?.icu : undefined,
+    tzdata: typeof process !== "undefined" ? (process.versions as any)?.tzdata || "2025c" : "browser",
+  };
+
   const provenance: ChartProvenance = {
     ephemeris: overallEphemeris,
     isDegraded,
     sources: {
+      ayanamsa: ayanamsaSource,
       lagna: lagnaSource,
       planets: planetSources,
     },
+    runtime: runtimeMetadata,
   };
 
   // 9. Assemble CanonicalChart

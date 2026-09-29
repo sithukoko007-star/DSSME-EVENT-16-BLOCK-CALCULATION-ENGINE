@@ -2,10 +2,12 @@
  * Ascendant Fallback vs Swiss Ephemeris Numerical Regression Test Suite
  *
  * Verifies that calculateAscendantPure() trigonometric fallback formula:
- * 1. Has no quadrant error (no 180° inversion).
- * 2. Matches Swiss Ephemeris ascendant within declared tolerance (< 0.05° = 3 arcminutes).
- * 3. Correctly predicts Lagna sign across Northern, Southern, and Equatorial latitudes.
- * 4. Yields identical whole-sign house mappings.
+ * 1. Has no quadrant error (no 180° Descendant inversion) across the globe.
+ * 2. Incorporates the MC / Eastern Horizon Guard for polar circles and high latitudes.
+ * 3. Matches Swiss Ephemeris within declared tolerance (< 0.05° = 3 arcminutes).
+ * 4. Correctly predicts Lagna sign across Northern, Southern, Equatorial, and Polar latitudes:
+ *    Tromsø, Murmansk, Reykjavík, ±66.5°, ±67°, ±70°, ±75°.
+ * 5. Yields identical whole-sign house mappings.
  */
 
 import assert from "node:assert/strict";
@@ -19,11 +21,12 @@ import { getLahiriAyanamsa } from "../../src/engine/astronomy/ayanamsa.ts";
 import { ZODIAC_SIGNS_ARIES_FIRST } from "../../src/types/dssme-canonical-types.ts";
 
 export async function runAscendantFallbackTests() {
-  console.log("Running Swiss-vs-Fallback Ascendant Regression Tests...");
+  console.log("Running Swiss-vs-Fallback Ascendant Regression Tests (Global + Polar)...");
 
   const swe = await getSwissEphemeris();
 
   const testCases = [
+    // Standard Global Latitudes
     {
       name: "Chofu (Tokyo) 2026-09-16 14:30 (Existing Golden Fixture)",
       jd: 2461299.7291666665,
@@ -66,6 +69,71 @@ export async function runAscendantFallbackTests() {
       lon: 0.0,
       expectedSign: "Pisces",
     },
+
+    // High Latitude & Polar Guard Fixtures
+    {
+      name: "Reykjavík, Iceland (64.15° N, -21.94° W)",
+      jd: 2461299.7291666665,
+      lat: 64.15,
+      lon: -21.94,
+      expectedSign: "Leo",
+    },
+    {
+      name: "Near Polar Circle North (+66.5° N, 0.0° E)",
+      jd: 2461299.7291666665,
+      lat: 66.5,
+      lon: 0.0,
+      expectedSign: "Leo",
+    },
+    {
+      name: "Near Polar Circle South (-66.5° S, 0.0° E)",
+      jd: 2461299.7291666665,
+      lat: -66.5,
+      lon: 0.0,
+      expectedSign: "Gemini",
+    },
+    {
+      name: "Arctic Circle +67° N (10.0° E)",
+      jd: 2461299.7291666665,
+      lat: 67.0,
+      lon: 10.0,
+      expectedSign: "Virgo",
+    },
+    {
+      name: "Murmansk, Russia (68.97° N, 33.08° E)",
+      jd: 2461299.7291666665,
+      lat: 68.97,
+      lon: 33.08,
+      expectedSign: "Virgo",
+    },
+    {
+      name: "Tromsø, Norway (69.65° N, 18.96° E)",
+      jd: 2461299.7291666665,
+      lat: 69.65,
+      lon: 18.96,
+      expectedSign: "Virgo",
+    },
+    {
+      name: "Antarctic Circle -70° S (10.0° E)",
+      jd: 2461299.7291666665,
+      lat: -70.0,
+      lon: 10.0,
+      expectedSign: "Virgo",
+    },
+    {
+      name: "High Polar Arctic +75° N (15.0° E)",
+      jd: 2461299.7291666665,
+      lat: 75.0,
+      lon: 15.0,
+      expectedSign: "Virgo",
+    },
+    {
+      name: "High Polar Antarctic -75° S (15.0° E)",
+      jd: 2461299.7291666665,
+      lat: -75.0,
+      lon: 15.0,
+      expectedSign: "Virgo",
+    },
   ];
 
   for (const tc of testCases) {
@@ -78,7 +146,7 @@ export async function runAscendantFallbackTests() {
     const sweSignIndex = Math.floor(sweSid / 30.0);
     const sweSign = ZODIAC_SIGNS_ARIES_FIRST[sweSignIndex];
 
-    // Fallback: Pure trigonometric formula
+    // Fallback: Pure trigonometric formula with MC Eastern Horizon Guard
     const fb = calculateAscendantPure(tc.jd, tc.lat, tc.lon, ayanamsa);
     const fbSignIndex = Math.floor(fb.siderealLongitude / 30.0);
     const fbSign = ZODIAC_SIGNS_ARIES_FIRST[fbSignIndex];
@@ -110,5 +178,26 @@ export async function runAscendantFallbackTests() {
     assert.equal(fb.provenance, "fallback", "Fallback result must declare fallback provenance");
   }
 
-  console.log("✓ Swiss-vs-Fallback Ascendant Regression Tests Passed!");
+  // 4. Polar diurnal 24-hour sweep across Tromsø (69.65°N) verifying 0 Descendant inversions
+  const tromsoLat = 69.65;
+  const tromsoLon = 18.96;
+  const baseJd = 2461299.7291666665;
+  const ayanamsa = await getLahiriAyanamsa(baseJd);
+
+  for (let hourStep = 0; hourStep < 24; hourStep += 1) {
+    const sweepJd = baseJd + hourStep / 24.0;
+    const sweHouses = swe.calculateHouses(sweepJd, tromsoLat, tromsoLon, HouseSystem.WholeSign);
+    const sweAsc = normalize360(sweHouses.ascendant);
+    const fbAsc = calculateAscendantPure(sweepJd, tromsoLat, tromsoLon, ayanamsa);
+
+    let diff = Math.abs(fbAsc.tropicalLongitude - sweAsc);
+    if (diff > 180.0) diff = Math.abs(diff - 360.0);
+
+    assert(
+      diff < 0.25,
+      `Tromsø polar sweep at +${hourStep}h produced delta ${diff.toFixed(4)}° (no 180° Descendant inversions allowed)`
+    );
+  }
+
+  console.log("✓ Swiss-vs-Fallback Ascendant Regression Tests Passed (Global + Polar)!");
 }

@@ -54,14 +54,15 @@ export function validateCalculationInput(input: unknown): DssmeCalculationInput 
     throw new Error(`INVALID_INPUT: "longitude" must be a number between -180 and +180, received: ${obj.longitude}`);
   }
 
+  const suppliedOffset = obj.timezoneOffset;
   if (
-    typeof obj.timezoneOffset !== "number" ||
-    isNaN(obj.timezoneOffset) ||
-    obj.timezoneOffset < -14 ||
-    obj.timezoneOffset > 14
+    typeof suppliedOffset !== "number" ||
+    isNaN(suppliedOffset) ||
+    suppliedOffset < -14 ||
+    suppliedOffset > 14
   ) {
     throw new Error(
-      `TIMEZONE_ERROR: "timezoneOffset" must be a number between -14 and +14, received: ${obj.timezoneOffset}`
+      `TIMEZONE_ERROR: "timezoneOffset" must be a number between -14 and +14, received: ${suppliedOffset}`
     );
   }
 
@@ -69,18 +70,44 @@ export function validateCalculationInput(input: unknown): DssmeCalculationInput 
     throw new Error(`TIMEZONE_ERROR: "timezone" must be a non-empty string, received: ${obj.timezone}`);
   }
 
-  // Server-side Timezone Integrity Enforcement:
-  // If an IANA timezone is provided, verify caller-supplied timezoneOffset against astronomical IANA rules
+  // Server-side Fail-Closed Timezone Integrity Enforcement:
+  // 1. Timezone must strictly be a recognized IANA timezone identifier
   const trimmedTz = obj.timezone.trim();
-  if (isValidIanaTimezone(trimmedTz)) {
-    const derived = deriveTimezoneOffset(trimmedTz, obj.date.trim(), obj.time.trim());
-    if (derived.valid && derived.offsetHours !== undefined) {
-      // Allow minor tolerance of 0.05 hours (3 mins) for fractional precision
-      if (Math.abs(obj.timezoneOffset - derived.offsetHours) > 0.05) {
-        throw new Error(
-          `TIMEZONE_ERROR: Inconsistent timezone: supplied timezoneOffset (${obj.timezoneOffset}h) does not match IANA timezone "${trimmedTz}" at date/time ${obj.date.trim()} ${obj.time.trim()} (expected: ${derived.offsetHours}h).`
-        );
-      }
+  if (!isValidIanaTimezone(trimmedTz)) {
+    throw new Error(
+      `TIMEZONE_ERROR: Invalid IANA timezone: "${trimmedTz}" is not a recognized IANA timezone identifier.`
+    );
+  }
+
+  // 2. Derive astronomical civil offsets, checking DST gaps and overlaps
+  const derived = deriveTimezoneOffset(trimmedTz, obj.date.trim(), obj.time.trim());
+  if (!derived.valid) {
+    throw new Error(`TIMEZONE_ERROR: ${derived.error || "Invalid timezone date/time"}`);
+  }
+
+  // 3. Reject non-existent local civil times (Spring-Forward Gap)
+  if (derived.isDstGap) {
+    throw new Error(
+      `TIMEZONE_ERROR: Non-existent local time: "${obj.date.trim()} ${obj.time.trim()}" falls within a daylight saving spring-forward gap in timezone "${trimmedTz}". This civil instant does not exist.`
+    );
+  }
+
+  // 4. Handle ambiguous local civil times (Fall-Back Overlap)
+  if (derived.isDstOverlap && derived.validOffsets) {
+    const matchesSupplied = derived.validOffsets.some(
+      (o) => Math.abs(o - suppliedOffset) < 0.01
+    );
+    if (!matchesSupplied) {
+      throw new Error(
+        `TIMEZONE_ERROR: Ambiguous local time: "${obj.date.trim()} ${obj.time.trim()}" occurs twice during daylight saving fall-back in timezone "${trimmedTz}". Supplied timezoneOffset (${suppliedOffset}h) does not match either valid occurrence (${derived.validOffsets.map((o) => (o >= 0 ? "+" + o : o) + "h").join(" or ")}).`
+      );
+    }
+  } else if (derived.offsetHours !== undefined) {
+    // 5. Standard unambiguous civil time offset consistency check
+    if (Math.abs(suppliedOffset - derived.offsetHours) > 0.05) {
+      throw new Error(
+        `TIMEZONE_ERROR: Inconsistent timezone: supplied timezoneOffset (${suppliedOffset}h) does not match IANA timezone "${trimmedTz}" at date/time ${obj.date.trim()} ${obj.time.trim()} (expected: ${derived.offsetHours}h).`
+      );
     }
   }
 
@@ -94,7 +121,7 @@ export function validateCalculationInput(input: unknown): DssmeCalculationInput 
     latitude: obj.latitude,
     longitude: obj.longitude,
     timezone: trimmedTz,
-    timezoneOffset: obj.timezoneOffset,
+    timezoneOffset: suppliedOffset,
     ayanamsa: "Lahiri",
     chartMode: obj.chartMode,
     bodyMode: obj.bodyMode,
@@ -170,6 +197,35 @@ export function validateCanonicalChart(chart: CanonicalChart): ValidationResult 
           issues.push({ field: `houses.${key}.sign`, message: "Invalid house sign" });
         }
       }
+    }
+  }
+
+  // Mandatory Provenance Validation (Fail-Closed)
+  if (!chart.provenance || typeof chart.provenance !== "object") {
+    issues.push({ field: "provenance", message: "Missing mandatory chart calculation provenance" });
+  } else {
+    const prov = chart.provenance;
+    if (!["swisseph-wasm", "fallback", "mixed"].includes(prov.ephemeris)) {
+      issues.push({ field: "provenance.ephemeris", message: `Invalid ephemeris provenance: ${prov.ephemeris}` });
+    }
+    if (typeof prov.isDegraded !== "boolean") {
+      issues.push({ field: "provenance.isDegraded", message: "isDegraded must be boolean" });
+    }
+    if (!prov.sources || typeof prov.sources !== "object") {
+      issues.push({ field: "provenance.sources", message: "Missing provenance sources" });
+    } else {
+      if (!prov.sources.ayanamsa || !["swisseph-wasm", "fallback"].includes(prov.sources.ayanamsa)) {
+        issues.push({ field: "provenance.sources.ayanamsa", message: "Missing or invalid ayanamsa source" });
+      }
+      if (!prov.sources.lagna || !["swisseph-wasm", "fallback"].includes(prov.sources.lagna)) {
+        issues.push({ field: "provenance.sources.lagna", message: "Missing or invalid lagna source" });
+      }
+      if (!prov.sources.planets || typeof prov.sources.planets !== "object") {
+        issues.push({ field: "provenance.sources.planets", message: "Missing planets sources" });
+      }
+    }
+    if (!prov.runtime || typeof prov.runtime !== "object" || !prov.runtime.node) {
+      issues.push({ field: "provenance.runtime", message: "Missing runtime environment metadata" });
     }
   }
 

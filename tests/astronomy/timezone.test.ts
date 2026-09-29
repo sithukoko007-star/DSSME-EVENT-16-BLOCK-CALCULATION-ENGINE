@@ -63,19 +63,21 @@ export function runTimezoneTests() {
   assert.equal(leapDay.localIso, "2024-02-29T10:00:00+00:00");
   assert.equal(leapDay.utcIso, "2024-02-29T10:00:00.000Z");
 
-  // Test 6: DST Ambiguity - Spring-Forward Gap
+  // Test 6: DST Ambiguity - Spring-Forward Gap (Strictly rejected non-existent civil time)
   // In New York on 2026-03-08, clocks jump from 02:00 EST (-5) directly to 03:00 EDT (-4).
-  // Time 02:30:00 does not exist locally. Standard astronomical handling derives EDT (-4).
+  // Time 02:30:00 does not exist locally. Must be detected as invalid DST gap.
   const springGap = deriveTimezoneOffset("America/New_York", "2026-03-08", "02:30:00");
-  assert.equal(springGap.valid, true);
-  assert.equal(springGap.offsetHours, -4, "Spring-forward gap resolves to Daylight Saving offset (-4)");
+  assert.equal(springGap.valid, false, "Non-existent local time must not be valid");
+  assert.equal(springGap.isDstGap, true, "Must flag isDstGap");
+  assert(springGap.error?.includes("spring-forward gap"));
 
-  // Test 7: DST Ambiguity - Fall-Back Overlap
+  // Test 7: DST Ambiguity - Fall-Back Overlap (Detected as ambiguous with both valid offsets)
   // In New York on 2026-11-01, clocks repeat the 01:00-02:00 hour.
-  // Standard handling disambiguates predictably to EDT (-4) prior to rollback to EST (-5).
+  // Standard handling identifies overlap and returns validOffsets [-5, -4].
   const fallOverlap = deriveTimezoneOffset("America/New_York", "2026-11-01", "01:30:00");
   assert.equal(fallOverlap.valid, true);
-  assert.equal(fallOverlap.offsetHours, -4, "Fall-back overlap resolves consistently prior to rollback");
+  assert.equal(fallOverlap.isDstOverlap, true, "Must flag isDstOverlap");
+  assert.deepEqual(fallOverlap.validOffsets, [-5, -4], "Must identify both valid offsets during overlap");
 
   // Test 8: Historical Timezone Transitions
   // Nepal shifted from UTC+5:30 to UTC+5:45 on 1986-01-01

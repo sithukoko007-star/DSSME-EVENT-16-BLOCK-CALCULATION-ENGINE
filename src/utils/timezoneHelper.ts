@@ -7,6 +7,9 @@ export interface TimezoneOffsetResult {
   valid: boolean;
   offsetHours?: number;
   formattedOffset?: string;
+  isDstGap?: boolean;
+  isDstOverlap?: boolean;
+  validOffsets?: number[];
   error?: string;
 }
 
@@ -220,9 +223,6 @@ export function deriveTimezoneOffset(
   const second = timeMatch && timeMatch[3] ? parseInt(timeMatch[3], 10) : 0;
 
   try {
-    // Initial guess treating civil time directly as UTC epoch
-    const guessUtc = Date.UTC(year, month - 1, day, hour, minute, second);
-
     const dtf = new Intl.DateTimeFormat("en-US", {
       timeZone: trimmedTz,
       year: "numeric",
@@ -234,8 +234,8 @@ export function deriveTimezoneOffset(
       hour12: false,
     });
 
-    const getTzUtcMs = (utcMs: number): number => {
-      const parts = dtf.formatToParts(new Date(utcMs));
+    const formatsToTarget = (testUtcMs: number): boolean => {
+      const parts = dtf.formatToParts(new Date(testUtcMs));
       const p: Record<string, string> = {};
       for (const part of parts) {
         if (part.type !== "literal") {
@@ -246,36 +246,92 @@ export function deriveTimezoneOffset(
       const fm = parseInt(p.month, 10);
       const fd = parseInt(p.day, 10);
       let fh = parseInt(p.hour, 10);
-      if (fh === 24) fh = 0; // Standard midnight normalization
+      if (fh === 24) fh = 0;
       const fmin = parseInt(p.minute, 10);
-      const fs = parseInt(p.second, 10);
-      return Date.UTC(fy, fm - 1, fd, fh, fmin, fs);
+      const fs = parseInt(p.second || "0", 10);
+
+      return (
+        fy === year &&
+        fm === month &&
+        fd === day &&
+        fh === hour &&
+        fmin === minute &&
+        fs === second
+      );
     };
 
-    // First approximation of local civil instant in target timezone
-    const localAtGuess = getTzUtcMs(guessUtc);
-    const offsetMs1 = localAtGuess - guessUtc;
+    // Find base offset around noon UTC for that civil date
+    const noonUtc = Date.UTC(year, month - 1, day, 12, 0, 0);
+    const partsNoon = dtf.formatToParts(new Date(noonUtc));
+    const pNoon: Record<string, string> = {};
+    for (const part of partsNoon) {
+      if (part.type !== "literal") pNoon[part.type] = part.value;
+    }
+    let fhNoon = parseInt(pNoon.hour, 10);
+    if (fhNoon === 24) fhNoon = 0;
+    const noonLocalMs = Date.UTC(
+      parseInt(pNoon.year, 10),
+      parseInt(pNoon.month, 10) - 1,
+      parseInt(pNoon.day, 10),
+      fhNoon,
+      parseInt(pNoon.minute, 10),
+      0
+    );
+    const baseOffsetHours = (noonLocalMs - noonUtc) / 3600000.0;
 
-    // Refine once around DST boundaries
-    const refinedUtc = guessUtc - offsetMs1;
-    const localAtRefined = getTzUtcMs(refinedUtc);
-    const offsetMs2 = localAtRefined - refinedUtc;
+    // Test candidate offsets around baseOffset (within +/- 3 hours, in 15-minute steps)
+    const matchingOffsets: number[] = [];
+    const targetCivilUtcGuess = Date.UTC(year, month - 1, day, hour, minute, second);
 
-    const offsetHours = offsetMs2 / (1000 * 60 * 60);
+    for (let step = -16; step <= 16; step++) {
+      const candidateOffset = baseOffsetHours + step * 0.25;
+      const candidateUtcMs = targetCivilUtcGuess - candidateOffset * 3600000;
+      if (formatsToTarget(candidateUtcMs)) {
+        if (!matchingOffsets.some((o) => Math.abs(o - candidateOffset) < 0.001)) {
+          matchingOffsets.push(candidateOffset);
+        }
+      }
+    }
 
-    // Enforce legal range [-14, +14] per DSSME timezone specifications
-    if (offsetHours < -14 || offsetHours > 14) {
+    matchingOffsets.sort((a, b) => a - b);
+
+    // 1. Spring-Forward Gap (non-existent local civil time)
+    if (matchingOffsets.length === 0) {
       return {
         valid: false,
-        error: `Resolved offset (${offsetHours}h) is outside valid range [-14, +14]`,
+        isDstGap: true,
+        validOffsets: [],
+        error: `Non-existent local time: "${dateStr} ${timeStr}" falls within a daylight saving spring-forward gap in timezone "${trimmedTz}". This civil instant does not exist.`,
       };
     }
 
-    const formattedOffset = formatOffsetDisplay(offsetHours);
+    // 2. Fall-Back Overlap (ambiguous local civil time with 2 occurrences)
+    if (matchingOffsets.length > 1) {
+      return {
+        valid: true,
+        isDstOverlap: true,
+        offsetHours: matchingOffsets[0],
+        validOffsets: matchingOffsets,
+        formattedOffset: formatOffsetDisplay(matchingOffsets[0]),
+      };
+    }
+
+    // 3. Unambiguous local civil time
+    const resolvedOffset = matchingOffsets[0];
+    if (resolvedOffset < -14 || resolvedOffset > 14) {
+      return {
+        valid: false,
+        error: `Resolved offset (${resolvedOffset}h) is outside valid range [-14, +14]`,
+      };
+    }
+
     return {
       valid: true,
-      offsetHours,
-      formattedOffset,
+      isDstGap: false,
+      isDstOverlap: false,
+      offsetHours: resolvedOffset,
+      validOffsets: matchingOffsets,
+      formattedOffset: formatOffsetDisplay(resolvedOffset),
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

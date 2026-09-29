@@ -104,5 +104,96 @@ export async function runCanonicalValidationTests() {
     "Server must reject inconsistent timezoneOffset with IANA timezone"
   );
 
+  // 10. Fail-Closed IANA Timezone Validation
+  assert.throws(
+    () => {
+      validateCalculationInput({
+        ...baseInput,
+        timezone: "Asia/Tokio", // Typos / invalid zones must be rejected!
+      });
+    },
+    /TIMEZONE_ERROR: Invalid IANA timezone/,
+    "Server must strictly reject invalid IANA timezones"
+  );
+
+  assert.throws(
+    () => {
+      validateCalculationInput({
+        ...baseInput,
+        timezone: "Foo/Bar",
+      });
+    },
+    /TIMEZONE_ERROR: Invalid IANA timezone/,
+    "Server must strictly reject unrecognized timezone identifiers"
+  );
+
+  // 11. DST Spring-Forward Gap Rejection (Non-existent civil time)
+  assert.throws(
+    () => {
+      validateCalculationInput({
+        ...baseInput,
+        date: "2026-03-08",
+        time: "02:30:00",
+        timezone: "America/New_York",
+        timezoneOffset: -4,
+      });
+    },
+    /Non-existent local time.*spring-forward gap/,
+    "Server must reject non-existent local time in spring-forward gap"
+  );
+
+  // 12. DST Fall-Back Overlap Explicit Disambiguation
+  // Occurrence 1: EDT (-4h) accepted when explicitly supplied
+  const overlapEdt = validateCalculationInput({
+    ...baseInput,
+    date: "2026-11-01",
+    time: "01:30:00",
+    timezone: "America/New_York",
+    timezoneOffset: -4,
+  });
+  assert.equal(overlapEdt.timezoneOffset, -4);
+
+  // Occurrence 2: EST (-5h) accepted when explicitly supplied
+  const overlapEst = validateCalculationInput({
+    ...baseInput,
+    date: "2026-11-01",
+    time: "01:30:00",
+    timezone: "America/New_York",
+    timezoneOffset: -5,
+  });
+  assert.equal(overlapEst.timezoneOffset, -5);
+
+  // Invalid offset during overlap rejected
+  assert.throws(
+    () => {
+      validateCalculationInput({
+        ...baseInput,
+        date: "2026-11-01",
+        time: "01:30:00",
+        timezone: "America/New_York",
+        timezoneOffset: -3,
+      });
+    },
+    /Ambiguous local time.*occurs twice/,
+    "Server must reject invalid offset during fall-back overlap"
+  );
+
+  // 13. Mandatory Provenance Validation (Fail-Closed)
+  const chartWithoutProv: any = JSON.parse(JSON.stringify(validChart));
+  delete chartWithoutProv.provenance;
+  const noProvResult = validateCanonicalChart(chartWithoutProv);
+  assert.equal(noProvResult.isValid, false, "Chart without provenance must fail validation");
+  assert(noProvResult.issues.some((i) => i.field === "provenance"));
+
+  const chartWithoutAyanamsaSource: any = JSON.parse(JSON.stringify(validChart));
+  delete chartWithoutAyanamsaSource.provenance.sources.ayanamsa;
+  const noAySourceResult = validateCanonicalChart(chartWithoutAyanamsaSource);
+  assert.equal(noAySourceResult.isValid, false, "Chart without ayanamsa provenance must fail validation");
+
+  const chartWithoutRuntime: any = JSON.parse(JSON.stringify(validChart));
+  delete chartWithoutRuntime.provenance.runtime;
+  const noRuntimeResult = validateCanonicalChart(chartWithoutRuntime);
+  assert.equal(noRuntimeResult.isValid, false, "Chart without runtime metadata must fail validation");
+
   console.log("✓ Canonical Validation & Consistency Tests Passed!");
 }

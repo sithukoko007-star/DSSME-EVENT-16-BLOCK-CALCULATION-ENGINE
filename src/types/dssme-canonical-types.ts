@@ -133,8 +133,15 @@ export interface ChartProvenance {
   ephemeris: "swisseph-wasm" | "fallback" | "mixed";
   isDegraded: boolean;
   sources: {
+    ayanamsa: "swisseph-wasm" | "fallback";
     lagna: "swisseph-wasm" | "fallback";
     planets: Record<NineBody, "swisseph-wasm" | "fallback">;
+  };
+  runtime: {
+    node: string;
+    platform: string;
+    icu?: string;
+    tzdata?: string;
   };
 }
 
@@ -163,7 +170,7 @@ export interface CanonicalChart {
   lagna: CanonicalBodyPosition;
   planets: Record<NineBody, CanonicalBodyPosition>;
   houses: Record<HouseKey, CanonicalHouse>;
-  provenance?: ChartProvenance;
+  provenance: ChartProvenance;
 }
 
 // ============================================================================

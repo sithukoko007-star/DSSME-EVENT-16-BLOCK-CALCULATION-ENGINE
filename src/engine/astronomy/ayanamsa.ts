@@ -3,13 +3,25 @@
  * Standard Indian Astronomical Ephemeris / Chitra Paksha standard
  */
 
-import { calculateLahiriAyanamsa } from "./ephemeris.ts";
+import {
+  calculateLahiriAyanamsa,
+  calculateLahiriAyanamsaWithProvenance,
+} from "./ephemeris.ts";
 
 /**
  * Returns the Lahiri ayanamsa value in decimal degrees for a Julian Day UT.
  */
 export async function getLahiriAyanamsa(julianDayUt: number): Promise<number> {
   return calculateLahiriAyanamsa(julianDayUt);
+}
+
+/**
+ * Returns the Lahiri ayanamsa value and calculation provenance for a Julian Day UT.
+ */
+export async function getLahiriAyanamsaWithProvenance(
+  julianDayUt: number
+): Promise<{ value: number; provenance: "swisseph-wasm" | "fallback" }> {
+  return calculateLahiriAyanamsaWithProvenance(julianDayUt);
 }
 
 /**

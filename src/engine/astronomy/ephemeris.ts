@@ -114,15 +114,20 @@ function logEphemerisFallback(funcName: string, error: unknown): void {
 }
 
 /**
- * Calculates Lahiri Ayanamsa for a given Julian Day UT.
+ * Calculates Lahiri Ayanamsa for a given Julian Day UT with explicit calculation provenance.
  * Primary: Swiss Ephemeris WASM SE_SIDM_LAHIRI
- * Deterministic calculation backed by Indian Astronomical Ephemeris standard.
+ * Fallback: High-precision IAU 2000 precession expression referenced to Lahiri fiducial epoch.
  */
-export async function calculateLahiriAyanamsa(julianDayUt: number): Promise<number> {
+export async function calculateLahiriAyanamsaWithProvenance(
+  julianDayUt: number
+): Promise<{ value: number; provenance: "swisseph-wasm" | "fallback" }> {
   try {
     const swe = await getSwissEphemeris();
     swe.setSiderealMode(SiderealMode.Lahiri);
-    return swe.getAyanamsa(julianDayUt);
+    return {
+      value: swe.getAyanamsa(julianDayUt),
+      provenance: "swisseph-wasm",
+    };
   } catch (err) {
     logEphemerisFallback("calculateLahiriAyanamsa", err);
     // Pure mathematical Lahiri formulation fallback
@@ -132,8 +137,19 @@ export async function calculateLahiriAyanamsa(julianDayUt: number): Promise<numb
     const t = d / 36525.0; // centuries since J2000.0
     // Laskar / IAU 2000 precession expression adjusted to Lahiri fiducial
     const ayanamsa = 23.85709222 + 1.3969713 * t + 0.0003086 * t * t;
-    return ayanamsa;
+    return {
+      value: ayanamsa,
+      provenance: "fallback",
+    };
   }
+}
+
+/**
+ * Calculates Lahiri Ayanamsa for a given Julian Day UT.
+ */
+export async function calculateLahiriAyanamsa(julianDayUt: number): Promise<number> {
+  const res = await calculateLahiriAyanamsaWithProvenance(julianDayUt);
+  return res.value;
 }
 
 const BODY_TO_SWISSEPH_PLANET: Record<ClassicalPlanet, number> = {
@@ -354,10 +370,23 @@ export function calculateAscendantPure(
   const x = -(Math.sin(theta) * Math.cos(eps) + Math.tan(phi) * Math.sin(eps));
 
   const ascRad = Math.atan2(y, x);
-  const ascDeg = normalize360((ascRad * 180.0) / Math.PI);
+  let ascDeg = normalize360((ascRad * 180.0) / Math.PI);
 
   if (isNaN(ascDeg) || !isFinite(ascDeg)) {
     throw new Error("EPHEMERIS_ERROR: Failed to compute valid Ascendant via trigonometric fallback");
+  }
+
+  // MC / Eastern Horizon Guard:
+  // In spherical astronomy and Swiss Ephemeris, the Ascendant must lie in the eastern hemisphere
+  // relative to the Midheaven (MC): 0 <= (Asc - MC) % 360 < 180.
+  // At high/polar latitudes (|lat| > ~66.5°), the trigonometric equation may resolve to the
+  // Descendant (western horizon intersection) due to coordinate degeneracy.
+  // When (Asc - MC) % 360 >= 180, invert by 180° to guarantee the Eastern rising intersection.
+  const mcRad = Math.atan2(Math.sin(theta), Math.cos(theta) * Math.cos(eps));
+  const mcDeg = normalize360((mcRad * 180.0) / Math.PI);
+  const dMc = normalize360(ascDeg - mcDeg);
+  if (dMc >= 180.0) {
+    ascDeg = normalize360(ascDeg + 180.0);
   }
 
   const siderealAsc = normalize360(ascDeg - ayanamsa);
