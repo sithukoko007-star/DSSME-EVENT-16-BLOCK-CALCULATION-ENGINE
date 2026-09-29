@@ -4,6 +4,7 @@ import { computeTithi } from './tithi.ts';
 import { computeVara } from './vara.ts';
 import { computeYoga } from './yoga.ts';
 import { boundaryWindows } from './panchangaBoundaries.ts';
+import { createSunriseProvider } from './panchangaProviders.ts';
 import { NotImplementedError } from './panchangaTypes.ts';
 import type {
   PanchangaDeps, PanchangaOptions, PanchangaResult, PanchangaSource,
@@ -52,12 +53,14 @@ export function computePanchanga(
   const varaMode = opts.varaMode ?? 'sunrise';
   const L = src.longitudes;   // canonical Sun/Moon: never recomputed here
 
+  const sunrise = deps.sunrise ?? (varaMode === 'sunrise' ? createSunriseProvider() : undefined);
+
   const result: PanchangaResult = {
     tithi: computeTithi(L),
     nakshatra: computeNakshatra(L),
     yoga: computeYoga(L),
     karana: computeKarana(L),
-    vara: computeVara(src, varaMode, deps.sunrise),
+    vara: computeVara(src, varaMode, sunrise),
     provenance: {
       julianDayUT: src.julianDayUT,
       timezone: src.timezone,

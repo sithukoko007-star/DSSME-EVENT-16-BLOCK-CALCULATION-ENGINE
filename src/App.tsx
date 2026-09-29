@@ -24,6 +24,7 @@ import { CanonicalChart, DssmeCalculationInput } from "./types/dssme-canonical-t
 import { generateCanonicalChart } from "./engine/canonical/canonicalChart.ts";
 import { formatDms } from "./engine/astronomy/ayanamsa.ts";
 import { TimezoneSelect } from "./components/TimezoneSelect.tsx";
+import { PanchangaSummary } from "./components/PanchangaSummary.tsx";
 import {
   deriveTimezoneOffset,
   isValidIanaTimezone,
@@ -453,6 +454,9 @@ export default function App() {
                 </div>
               </div>
             </div>
+
+            {/* Panchanga Summary (Phase 2 Native Engine) */}
+            <PanchangaSummary chart={chart} />
 
             {/* Planetary Positions Table */}
             <div className="bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
