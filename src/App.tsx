@@ -23,6 +23,12 @@ import {
 import { CanonicalChart, DssmeCalculationInput } from "./types/dssme-canonical-types.ts";
 import { generateCanonicalChart } from "./engine/canonical/canonicalChart.ts";
 import { formatDms } from "./engine/astronomy/ayanamsa.ts";
+import { TimezoneSelect } from "./components/TimezoneSelect.tsx";
+import {
+  deriveTimezoneOffset,
+  isValidIanaTimezone,
+  formatOffsetDisplay,
+} from "./utils/timezoneHelper.ts";
 
 const PRESET_CHOFU: DssmeCalculationInput = {
   date: "2026-09-16",
@@ -62,9 +68,62 @@ export default function App() {
     handleCalculate(PRESET_PVR);
   }, []);
 
+  const handleDateChange = (newDate: string) => {
+    const updated = { ...input, date: newDate };
+    if (isValidIanaTimezone(updated.timezone)) {
+      const res = deriveTimezoneOffset(updated.timezone, newDate, updated.time);
+      if (res.valid && res.offsetHours !== undefined) {
+        updated.timezoneOffset = res.offsetHours;
+      }
+    }
+    setInput(updated);
+  };
+
+  const handleTimeChange = (newTime: string) => {
+    const updated = { ...input, time: newTime };
+    if (isValidIanaTimezone(updated.timezone)) {
+      const res = deriveTimezoneOffset(updated.timezone, updated.date, newTime);
+      if (res.valid && res.offsetHours !== undefined) {
+        updated.timezoneOffset = res.offsetHours;
+      }
+    }
+    setInput(updated);
+  };
+
+  const handleTimezoneChange = (newTz: string, autoDerivedOffset?: number) => {
+    const updated = { ...input, timezone: newTz };
+    if (autoDerivedOffset !== undefined) {
+      updated.timezoneOffset = autoDerivedOffset;
+    } else if (isValidIanaTimezone(newTz)) {
+      const res = deriveTimezoneOffset(newTz, updated.date, updated.time);
+      if (res.valid && res.offsetHours !== undefined) {
+        updated.timezoneOffset = res.offsetHours;
+      }
+    }
+    setInput(updated);
+  };
+
   async function handleCalculate(inputData: DssmeCalculationInput = input) {
     setLoading(true);
     setError(null);
+
+    // Front-end pre-validation for international IANA timezone reliability
+    if (!isValidIanaTimezone(inputData.timezone)) {
+      setError(
+        `INVALID_INPUT: "${inputData.timezone}" is not a recognized IANA timezone identifier (e.g. Asia/Tokyo, Asia/Yangon, America/New_York). Please select or enter a valid timezone.`
+      );
+      setLoading(false);
+      return;
+    }
+
+    if (inputData.timezoneOffset < -14 || inputData.timezoneOffset > 14) {
+      setError(
+        `TIMEZONE_ERROR: Timezone offset (${inputData.timezoneOffset}h) must be within legal astronomical boundaries [-14, +14].`
+      );
+      setLoading(false);
+      return;
+    }
+
     const t0 = performance.now();
 
     try {
@@ -79,7 +138,12 @@ export default function App() {
         const json = await response.json();
         setChart(json.data);
       } else {
-        // Fallback to client-side deterministic engine
+        const errJson = await response.json().catch(() => null);
+        if (errJson && Array.isArray(errJson.errors) && errJson.errors.length > 0) {
+          setError(errJson.errors[0].message);
+          return;
+        }
+        // Fallback to client-side deterministic engine if network / 5xx error
         const fallbackChart = await generateCanonicalChart(inputData);
         setChart(fallbackChart);
       }
@@ -200,7 +264,7 @@ export default function App() {
               <input
                 type="date"
                 value={input.date}
-                onChange={(e) => setInput({ ...input, date: e.target.value })}
+                onChange={(e) => handleDateChange(e.target.value)}
                 required
                 className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-amber-500 font-mono"
               />
@@ -214,43 +278,48 @@ export default function App() {
               <input
                 type="text"
                 value={input.time}
-                onChange={(e) => setInput({ ...input, time: e.target.value })}
+                onChange={(e) => handleTimeChange(e.target.value)}
                 placeholder="14:30:00"
                 required
                 className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-amber-500 font-mono"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1 flex items-center gap-1">
-                <Globe className="h-3.5 w-3.5 text-slate-500" />
-                Timezone Name
-              </label>
-              <input
-                type="text"
-                value={input.timezone}
-                onChange={(e) => setInput({ ...input, timezone: e.target.value })}
-                placeholder="Asia/Tokyo"
-                required
-                className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-amber-500 font-mono"
-              />
-            </div>
+            <TimezoneSelect
+              timezone={input.timezone}
+              date={input.date}
+              time={input.time}
+              currentOffset={input.timezoneOffset}
+              onTimezoneChange={handleTimezoneChange}
+              onOffsetChange={(newOffset) => setInput({ ...input, timezoneOffset: newOffset })}
+            />
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1 flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5 text-slate-500" />
-                TZ Offset (Hours)
+              <label className="block text-xs font-medium text-slate-400 mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5 text-slate-500" />
+                  TZ Offset (Hours)
+                </span>
+                <span className="font-mono text-[11px] text-amber-400 font-semibold">
+                  {formatOffsetDisplay(input.timezoneOffset)}
+                </span>
               </label>
               <input
                 type="number"
                 step="0.25"
+                min="-14"
+                max="14"
                 value={input.timezoneOffset}
-                onChange={(e) =>
-                  setInput({ ...input, timezoneOffset: parseFloat(e.target.value) || 0 })
-                }
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  setInput({ ...input, timezoneOffset: isNaN(val) ? 0 : val });
+                }}
                 required
                 className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-amber-500 font-mono"
               />
+              <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                <span>Range: -14 to +14</span>
+              </div>
             </div>
 
             <div>
