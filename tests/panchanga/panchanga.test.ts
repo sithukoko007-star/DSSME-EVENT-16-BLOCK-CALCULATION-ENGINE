@@ -79,11 +79,44 @@ export async function runPanchangaTests() {
   assert.equal(nak360.name, "Revati");
   assert.equal(nak360.pada, 4);
 
-  // 1.3 Yoga Math
-  // Sun 50° + Moon 50° = 100° (Span = 13°20' = 13.3333°) -> 100 / 13.3333 = 7.5 -> Index 8 (Dhriti)
+  // 1.3 Yoga Math & Precision Boundaries (±1 arcsec and 360°->0° wrap-around)
+  // Standard interior point: Sun 50° + Moon 50° = 100° (Span = 13°20' = 13.3333°) -> Index 8 (Dhriti)
   const yoga1 = computeYoga({ sun: 50, moon: 50 });
   assert.equal(yoga1.index, 8);
   assert.equal(yoga1.name, "Dhriti");
+
+  // Yoga Boundary Case 1: Sun + Moon = 359° 59' 59" (359.9997222°) -> Yoga 27 (Vaidhriti)
+  const arcsec = 1 / 3600;
+  const yogaWrapPre = computeYoga({ sun: 180, moon: 180 - arcsec }); // 359°59'59"
+  assert.equal(yogaWrapPre.index, 27);
+  assert.equal(yogaWrapPre.name, "Vaidhriti");
+  assert(yogaWrapPre.fractionElapsed > 0.9999, "Must be in the final micro-fraction of Vaidhriti");
+
+  // Yoga Boundary Case 2: Sun + Moon = 360° 00' 00" (Exact zero wrap) -> Yoga 1 (Vishkambha)
+  const yogaWrapExact = computeYoga({ sun: 180, moon: 180 }); // 360° == 0°
+  assert.equal(yogaWrapExact.index, 1);
+  assert.equal(yogaWrapExact.name, "Vishkambha");
+  assert.equal(yogaWrapExact.fractionElapsed, 0);
+
+  // Yoga Boundary Case 3: Sun + Moon = 360° 00' 01" (+1 arcsec wrap) -> Yoga 1 (Vishkambha)
+  const yogaWrapPost = computeYoga({ sun: 180, moon: 180 + arcsec }); // 360°00'01"
+  assert.equal(yogaWrapPost.index, 1);
+  assert.equal(yogaWrapPost.name, "Vishkambha");
+  assert(yogaWrapPost.fractionElapsed > 0 && yogaWrapPost.fractionElapsed < 0.001);
+
+  // Yoga Boundary Case 4: Yoga 1 -> Yoga 2 transition at 13° 20' 00" (13.3333333°)
+  const spanYoga = 360 / 27;
+  const yoga1End = computeYoga({ sun: 0, moon: spanYoga - arcsec }); // 13°19'59"
+  assert.equal(yoga1End.index, 1);
+  assert.equal(yoga1End.name, "Vishkambha");
+
+  const yoga2Start = computeYoga({ sun: 0, moon: spanYoga }); // 13°20'00"
+  assert.equal(yoga2Start.index, 2);
+  assert.equal(yoga2Start.name, "Priti");
+
+  const yoga2Post = computeYoga({ sun: 0, moon: spanYoga + arcsec }); // 13°20'01"
+  assert.equal(yoga2Post.index, 2);
+  assert.equal(yoga2Post.name, "Priti");
 
   // 1.4 Karana Math (60 half-tithis)
   // k=0 -> Kimstughna (fixed)
@@ -198,6 +231,15 @@ export async function runPanchangaTests() {
   assert(kWindow.startJdUT! <= chofuSrc.julianDayUT, "Karana start <= chart JD");
   assert(chofuSrc.julianDayUT <= kWindow.endJdUT!, "Chart JD <= Karana end");
 
+  // Tithi / Karana Shared Angular-Separation Boundary Identity:
+  // Because half-tithi 11 (Kaulava) is the first half of Tithi 6 (Shashthi),
+  // Karana start JD and Tithi start JD MUST be mathematically and numerically identical.
+  const tithiKaranaStartDelta = Math.abs(tWindow.startJdUT! - kWindow.startJdUT!);
+  assert(
+    tithiKaranaStartDelta < 1e-9,
+    `Tithi and Karana start boundary must derive identically from shared elongation stream: delta = ${tithiKaranaStartDelta}`
+  );
+
   // ==========================================================================
   // Section 3: Gates A Through G Validation
   // ==========================================================================
@@ -206,13 +248,17 @@ export async function runPanchangaTests() {
 
   // Gate G Parity Test (Provider must match CanonicalChart Sun and Moon within 1e-9°)
   const auxPositions = swissProvider(chofuSrc.julianDayUT);
+  const sunError = Math.abs(auxPositions.sun - chofuSrc.longitudes.sun);
+  const moonError = Math.abs(auxPositions.moon - chofuSrc.longitudes.moon);
+  const tolerance = 1e-9;
+
   assert(
-    Math.abs(auxPositions.sun - chofuSrc.longitudes.sun) <= 1e-9,
-    "Auxiliary provider Sun parity must be within 1e-9°"
+    sunError <= tolerance,
+    `Auxiliary provider Sun parity must be within ${tolerance}°, got ${sunError}°`
   );
   assert(
-    Math.abs(auxPositions.moon - chofuSrc.longitudes.moon) <= 1e-9,
-    "Auxiliary provider Moon parity must be within 1e-9°"
+    moonError <= tolerance,
+    `Auxiliary provider Moon parity must be within ${tolerance}°, got ${moonError}°`
   );
 
   // Corrupted Parity failure test

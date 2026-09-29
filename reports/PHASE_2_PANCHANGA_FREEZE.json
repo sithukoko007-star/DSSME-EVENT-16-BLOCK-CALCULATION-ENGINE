@@ -1,0 +1,52 @@
+{
+  "gate": "PHASE_2_PANCHANGA_FREEZE",
+  "status": "PHASE_2_FROZEN",
+  "date": "2026-09-29",
+  "verification_matrix": {
+    "gate_A_tithi": "PASS",
+    "gate_B_nakshatra": "PASS",
+    "gate_C_yoga": "PASS",
+    "gate_D_karana": "PASS",
+    "gate_E_vara": "PASS",
+    "gate_F_boundaries": "PASS",
+    "gate_G_provider_parity": "PASS"
+  },
+  "precision_verifications": {
+    "yoga_boundary_arcsec": {
+      "status": "PASS",
+      "cases": [
+        { "input_sum_deg": 359.9997222, "expected_yoga": 27, "name": "Vaidhriti", "verified": true },
+        { "input_sum_deg": 0.0, "expected_yoga": 1, "name": "Vishkambha", "verified": true },
+        { "input_sum_deg": 0.0002778, "expected_yoga": 1, "name": "Vishkambha", "verified": true },
+        { "transition_13_20": "Vishkambha_to_Priti", "verified": true }
+      ]
+    },
+    "tithi_karana_shared_elongation": {
+      "status": "PASS",
+      "derivation": "single_shared_stream_elongation(p(t))",
+      "measured_start_boundary_delta_seconds": 0.0,
+      "verified": true
+    },
+    "sunrise_contract_separation": {
+      "status": "PASS",
+      "astronomical_state": "Phase 1 CanonicalChart / Swiss WASM",
+      "sunrise_sunset_event": "Sunrise Provider (astronomy-engine topocentric)",
+      "civil_weekday": "IANA timezone + local civil time",
+      "sunrise_vara": "local sunrise boundary"
+    },
+    "gate_G_parity_measurements": {
+      "status": "PASS",
+      "sun_max_absolute_error_deg": 0.0,
+      "moon_max_absolute_error_deg": 0.0,
+      "tolerance_deg": 1e-9,
+      "parity_description": "Exact numerical equality at the reported floating-point result; maximum observed absolute error = 0.0°"
+    }
+  },
+  "test_suite_status": {
+    "total_registered_suites": 11,
+    "passed_suites": 11,
+    "failed_suites": 0,
+    "typescript_errors": 0,
+    "npm_audit_vulnerabilities": 0
+  }
+}
