@@ -51,8 +51,8 @@ export async function getSwissEphemeris(): Promise<SwissEphemeris> {
         const fs = await import("fs");
         const path = await import("path");
         const possiblePaths = [
-          path.resolve(process.cwd(), "public/swisseph.wasm"),
           path.resolve(process.cwd(), "node_modules/@swisseph/browser/dist/swisseph.wasm"),
+          path.resolve(process.cwd(), "public/swisseph.wasm"),
           "/public/swisseph.wasm",
         ];
 
