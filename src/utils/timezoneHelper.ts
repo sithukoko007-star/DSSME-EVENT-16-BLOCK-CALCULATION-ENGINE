@@ -179,15 +179,18 @@ export function isValidIanaTimezone(tz: string): boolean {
  */
 export function formatOffsetDisplay(offsetHours: number): string {
   const sign = offsetHours >= 0 ? "+" : "-";
-  const abs = Math.abs(offsetHours);
-  const h = Math.floor(abs);
-  const m = Math.round((abs - h) * 60);
-  return `UTC${sign}${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+  const totalSeconds = Math.round(Math.abs(offsetHours) * 3600);
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  const base = `UTC${sign}${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+  return s > 0 ? `${base}:${s.toString().padStart(2, "0")}` : base;
 }
 
 /**
  * Automatically derives the UTC offset (in decimal hours) for a specific civil date and time in an IANA timezone.
- * Accounts for historical Daylight Saving Time (DST) and regional timezone adjustments at that exact civil moment.
+ * Accounts for historical Local Mean Time (LMT), Daylight Saving Time (DST), second-precision offsets,
+ * and regional timezone adjustments at that exact civil moment.
  */
 export function deriveTimezoneOffset(
   tz: string,
@@ -225,6 +228,7 @@ export function deriveTimezoneOffset(
   try {
     const dtf = new Intl.DateTimeFormat("en-US", {
       timeZone: trimmedTz,
+      timeZoneName: "longOffset",
       year: "numeric",
       month: "numeric",
       day: "numeric",
@@ -234,61 +238,85 @@ export function deriveTimezoneOffset(
       hour12: false,
     });
 
-    const formatsToTarget = (testUtcMs: number): boolean => {
-      const parts = dtf.formatToParts(new Date(testUtcMs));
+    const parseGmtOffset = (tzName: string): number | null => {
+      const m = /^GMT([+-])(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?$/.exec(tzName?.trim() || "");
+      if (!m) {
+        if (tzName === "GMT" || tzName === "UTC") return 0;
+        return null;
+      }
+      const sign = m[1] === "-" ? -1 : 1;
+      const h = parseInt(m[2], 10);
+      const min = m[3] ? parseInt(m[3], 10) : 0;
+      const sec = m[4] ? parseInt(m[4], 10) : 0;
+      return sign * (h + min / 60 + sec / 3600);
+    };
+
+    const getParts = (utcMs: number) => {
+      const parts = dtf.formatToParts(new Date(utcMs));
       const p: Record<string, string> = {};
       for (const part of parts) {
-        if (part.type !== "literal") {
-          p[part.type] = part.value;
-        }
+        if (part.type !== "literal") p[part.type] = part.value;
       }
+      let fh = parseInt(p.hour, 10);
+      if (fh === 24) fh = 0;
       const fy = parseInt(p.year, 10);
       const fm = parseInt(p.month, 10);
       const fd = parseInt(p.day, 10);
-      let fh = parseInt(p.hour, 10);
-      if (fh === 24) fh = 0;
       const fmin = parseInt(p.minute, 10);
       const fs = parseInt(p.second || "0", 10);
+      let off = parseGmtOffset(p.timeZoneName || "");
+      if (off === null) {
+        const localMs = Date.UTC(fy, fm - 1, fd, fh, fmin, fs);
+        off = (localMs - utcMs) / 3600000.0;
+      }
+      return {
+        year: fy,
+        month: fm,
+        day: fd,
+        hour: fh,
+        minute: fmin,
+        second: fs,
+        offset: off,
+      };
+    };
 
+    const formatsToTarget = (testUtcMs: number): boolean => {
+      const p = getParts(testUtcMs);
       return (
-        fy === year &&
-        fm === month &&
-        fd === day &&
-        fh === hour &&
-        fmin === minute &&
-        fs === second
+        p.year === year &&
+        p.month === month &&
+        p.day === day &&
+        p.hour === hour &&
+        p.minute === minute &&
+        p.second === second
       );
     };
 
-    // Find base offset around noon UTC for that civil date
-    const noonUtc = Date.UTC(year, month - 1, day, 12, 0, 0);
-    const partsNoon = dtf.formatToParts(new Date(noonUtc));
-    const pNoon: Record<string, string> = {};
-    for (const part of partsNoon) {
-      if (part.type !== "literal") pNoon[part.type] = part.value;
-    }
-    let fhNoon = parseInt(pNoon.hour, 10);
-    if (fhNoon === 24) fhNoon = 0;
-    const noonLocalMs = Date.UTC(
-      parseInt(pNoon.year, 10),
-      parseInt(pNoon.month, 10) - 1,
-      parseInt(pNoon.day, 10),
-      fhNoon,
-      parseInt(pNoon.minute, 10),
-      0
-    );
-    const baseOffsetHours = (noonLocalMs - noonUtc) / 3600000.0;
-
-    // Test candidate offsets around baseOffset (within +/- 3 hours, in 15-minute steps)
-    const matchingOffsets: number[] = [];
     const targetCivilUtcGuess = Date.UTC(year, month - 1, day, hour, minute, second);
 
-    for (let step = -16; step <= 16; step++) {
-      const candidateOffset = baseOffsetHours + step * 0.25;
-      const candidateUtcMs = targetCivilUtcGuess - candidateOffset * 3600000;
-      if (formatsToTarget(candidateUtcMs)) {
-        if (!matchingOffsets.some((o) => Math.abs(o - candidateOffset) < 0.001)) {
-          matchingOffsets.push(candidateOffset);
+    // Collect candidate offsets around this civil date by sampling across +/- 36 hours
+    const candidateOffsets = new Set<number>();
+    const noonGuess = Date.UTC(year, month - 1, day, 12, 0, 0);
+    for (const deltaH of [-36, -24, -18, -12, -6, 0, 6, 12, 18, 24, 36]) {
+      const p = getParts(noonGuess + deltaH * 3600000);
+      if (p.offset !== null) {
+        candidateOffsets.add(p.offset);
+      }
+    }
+
+    // Also include standard 15-minute intervals around the probed base offset
+    // to comprehensively catch standard 30-min, 45-min, 1-hr, or 2-hr DST shifts
+    const baseOffset = candidateOffsets.values().next().value ?? 0;
+    for (let step = -12; step <= 12; step++) {
+      candidateOffsets.add(baseOffset + step * 0.25);
+    }
+
+    const matchingOffsets: number[] = [];
+    for (const cand of candidateOffsets) {
+      const testUtcMs = targetCivilUtcGuess - cand * 3600000;
+      if (formatsToTarget(testUtcMs)) {
+        if (!matchingOffsets.some((o) => Math.abs(o - cand) < 0.0001)) {
+          matchingOffsets.push(cand);
         }
       }
     }

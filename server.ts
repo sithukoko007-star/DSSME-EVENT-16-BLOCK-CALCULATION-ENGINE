@@ -27,8 +27,8 @@ app.post("/api/canonical-chart", async (req: Request, res: Response) => {
         engine: "DSSME",
         mode: "NATIVE",
         version: "1.0.0-phase1",
-        ephemeris: chart.provenance?.ephemeris || "swisseph-wasm",
-        isDegraded: chart.provenance?.isDegraded || false,
+        ephemeris: chart.provenance?.ephemeris,
+        isDegraded: chart.provenance?.isDegraded ?? false,
         provenance: chart.provenance,
         ayanamsa: "Lahiri",
         generatedAt: new Date().toISOString(),
@@ -67,16 +67,48 @@ app.post("/api/panchanga", async (req: Request, res: Response) => {
     const input = req.body as DssmeCalculationInput;
     const chart = await generateCanonicalChart(input);
     const src = fromCanonicalChart(chart);
-    const provider = await createSwissLongitudeProvider();
     const sunrise = createSunriseProvider();
     const includeBoundaries = req.query.boundaries === "true" || req.body.includeBoundaries === true;
     const varaMode = req.body.varaMode === "civil" ? "civil" : "sunrise";
 
-    const panchanga = computePanchanga(src, { provider, sunrise }, { includeBoundaries, varaMode });
-    const validationIssues = validatePanchanga(panchanga, src, provider);
+    // Handle degraded ephemeris gracefully:
+    // If boundaries are requested under degraded provenance, fail closed with HTTP 422
+    // If boundaries are NOT requested, pure Panchanga algebra succeeds cleanly under degraded mode.
+    let provider = undefined;
+    if (includeBoundaries) {
+      if (chart.provenance.isDegraded) {
+        return res.status(422).json({
+          success: false,
+          data: null,
+          meta: {
+            engine: "DSSME",
+            phase: "PHASE_2_PANCHANGA",
+            isDegraded: true,
+            provenance: chart.provenance,
+          },
+          errors: [
+            {
+              code: "DEGRADED_EPHEMERIS",
+              message: `Transition boundary search requires an active Swiss Ephemeris WASM engine. Chart provenance is degraded ("${chart.provenance.ephemeris}"). Pure Panchanga limbs are available without boundary calculation.`,
+            },
+          ],
+        });
+      }
+      provider = await createSwissLongitudeProvider();
+    } else if (!chart.provenance.isDegraded) {
+      try {
+        provider = await createSwissLongitudeProvider();
+      } catch {
+        // Optional provider for non-boundary validation
+      }
+    }
 
-    return res.status(200).json({
-      success: true,
+    const panchanga = computePanchanga(src, { provider, sunrise }, { includeBoundaries, varaMode });
+    const validationIssues = provider ? validatePanchanga(panchanga, src, provider) : [];
+    const hasErrorIssues = validationIssues.some((i: any) => i.severity === "error");
+
+    return res.status(hasErrorIssues ? 422 : 200).json({
+      success: !hasErrorIssues,
       data: panchanga,
       meta: {
         engine: "DSSME",
@@ -84,7 +116,7 @@ app.post("/api/panchanga", async (req: Request, res: Response) => {
         validationIssues,
         generatedAt: new Date().toISOString(),
       },
-      errors: [],
+      errors: hasErrorIssues ? validationIssues.filter((i: any) => i.severity === "error") : [],
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

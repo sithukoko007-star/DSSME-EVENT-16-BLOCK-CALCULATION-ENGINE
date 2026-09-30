@@ -94,7 +94,7 @@ export async function generateCanonicalChart(
     node: typeof process !== "undefined" ? process.version : "browser",
     platform: typeof process !== "undefined" ? process.platform : "browser",
     icu: typeof process !== "undefined" ? process.versions?.icu : undefined,
-    tzdata: typeof process !== "undefined" ? (process.versions as any)?.tzdata || "2025c" : "browser",
+    tzdata: typeof process !== "undefined" ? (process.versions as any)?.tz || (process.versions as any)?.tzdata || "unknown" : "browser",
   };
 
   const provenance: ChartProvenance = {

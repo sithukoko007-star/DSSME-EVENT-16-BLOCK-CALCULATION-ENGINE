@@ -27,21 +27,27 @@ export async function createSwissLongitudeProvider(): Promise<LongitudeProvider>
 
 /**
  * Creates a SunriseProvider using astronomy-engine for high-precision local topocentric sunrise.
- * Follows traditional Drik / Jagannatha Hora topocentric geometric solar horizon definition.
+ * Follows traditional Drik / Jagannatha Hora topocentric geometric solar disc-centre horizon definition
+ * (centre of solar disc at altitude 0°, unrefracted), matching Swiss Ephemeris Hindu rising to <= 3.3s.
  */
 export function createSunriseProvider(): SunriseProvider {
   return (date, location, timezone) => {
     const pad = (n: number) => String(n).padStart(2, '0');
     const dateStr = `${date.year}-${pad(date.month)}-${pad(date.day)}`;
     const offsetRes = deriveTimezoneOffset(timezone, dateStr, '06:00:00');
-    const offsetHours = offsetRes.valid && offsetRes.offsetHours !== undefined ? offsetRes.offsetHours : 0;
+    // If timezone derivation is unavailable, fall back to longitude-based Local Mean Time (lon / 15)
+    // rather than 0, preventing UTC midnight search errors for non-zero longitudes.
+    const offsetHours = offsetRes.valid && offsetRes.offsetHours !== undefined
+      ? offsetRes.offsetHours
+      : (location.longitude / 15.0);
 
     const approxMidnightUtcMs = Date.UTC(date.year, date.month - 1, date.day, 0, 0, 0) - offsetHours * 3600000;
     const observer = new Astronomy.Observer(location.latitude, location.longitude, location.altitudeM || 0);
-    const rise = Astronomy.SearchRiseSet(Astronomy.Body.Sun, observer, +1, new Date(approxMidnightUtcMs), 1.0);
+    // SearchAltitude at 0.0 altitude computes when the centre of the Sun's disc reaches the true geometric horizon (no refraction)
+    const rise = Astronomy.SearchAltitude(Astronomy.Body.Sun, observer, +1, new Date(approxMidnightUtcMs), 1.0, 0.0);
 
     if (!rise) {
-      // In polar regions (midnight sun or polar night), default to 6 AM local
+      // In polar regions (midnight sun or polar night with no geometric crossing), default to 6 AM local
       const sixAmUtcMs = approxMidnightUtcMs + 6 * 3600000;
       return dateToJulianDayUt(new Date(sixAmUtcMs));
     }

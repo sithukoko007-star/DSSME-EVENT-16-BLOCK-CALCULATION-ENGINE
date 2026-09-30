@@ -77,13 +77,17 @@ export function resolveDateTimeToUtc(
     );
   }
 
-  // Format local ISO string: "YYYY-MM-DDTHH:MM:SS" + offset
+  // Format local ISO string: "YYYY-MM-DDTHH:MM:SS" + offset (including seconds if non-zero)
   const pad2 = (n: number) => n.toString().padStart(2, "0");
   const sign = timezoneOffsetHours >= 0 ? "+" : "-";
   const absOffset = Math.abs(timezoneOffsetHours);
-  const offsetH = Math.floor(absOffset);
-  const offsetM = Math.round((absOffset - offsetH) * 60);
-  const offsetStr = `${sign}${pad2(offsetH)}:${pad2(offsetM)}`;
+  const totalOffsetSec = Math.round(absOffset * 3600);
+  const offsetH = Math.floor(totalOffsetSec / 3600);
+  const offsetM = Math.floor((totalOffsetSec % 3600) / 60);
+  const offsetS = totalOffsetSec % 60;
+  const offsetStr = offsetS > 0
+    ? `${sign}${pad2(offsetH)}:${pad2(offsetM)}:${pad2(offsetS)}`
+    : `${sign}${pad2(offsetH)}:${pad2(offsetM)}`;
 
   const localIso = `${year}-${pad2(month)}-${pad2(day)}T${pad2(hour)}:${pad2(minute)}:${pad2(second)}${offsetStr}`;
 

@@ -89,5 +89,21 @@ export function runTimezoneTests() {
   assert.equal(nepal2024.valid, true);
   assert.equal(nepal2024.offsetHours, 5.75, "Modern Nepal is UTC+5:45");
 
+  // Test 9: Historical Non-15-Minute Local Mean Time (LMT) & Second-Precision Offsets
+  // Madras / Asia/Kolkata in 1887 had historical offset UTC+05:21:10 (5.3527777778h)
+  const madras1887 = deriveTimezoneOffset("Asia/Kolkata", "1887-10-12", "12:00:00");
+  assert.equal(madras1887.valid, true, "Historical Madras 1887 must be valid, not falsely rejected as DST gap");
+  assert.equal(madras1887.isDstGap, false);
+  assert.ok(Math.abs((madras1887.offsetHours ?? 0) - (5 + 21 / 60 + 10 / 3600)) < 0.0001, "Madras 1887 offset is UTC+05:21:10");
+
+  // Kolkata / Asia/Kolkata in 1863 had historical offset UTC+05:53:20 (5.8888888889h)
+  const kolkata1863 = deriveTimezoneOffset("Asia/Kolkata", "1863-01-12", "06:33:00");
+  assert.equal(kolkata1863.valid, true, "Historical Kolkata 1863 must be valid");
+  assert.ok(Math.abs((kolkata1863.offsetHours ?? 0) - (5 + 53 / 60 + 20 / 3600)) < 0.0001, "Kolkata 1863 offset is UTC+05:53:20");
+
+  // Full round-trip resolution to UTC with second-precision offset
+  const resMadras = resolveDateTimeToUtc("1887-10-12", "12:00:00", 5 + 21 / 60 + 10 / 3600);
+  assert.equal(resMadras.localIso, "1887-10-12T12:00:00+05:21:10");
+
   console.log("✓ Timezone & UTC Resolution Tests Passed!");
 }
