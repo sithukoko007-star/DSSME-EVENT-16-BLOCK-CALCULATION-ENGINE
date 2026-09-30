@@ -163,7 +163,7 @@ Rules for Phase 2:
 - **Do not remove, weaken, or reorder the existing suites.**
 - Add new suites **additively** in `tests/run_all_tests.ts`. Note the runner prints a hard-coded `(7/7)` and a "PHASE 1" banner — update them deliberately when suites are added; do not leave them stale.
 - Keep tests deterministic (same input → same output; no clock, randomness, or network).
-- The PyJHora differential suite compares against **hard-coded fixtures** (a PVR Narasimha Rao chart and the Chofu 2026-09-16 chart) with source comments. **PyJHora is not executed during tests.**
+- The PyJHora differential suite compares against **hard-coded fixtures** (the 1970-11-01 07:20 IST chart and the Chofu 2026-09-16 chart) with source comments. **PyJHora is not executed during tests.**
 
 ---
 

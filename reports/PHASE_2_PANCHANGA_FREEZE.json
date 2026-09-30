@@ -58,7 +58,8 @@
         "sun_deg": 149.1514743753,
         "moon_deg": 210.0908293268
       },
-      "pvr_coordinates": {
+      "fixture_19700404_coordinates": {
+        "input_hash": "9cf4461196dc",
         "sun_deg": 350.8695646912,
         "moon_deg": 328.5540456555
       },

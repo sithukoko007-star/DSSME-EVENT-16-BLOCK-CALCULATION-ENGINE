@@ -29,7 +29,7 @@ export function runTimezoneHelperTests() {
   assert.equal(chofu.offsetHours, 9);
   assert.equal(chofu.formattedOffset, "UTC+09:00");
 
-  // 3. Yangon Preset: 1980-11-04 21:35:00 Asia/Yangon => UTC+6.5
+  // 3. Historical Timezone: 1980-11-04 21:35:00 Asia/Yangon => UTC+6.5
   const yangon = deriveTimezoneOffset("Asia/Yangon", "1980-11-04", "21:35:00");
   assert.equal(yangon.valid, true);
   assert.equal(yangon.offsetHours, 6.5);

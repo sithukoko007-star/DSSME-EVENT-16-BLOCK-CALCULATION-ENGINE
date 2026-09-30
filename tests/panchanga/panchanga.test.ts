@@ -8,7 +8,7 @@
  * 4. Vara calculation in both 'sunrise' and 'civil' modes, including pre-sunrise day shift.
  * 5. Numerical bisection boundary searches for all transition windows.
  * 6. Strict validation across Gates A through G (including Gate G 1e-9° parity check).
- * 7. Reference fixture verification (Chofu 2026-09-16 and PVR 1970-04-04).
+ * 7. Reference fixture verification (Chofu 2026-09-16 and 1970-04-04 17:47 IST).
  */
 
 import assert from "node:assert/strict";
@@ -354,9 +354,10 @@ export async function runPanchangaTests() {
   );
 
   // ==========================================================================
-  // Section 4: PVR Narasimha Rao Reference Fixture
+  // Section 4: Benchmark Fixture 1970-04-04 17:47 IST (Machilipatnam)
+  // Input Hash: 9cf4461196dc
   // ==========================================================================
-  const pvrChart = await generateCanonicalChart({
+  const chart_19700404 = await generateCanonicalChart({
     date: "1970-04-04",
     time: "17:47:00",
     latitude: 16.18,
@@ -366,26 +367,26 @@ export async function runPanchangaTests() {
     ayanamsa: "Lahiri",
   });
 
-  const pvrSrc = fromCanonicalChart(pvrChart);
-  const pvrPanchanga = computePanchanga(
-    pvrSrc,
+  const src_19700404 = fromCanonicalChart(chart_19700404);
+  const panchanga_19700404 = computePanchanga(
+    src_19700404,
     { provider: swissProvider, sunrise: sunriseProvider },
     { includeBoundaries: true, varaMode: "sunrise" }
   );
 
-  assert.equal(pvrPanchanga.tithi.name, "Chaturdashi");
-  assert.equal(pvrPanchanga.tithi.paksha, "krishna");
-  assert.equal(pvrPanchanga.tithi.numberInPaksha, 14);
-  assert.equal(pvrPanchanga.nakshatra.name, "Purva Bhadrapada");
-  assert.equal(pvrPanchanga.nakshatra.pada, 3);
-  assert.equal(pvrPanchanga.yoga.name, "Shukla");
-  assert.equal(pvrPanchanga.yoga.index, 24);
-  assert.equal(pvrPanchanga.karana.name, "Vishti");
-  assert.equal(pvrPanchanga.vara.name, "Saturday");
-  assert.equal(pvrPanchanga.vara.weekday, 6);
+  assert.equal(panchanga_19700404.tithi.name, "Chaturdashi");
+  assert.equal(panchanga_19700404.tithi.paksha, "krishna");
+  assert.equal(panchanga_19700404.tithi.numberInPaksha, 14);
+  assert.equal(panchanga_19700404.nakshatra.name, "Purva Bhadrapada");
+  assert.equal(panchanga_19700404.nakshatra.pada, 3);
+  assert.equal(panchanga_19700404.yoga.name, "Shukla");
+  assert.equal(panchanga_19700404.yoga.index, 24);
+  assert.equal(panchanga_19700404.karana.name, "Vishti");
+  assert.equal(panchanga_19700404.vara.name, "Saturday");
+  assert.equal(panchanga_19700404.vara.weekday, 6);
 
-  const pvrIssues = validatePanchanga(pvrPanchanga, pvrSrc, swissProvider);
-  assert.equal(pvrIssues.length, 0, "PVR Panchanga must pass all gates");
+  const issues_19700404 = validatePanchanga(panchanga_19700404, src_19700404, swissProvider);
+  assert.equal(issues_19700404.length, 0, "1970-04-04 Panchanga must pass all gates");
 
   // 1.6 Sunrise Provider (Hindu Geometric Disc-Centre Altitude 0.0° vs Apparent Rise)
   const testSunrise = sunriseProvider(

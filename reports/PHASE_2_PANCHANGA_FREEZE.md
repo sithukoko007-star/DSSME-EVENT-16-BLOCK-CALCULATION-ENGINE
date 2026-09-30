@@ -109,7 +109,7 @@ Test Fixture 1: Chofu, Tokyo (2026-09-16 14:30:00 JST, JD 2461299.7291666665)
   Swiss Provider Moon Longitude:      210.0908293268°
   Absolute Error (Moon):              0.0000000000°
 
-Test Fixture 2: PVR Narasimha Rao (1970-04-04 17:47:00 IST, JD 2440681.0118055553)
+Test Fixture 2: Benchmark 1970-04-04 17:47:00 IST (JD 2440681.0118055553, Input Hash: 9cf4461196dc)
   CanonicalChart Sun Longitude:       350.8695646912°
   Swiss Provider Sun Longitude:       350.8695646912°
   Absolute Error (Sun):               0.0000000000°

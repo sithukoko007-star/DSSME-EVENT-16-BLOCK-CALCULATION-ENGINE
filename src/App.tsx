@@ -43,18 +43,6 @@ const PRESET_CHOFU: DssmeCalculationInput = {
   chartMode: "Standard",
 };
 
-const PRESET_PVR: DssmeCalculationInput = {
-  date: "1980-11-04",
-  time: "21:35:00",
-  latitude: 16.80,
-  longitude: 96.15,
-  timezone: "Asia/Yangon",
-  timezoneOffset: 6.5,
-  ayanamsa: "Lahiri",
-  bodyMode: "Full",
-  chartMode: "Standard",
-};
-
 export default function App() {
   const [input, setInput] = useState<DssmeCalculationInput>(PRESET_CHOFU);
   const [chart, setChart] = useState<CanonicalChart | null>(null);
@@ -236,16 +224,6 @@ export default function App() {
                 className="px-2.5 py-1 rounded text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
               >
                 Chofu 2026-09-16 18:50
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setInput(PRESET_PVR);
-                  handleCalculate(PRESET_PVR);
-                }}
-                className="px-2.5 py-1 rounded text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
-              >
-                Yangon 1980-11-04
               </button>
             </div>
           </div>
