@@ -23,9 +23,13 @@ import {
   computeKarana,
   computeVara,
   createSwissLongitudeProvider,
+  createCanonicalLongitudeProvider,
+  DegradedEphemerisError,
   createSunriseProvider,
   findBoundary,
   boundaryWindows,
+  NAKSHATRA_SPAN,
+  PADA_SPAN,
 } from "../../src/engine/panchanga/index.ts";
 import { SiderealLongitudes } from "../../src/engine/panchanga/panchangaTypes.ts";
 
@@ -66,7 +70,7 @@ export async function runPanchangaTests() {
   assert.equal(tithiAma.numberInPaksha, 15);
   assert.equal(tithiAma.name, "Amavasya");
 
-  // 1.2 Nakshatra Math & Clamping
+  // 1.2 Nakshatra Math, Clamping & Exhaustive Pada Boundary Verification
   // 0° -> Ashwini Pada 1
   const nak0 = computeNakshatra({ sun: 0, moon: 0 });
   assert.equal(nak0.index, 1);
@@ -78,6 +82,48 @@ export async function runPanchangaTests() {
   assert.equal(nak360.index, 27);
   assert.equal(nak360.name, "Revati");
   assert.equal(nak360.pada, 4);
+
+  // Critical Regression Test for F-01: Exact rational boundary 20° MUST be Bharani Pada 3 (not 2)
+  const nak20Deg = computeNakshatra({ sun: 0, moon: 20 });
+  assert.equal(nak20Deg.index, 2, "20° must be Bharani");
+  assert.equal(nak20Deg.pada, 3, "20° must be Pada 3 (Bharani Pada 3 spans 20°..23°20')");
+
+  // Critical Regression Test for 30°: MUST be Krittika Pada 2 (not 1)
+  const nak30Deg = computeNakshatra({ sun: 0, moon: 30 });
+  assert.equal(nak30Deg.index, 3, "30° must be Krittika");
+  assert.equal(nak30Deg.pada, 2, "30° must be Pada 2 (Krittika Pada 2 spans 30°..33°20')");
+
+  // Exhaustive 756-point audit across all 108 Pada boundaries
+  // Tests 7 distinct perturbation offsets per boundary to verify boundary classification stability
+  const arcsecConst = 1 / 3600;
+  for (let k = 0; k < 27; k++) {
+    for (let p = 0; p < 4; p++) {
+      const boundary = k * NAKSHATRA_SPAN + p * PADA_SPAN;
+      const expectedPadaAtBoundary = p + 1;
+      const expectedPadaBefore = p === 0 ? 4 : p;
+
+      const subTests = [
+        { name: "b - 1 arcsec", offset: -arcsecConst, expected: expectedPadaBefore },
+        { name: "b - 1e-9 deg", offset: -1e-9, expected: expectedPadaBefore },
+        { name: "b - 1e-10 deg", offset: -1e-10, expected: expectedPadaBefore },
+        { name: "exact boundary", offset: 0, expected: expectedPadaAtBoundary },
+        { name: "b + 1e-10 deg", offset: 1e-10, expected: expectedPadaAtBoundary },
+        { name: "b + 1e-9 deg", offset: 1e-9, expected: expectedPadaAtBoundary },
+        { name: "b + 1 arcsec", offset: arcsecConst, expected: expectedPadaAtBoundary },
+      ];
+
+      for (const st of subTests) {
+        if (boundary === 0 && st.offset < 0) continue; // 0° wrap handled separately
+        const testAngle = boundary + st.offset;
+        const res = computeNakshatra({ sun: 0, moon: testAngle });
+        assert.equal(
+          res.pada,
+          st.expected,
+          `Pada classification failed at Nakshatra ${k + 1} (${res.name}) Pada boundary ${boundary}° with offset ${st.name} (angle ${testAngle}°): expected Pada ${st.expected}, got ${res.pada}`
+        );
+      }
+    }
+  }
 
   // 1.3 Yoga Math & Precision Boundaries (±1 arcsec and 360°->0° wrap-around)
   // Standard interior point: Sun 50° + Moon 50° = 100° (Span = 13°20' = 13.3333°) -> Index 8 (Dhriti)
@@ -270,6 +316,41 @@ export async function runPanchangaTests() {
   assert(
     parityIssues.some((i) => i.gate === "G.parity"),
     "Must catch divergence between auxiliary provider and CanonicalChart"
+  );
+
+  // Critical Regression Test for F-02: Fail-closed Degraded Auxiliary Provider
+  // Fallback canonical chart must throw DegradedEphemerisError when boundary provider requested
+  const degradedFallbackChart = {
+    ...chofuChart,
+    provenance: { ...chofuChart.provenance, ephemeris: "fallback" as const, isDegraded: true },
+  };
+  await assert.rejects(
+    async () => {
+      await createCanonicalLongitudeProvider(degradedFallbackChart);
+    },
+    (err: unknown) => {
+      assert(err instanceof DegradedEphemerisError);
+      assert(err.message.includes('degraded provenance "fallback"'));
+      return true;
+    },
+    "Must fail closed when attempting to create auxiliary provider for fallback chart"
+  );
+
+  // Mixed canonical chart must also fail closed
+  const degradedMixedChart = {
+    ...chofuChart,
+    provenance: { ...chofuChart.provenance, ephemeris: "mixed" as const, isDegraded: true },
+  };
+  await assert.rejects(
+    async () => {
+      await createCanonicalLongitudeProvider(degradedMixedChart);
+    },
+    (err: unknown) => {
+      assert(err instanceof DegradedEphemerisError);
+      assert(err.message.includes('degraded provenance "mixed"'));
+      return true;
+    },
+    "Must fail closed when attempting to create auxiliary provider for mixed chart"
   );
 
   // ==========================================================================

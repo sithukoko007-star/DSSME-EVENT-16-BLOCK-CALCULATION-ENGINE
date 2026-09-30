@@ -117,7 +117,7 @@ export interface CanonicalBodyPosition {
   nakshatra: string;
   nakshatraPada: 1 | 2 | 3 | 4;
   house: number;               // 1-12
-  provenance?: "swisseph-wasm" | "fallback";
+  provenance: "swisseph-wasm" | "fallback";
 }
 
 export interface CanonicalHouse {

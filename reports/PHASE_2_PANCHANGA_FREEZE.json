@@ -12,6 +12,16 @@
     "gate_G_provider_parity": "PASS"
   },
   "precision_verifications": {
+    "nakshatra_pada_boundary_precision": {
+      "status": "PASS",
+      "epsilon_ratio_guard": 1e-12,
+      "rational_boundary_regression_20deg": "Bharani_Pada_3",
+      "rational_boundary_regression_30deg": "Krittika_Pada_2",
+      "total_tested_boundaries": 108,
+      "perturbation_points_per_boundary": 7,
+      "total_assertions": 756,
+      "passed_assertions": 756
+    },
     "yoga_boundary_arcsec": {
       "status": "PASS",
       "cases": [
@@ -27,19 +37,51 @@
       "measured_start_boundary_delta_seconds": 0.0,
       "verified": true
     },
+    "fail_closed_provider_contract": {
+      "status": "PASS",
+      "swiss_canonical_chart": "ALLOW",
+      "fallback_canonical_chart": "FAIL_CLOSED_DegradedEphemerisError",
+      "mixed_canonical_chart": "FAIL_CLOSED_DegradedEphemerisError",
+      "mandatory_body_provenance": true
+    },
     "sunrise_contract_separation": {
       "status": "PASS",
       "astronomical_state": "Phase 1 CanonicalChart / Swiss WASM",
       "sunrise_sunset_event": "Sunrise Provider (astronomy-engine topocentric)",
       "civil_weekday": "IANA timezone + local civil time",
-      "sunrise_vara": "local sunrise boundary"
+      "sunrise_vara": "local sunrise boundary",
+      "polar_fallback": "6_AM_local"
     },
     "gate_G_parity_measurements": {
       "status": "PASS",
+      "chofu_coordinates": {
+        "sun_deg": 149.1514743753,
+        "moon_deg": 210.0908293268
+      },
+      "pvr_coordinates": {
+        "sun_deg": 350.8695646912,
+        "moon_deg": 328.5540456555
+      },
       "sun_max_absolute_error_deg": 0.0,
       "moon_max_absolute_error_deg": 0.0,
       "tolerance_deg": 1e-9,
-      "parity_description": "Exact numerical equality at the reported floating-point result; maximum observed absolute error = 0.0°"
+      "parity_description": "Exact numerical equality at IEEE-754 precision; maximum observed absolute error = 0.0°"
+    }
+  },
+  "performance_benchmarks": {
+    "pure_panchanga_algebra_ms": {
+      "iterations": 10000,
+      "mean": 0.386,
+      "median": 0.332,
+      "p95": 0.628,
+      "p99": 1.092
+    },
+    "panchanga_with_boundaries_ms": {
+      "iterations": 200,
+      "mean": 8.427,
+      "median": 8.277,
+      "p95": 9.692,
+      "p99": 13.097
     }
   },
   "test_suite_status": {

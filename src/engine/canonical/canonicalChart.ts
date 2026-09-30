@@ -69,13 +69,19 @@ export async function generateCanonicalChart(
   const houses = buildCanonicalHouses(lagna, planets);
 
   // 8. Ephemeris Provenance Accounting
-  const lagnaSource = lagna.provenance || "swisseph-wasm";
+  if (!lagna.provenance) {
+    throw new Error("PROVENANCE_ERROR: Lagna position missing required provenance");
+  }
+  const lagnaSource = lagna.provenance;
   const planetSources: Record<NineBody, "swisseph-wasm" | "fallback"> = {} as any;
   let allSwe = lagnaSource === "swisseph-wasm" && ayanamsaSource === "swisseph-wasm";
   let allFallback = lagnaSource === "fallback" && ayanamsaSource === "fallback";
 
   for (const body of NINE_BODIES_ORDER) {
-    const src = planets[body].provenance || "swisseph-wasm";
+    const src = planets[body].provenance;
+    if (!src) {
+      throw new Error(`PROVENANCE_ERROR: Body ${body} missing required provenance`);
+    }
     planetSources[body] = src;
     if (src !== "swisseph-wasm") allSwe = false;
     if (src !== "fallback") allFallback = false;

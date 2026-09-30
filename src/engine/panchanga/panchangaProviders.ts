@@ -50,11 +50,28 @@ export function createSunriseProvider(): SunriseProvider {
   };
 }
 
+export class DegradedEphemerisError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DegradedEphemerisError';
+  }
+}
+
 /**
  * Creates an auxiliary provider matched to the chart's provenance state.
+ * Enforces strict fail-closed contract: only 'swisseph-wasm' canonical charts
+ * can instantiate a Swiss auxiliary longitude provider for boundary searches.
+ * Degraded ('fallback' or 'mixed') charts fail closed to prevent cross-source corruption.
  */
 export async function createCanonicalLongitudeProvider(
-  _chart: CanonicalChart
+  chart: CanonicalChart
 ): Promise<LongitudeProvider> {
+  const ephemeris = chart?.provenance?.ephemeris;
+  if (ephemeris !== 'swisseph-wasm') {
+    throw new DegradedEphemerisError(
+      `Cannot create auxiliary LongitudeProvider: CanonicalChart has degraded provenance "${ephemeris}". ` +
+      `Auxiliary boundary search requires an active Swiss Ephemeris WASM engine to prevent cross-source boundary corruption.`
+    );
+  }
   return createSwissLongitudeProvider();
 }

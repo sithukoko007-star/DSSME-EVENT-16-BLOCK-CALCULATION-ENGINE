@@ -36,7 +36,7 @@ const REGISTERED_SUITES: TestSuiteEntry[] = [
 
 async function runAll() {
   console.log("============================================================");
-  console.log("DSSME NATIVE ENGINE PHASE 1 — FOUNDATION AUDIT TEST SUITE");
+  console.log("DSSME NATIVE ENGINE (PHASES 1 & 2) — DETERMINISTIC TEST SUITE");
   console.log("============================================================\n");
 
   const totalRegistered = REGISTERED_SUITES.length;
@@ -56,11 +56,11 @@ async function runAll() {
   console.log("\n============================================================");
   if (failedSuites.length === 0) {
     console.log(
-      `ALL PHASE 1 DETERMINISTIC TESTS PASSED SUCCESSFULLY (${passedCount}/${totalRegistered})`
+      `ALL DSSME DETERMINISTIC TESTS PASSED SUCCESSFULLY (${passedCount}/${totalRegistered})`
     );
   } else {
     console.error(
-      `PHASE 1 TEST AUDIT FAILED: ${failedSuites.length} of ${totalRegistered} suites failed.`
+      `DSSME TEST AUDIT FAILED: ${failedSuites.length} of ${totalRegistered} suites failed.`
     );
     for (const f of failedSuites) {
       console.error(` - ${f.name}`);
