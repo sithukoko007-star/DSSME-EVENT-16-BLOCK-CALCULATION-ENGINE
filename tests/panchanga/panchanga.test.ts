@@ -387,5 +387,19 @@ export async function runPanchangaTests() {
   const pvrIssues = validatePanchanga(pvrPanchanga, pvrSrc, swissProvider);
   assert.equal(pvrIssues.length, 0, "PVR Panchanga must pass all gates");
 
+  // 1.6 Sunrise Provider (Hindu Geometric Disc-Centre Altitude 0.0° vs Apparent Rise)
+  const testSunrise = sunriseProvider(
+    { year: 1970, month: 4, day: 4 },
+    { latitude: 16.18, longitude: 81.13 },
+    "Asia/Kolkata"
+  );
+  // Expected JD for 1970-04-04 00:32:22.353 UTC is ~ 2440680.5224809
+  // Apparent rising (upper limb + refraction) would have been 00:28:53 UTC (~2440680.52006)
+  // Ensure the provider yields geometric disc-centre rising (altitude 0.0°)
+  assert.ok(
+    Math.abs(testSunrise - 2440680.52248) < 0.0001,
+    "Sunrise provider must match Hindu disc-centre geometric sunrise (SearchAltitude at 0.0°)"
+  );
+
   console.log("✓ Panchanga Engine (Phase 2) Tests Passed (Gates A-G Verified)!");
 }
