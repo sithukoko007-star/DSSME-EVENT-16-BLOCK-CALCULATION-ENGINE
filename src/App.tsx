@@ -33,7 +33,7 @@ import {
 
 const PRESET_CHOFU: DssmeCalculationInput = {
   date: "2026-09-16",
-  time: "14:30:00",
+  time: "18:50:00",
   latitude: 35.65,
   longitude: 139.54,
   timezone: "Asia/Tokyo",
@@ -56,7 +56,7 @@ const PRESET_PVR: DssmeCalculationInput = {
 };
 
 export default function App() {
-  const [input, setInput] = useState<DssmeCalculationInput>(PRESET_PVR);
+  const [input, setInput] = useState<DssmeCalculationInput>(PRESET_CHOFU);
   const [chart, setChart] = useState<CanonicalChart | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [calcTimeMs, setCalcTimeMs] = useState<number | null>(null);
@@ -66,7 +66,7 @@ export default function App() {
 
   // Auto-run initial chart on mount
   useEffect(() => {
-    handleCalculate(PRESET_PVR);
+    handleCalculate(PRESET_CHOFU);
   }, []);
 
   const handleDateChange = (newDate: string) => {
@@ -235,7 +235,7 @@ export default function App() {
                 }}
                 className="px-2.5 py-1 rounded text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
               >
-                Chofu 2026-09-16
+                Chofu 2026-09-16 18:50
               </button>
               <button
                 type="button"

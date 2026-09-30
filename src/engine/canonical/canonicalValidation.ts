@@ -111,7 +111,8 @@ export function validateCalculationInput(input: unknown): DssmeCalculationInput 
     }
   }
 
-  if (obj.ayanamsa !== "Lahiri") {
+  const ayanamsa = obj.ayanamsa ?? "Lahiri";
+  if (ayanamsa !== "Lahiri") {
     throw new Error(`INVALID_INPUT: "ayanamsa" must be "Lahiri", received: ${obj.ayanamsa}`);
   }
 
