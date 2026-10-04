@@ -1,0 +1,1449 @@
+From e621790ee7974469898b92c70099f10a6b523141 Mon Sep 17 00:00:00 2001
+From: phase3-build <phase3-build@localhost>
+Date: Fri, 2 Oct 2026 04:35:24 +0000
+Subject: [PATCH] feat(phase3): BlockResult contract + Level 1 blocks (HOUSES,
+ HOUSE_POSITIONS, RETROGRADE)
+
+Checkpoint 1 (partial). IDENTITY deferred: Decision Gate S-08 open.
+Adds src/engine/blocks, tests/blocks (+6 suites, registered additively),
+tsconfig.phase3.json and lint:phase3. No frozen Phase 1/2 file modified.
+---
+ package.json                                |   3 +-
+ reports/PHASE_3_BUILD_CHECKPOINT_1.md       |  59 ++++++
+ src/engine/blocks/blockResult.ts            | 154 +++++++++++++++
+ src/engine/blocks/blockTypes.ts             |  77 ++++++++
+ src/engine/blocks/housePositions.ts         |  50 +++++
+ src/engine/blocks/houses.ts                 | 113 +++++++++++
+ src/engine/blocks/index.ts                  |  16 ++
+ src/engine/blocks/retrograde.ts             |  52 +++++
+ tests/blocks/blockContract.test.ts          |  94 ++++++++++
+ tests/blocks/fixtures/handChart.ts          | 198 ++++++++++++++++++++
+ tests/blocks/housePositionsBlock.test.ts    |  80 ++++++++
+ tests/blocks/housesBlock.test.ts            | 108 +++++++++++
+ tests/blocks/level1Integration.test.ts      |  87 +++++++++
+ tests/blocks/pyjhoraSourceAlignment.test.ts |  60 ++++++
+ tests/blocks/retrogradeBlock.test.ts        |  69 +++++++
+ tests/blocks/strictCheck.sh                 |  27 +++
+ tests/run_all_tests.ts                      |  14 +-
+ tsconfig.phase3.json                        |  11 ++
+ 18 files changed, 1270 insertions(+), 2 deletions(-)
+ create mode 100644 reports/PHASE_3_BUILD_CHECKPOINT_1.md
+ create mode 100644 src/engine/blocks/blockResult.ts
+ create mode 100644 src/engine/blocks/blockTypes.ts
+ create mode 100644 src/engine/blocks/housePositions.ts
+ create mode 100644 src/engine/blocks/houses.ts
+ create mode 100644 src/engine/blocks/index.ts
+ create mode 100644 src/engine/blocks/retrograde.ts
+ create mode 100644 tests/blocks/blockContract.test.ts
+ create mode 100644 tests/blocks/fixtures/handChart.ts
+ create mode 100644 tests/blocks/housePositionsBlock.test.ts
+ create mode 100644 tests/blocks/housesBlock.test.ts
+ create mode 100644 tests/blocks/level1Integration.test.ts
+ create mode 100644 tests/blocks/pyjhoraSourceAlignment.test.ts
+ create mode 100644 tests/blocks/retrogradeBlock.test.ts
+ create mode 100755 tests/blocks/strictCheck.sh
+ create mode 100644 tsconfig.phase3.json
+
+diff --git a/package.json b/package.json
+index 24a14a6..92da69b 100644
+--- a/package.json
++++ b/package.json
+@@ -11,7 +11,8 @@
+     "test": "tsx tests/run_all_tests.ts",
+     "preview": "vite preview",
+     "clean": "rm -rf dist server.js",
+-    "lint": "tsc --noEmit"
++    "lint": "tsc --noEmit",
++    "lint:phase3": "bash tests/blocks/strictCheck.sh"
+   },
+   "dependencies": {
+     "@google/genai": "^2.4.0",
+diff --git a/reports/PHASE_3_BUILD_CHECKPOINT_1.md b/reports/PHASE_3_BUILD_CHECKPOINT_1.md
+new file mode 100644
+index 0000000..af3b87d
+--- /dev/null
++++ b/reports/PHASE_3_BUILD_CHECKPOINT_1.md
+@@ -0,0 +1,59 @@
++# DSSME Phase 3 — BUILD Checkpoint 1 (Level 1, partial)
++
++**Scope delivered:** BlockResult contract + HOUSES, HOUSE_POSITIONS, RETROGRADE.
++**Not delivered (blocked by an open Decision Gate):** IDENTITY (gate S-08).
++**Base commit (GitHub `main` HEAD at inspection):** `5b79ecef114672753947ae1f842344f11c5cc08e`
++**Package manager / lockfile of record:** npm 10.8.2 / `package-lock.json` (`bun.lock` was removed upstream in `3d76d10`).
++**Installed:** `@swisseph/browser` 1.4.0 (`@swisseph/core` 1.4.0), `astronomy-engine` 2.1.19, `typescript` 7.0.2, Node v22.22.2.
++
++Governing design: `PHASE_3_ARCHITECTURE_DESIGN.md` §5 (BlockResult), §8 (dependency graph), §21 (P3-0/P3-1). The design file is **not present at `main` HEAD** (see "Known discrepancies").
++
++## Baseline before any change (verified at HEAD)
++`tsc --noEmit` exit 0 · 11/11 existing suites pass · `vite build` succeeds.
++
++## After this checkpoint
++| Check | Result |
++|---|---|
++| `tsc --noEmit` | exit 0 |
++| `npm run lint:phase3` (strict + `noUncheckedIndexedAccess`, gated on Phase 3 paths only) | 0 diagnostics in Phase 3 files; 25 informational strict diagnostics inside imported FROZEN files (not modified) |
++| `npm test` | **17/17** suites pass (11 existing + 6 new) |
++| `vite build` | succeeds (same pre-existing Swiss-module warning as baseline) |
++| Mutation sanity | 3 deliberate breakages (ignore house mismatch; accept retrograde Sun; error no longer fails block) each failed the tests; sources restored byte-identical |
++| Frozen files | `git diff HEAD` on `src/types`, `src/engine/{astronomy,canonical,panchanga}`, `src/utils`, `src/components`, `App.tsx`, `main.tsx`, `server.ts`, `tsconfig.json`, `vite.config.ts`, `package-lock.json`, and all existing test files: **empty** |
++
++## Files
++**Created:** `src/engine/blocks/{blockTypes,blockResult,houses,housePositions,retrograde,index}.ts`; `tests/blocks/{blockContract,housesBlock,housePositionsBlock,retrogradeBlock,pyjhoraSourceAlignment,level1Integration}.test.ts`; `tests/blocks/fixtures/handChart.ts`; `tests/blocks/strictCheck.sh`; `tsconfig.phase3.json`; this report.
++**Modified (additive only):** `tests/run_all_tests.ts` (6 imports, 6 registrations, banner "PHASES 1 & 2" → "PHASES 1-3"); `package.json` (one script `lint:phase3`).
++
++## Contract as implemented
++`BlockResult<T> = { blockId, status: OK | DEFAULTED | FAILED_CLOSED, value: T | null, instantJdUt, provenance, issues }`.
++Status is decided in one function (`finalizeBlock`): any `error` issue ⇒ `FAILED_CLOSED` and `value = null`; else spec-default flag ⇒ `DEFAULTED`; else `OK`. `instantJdUt` is always `chart.time.julianDayUt`. No wall-clock or duration field exists. A chart without valid provenance is a precondition failure (`PROVENANCE_ERROR`, same family as frozen `canonicalChart.ts`), never defaulted. A degraded chart (`fallback` / `mixed`) is accepted by state blocks and its three-valued provenance is copied verbatim.
++
++## DSSME ↔ PyJHora mapping (source-level; PyJHora NOT executed)
++Pinned reference `naturalstupid/PyJHora @ 48e57d29b47a3143519910a24866758116467485` (40 chars).
++
++| DSSME | PyJHora source read | Result |
++|---|---|---|
++| `SIGN_LORDS` (HOUSES lord) | `const.py:527` `_house_owners_list = [2,5,3,1,0,3,5,2,4,6,6,4]`, ids `const.py:126-146` (Sun 0 … Saturn 6, Rahu 7, Ketu 8) | MATCH, all 12 signs (asserted in `pyjhoraSourceAlignment.test.ts`) |
++| Planet output order | same id constants | MATCH (Sun, Moon, Mars, Mercury, Jupiter, Venus, Saturn, Rahu, Ketu) |
++| RETROGRADE rule | `drik.py:339` `planets_in_retrograde`: Sun/Moon excluded; Ketu uses Rahu's speed; retrograde iff `longi[3] < 0`; docstring: Mean nodes always retrograde | MATCH for the Swiss-speed function. A second, position-based function in `jhora.horoscope.chart.charts` exists and was **not inspected** (UNKNOWN) |
++| House type (Angular/Succedent/Cadent) | not mapped | DSSME spec Rule 6 + frozen `getHouseType`; no PyJHora source consulted for this classification |
++
++**Status: PyJHora source-level alignment verified; numerical parity not yet executed.**
++
++## Decision Gates
++Closed by this checkpoint: **none** (the repository records no gate decisions). None of the built blocks needed one.
++Still open: all 20 in design §16. Needed next: **S-08** (IDENTITY), **S-01** (DIGNITY), **S-02** (COMBUST), **T-09** (panchanga state flags), plus **T-01** / **T-10** before any degree-level golden.
++
++## Known discrepancies (do not silently reconcile)
++1. **Design document is absent at `main` HEAD.** `docs/PHASE_3_ARCHITECTURE_DESIGN.md` was added in `d344312` (728 lines) and deleted in `5b79ece` ("sanitize nomenclature"). A different 987-line version exists outside the repository. They share §1–§8 (incl. the BlockResult contract this checkpoint implements) and diverge from §9 (different gate sets: repo draft T-01…T-10 + S-01…S-10; the other T-01…T-10 + A-01, A-02 + S-01…S-08). **Which governs must be stated before Checkpoint 2.**
++2. Design C-04 and C-07 are stale at HEAD: `bun.lock` removed and `packageManager` is npm; personal nomenclature removed from fixtures/App.
++3. Design findings still true at HEAD: C-03 (`panchangaProviders.ts` imports both ephemeris packages), C-06 (`/api/panchanga` filters on a non-existent `severity`), C-14, C-15 (no `strict`), C-05 (runner collects all failures).
++4. Strict-mode diagnostics exist inside frozen files `astronomy/ascendant.ts`, `astronomy/houses.ts`, `astronomy/planetaryPositions.ts` (array indexing under `noUncheckedIndexedAccess`); reported, not changed.
++5. Chofu reference JSON degree discrepancy (design C-09) is unchanged and unresolved; it was **not** used as a numeric golden. Integration assertions are sign-level only.
++
++## Remaining risks
++Hand-built fixture is synthetic (valid under the frozen validators, asserted in tests) and is not an ephemeris golden. `lint:phase3` needs `bash`. Swiss-version-dependent numerics are not yet used by any Phase 3 assertion.
++
++## Exact next action
++Name the governing design document and close S-08, S-01, S-02 (and T-09 for the panchanga flags). Then Checkpoint 2: inspect PyJHora source for dignity/combustion (`const.py` friendship tables, combustion lists and how they are indexed) before writing DIGNITY, COMBUST, NAVAMSHA and the PANCHANGA mapping.
+diff --git a/src/engine/blocks/blockResult.ts b/src/engine/blocks/blockResult.ts
+new file mode 100644
+index 0000000..f38f6b2
+--- /dev/null
++++ b/src/engine/blocks/blockResult.ts
+@@ -0,0 +1,154 @@
++/**
++ * Phase 3 — shared helpers for building BlockResult values.
++ * Pure, deterministic, no ephemeris access.
++ */
++
++import {
++  ZODIAC_SIGNS_ARIES_FIRST,
++  type CanonicalChart,
++  type ChartProvenance,
++  type HouseKey,
++  type NineBody,
++  type ZodiacSign,
++} from "../../types/dssme-canonical-types.ts";
++import type { PanchangaResult } from "../panchanga/panchangaTypes.ts";
++import type {
++  BlockContext,
++  BlockId,
++  BlockInput,
++  BlockIssue,
++  BlockProvenance,
++  BlockResult,
++  BlockStatus,
++} from "./blockTypes.ts";
++
++const EPHEMERIS_VALUES: readonly ChartProvenance["ephemeris"][] = ["swisseph-wasm", "fallback", "mixed"];
++
++export const HOUSE_KEYS: readonly HouseKey[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
++
++export function errorIssue(field: string, message: string): BlockIssue {
++  return { field, message, severity: "error" };
++}
++
++export function warningIssue(field: string, message: string): BlockIssue {
++  return { field, message, severity: "warning" };
++}
++
++/**
++ * Builds the context every block consumes. Provenance is MANDATORY and never defaulted:
++ * a chart without valid provenance is a precondition failure (same family as the frozen
++ * "PROVENANCE_ERROR" in canonicalChart.ts), not a block-level FAILED_CLOSED.
++ *
++ * A DEGRADED chart (fallback/mixed) is accepted here: state blocks may consume it and carry the flag.
++ */
++export function createBlockContext(chart: CanonicalChart, panchanga?: PanchangaResult): BlockContext {
++  // The type says mandatory; a chart loaded from JSON may violate it at runtime.
++  const prov: ChartProvenance | undefined = chart.provenance;
++  if (!prov) {
++    throw new Error("PROVENANCE_ERROR: CanonicalChart is missing mandatory provenance");
++  }
++  if (!EPHEMERIS_VALUES.includes(prov.ephemeris)) {
++    throw new Error(`PROVENANCE_ERROR: invalid chart provenance ephemeris "${String(prov.ephemeris)}"`);
++  }
++  if (typeof prov.isDegraded !== "boolean") {
++    throw new Error("PROVENANCE_ERROR: chart provenance isDegraded must be boolean");
++  }
++  const jd: number = chart.time ? chart.time.julianDayUt : Number.NaN;
++  if (!Number.isFinite(jd)) {
++    throw new Error("INVALID_INPUT: chart.time.julianDayUt must be a finite number");
++  }
++  return panchanga === undefined ? { chart } : { chart, panchanga };
++}
++
++export function provenanceFor(ctx: BlockContext, inputs: readonly BlockInput[]): BlockProvenance {
++  const p = ctx.chart.provenance;
++  return {
++    chart: { ephemeris: p.ephemeris, isDegraded: p.isDegraded },
++    inputs: [...inputs],
++    auxSources: [],
++  };
++}
++
++export interface FinalizeArgs<T> {
++  readonly blockId: BlockId;
++  readonly ctx: BlockContext;
++  readonly inputs: readonly BlockInput[];
++  readonly value: T | null;
++  readonly issues: readonly BlockIssue[];
++  /** Set only when a graceful spec-default (never an error) was applied. */
++  readonly defaulted?: boolean;
++}
++
++/**
++ * The single place status is decided:
++ *   any error issue          -> FAILED_CLOSED, value null
++ *   else spec-default applied -> DEFAULTED
++ *   else                      -> OK
++ */
++export function finalizeBlock<T>(args: FinalizeArgs<T>): BlockResult<T> {
++  const hasError = args.issues.some((i) => i.severity === "error");
++  const status: BlockStatus = hasError ? "FAILED_CLOSED" : args.defaulted === true ? "DEFAULTED" : "OK";
++  if (!hasError && args.value === null) {
++    throw new Error(`BLOCK_ERROR: ${args.blockId} produced a null value without an error issue`);
++  }
++  return {
++    blockId: args.blockId,
++    status,
++    value: hasError ? null : args.value,
++    instantJdUt: args.ctx.chart.time.julianDayUt,
++    provenance: provenanceFor(args.ctx, args.inputs),
++    issues: [...args.issues],
++  };
++}
++
++/** Typed, ordered builders — no casts. Key insertion order is the canonical order. */
++export function mapNineBodies<T>(f: (body: NineBody) => T): Record<NineBody, T> {
++  return {
++    Sun: f("Sun"),
++    Moon: f("Moon"),
++    Mars: f("Mars"),
++    Mercury: f("Mercury"),
++    Jupiter: f("Jupiter"),
++    Venus: f("Venus"),
++    Saturn: f("Saturn"),
++    Rahu: f("Rahu"),
++    Ketu: f("Ketu"),
++  };
++}
++
++export function mapHouseKeys<T>(f: (key: HouseKey) => T): Record<HouseKey, T> {
++  return {
++    "1": f("1"),
++    "2": f("2"),
++    "3": f("3"),
++    "4": f("4"),
++    "5": f("5"),
++    "6": f("6"),
++    "7": f("7"),
++    "8": f("8"),
++    "9": f("9"),
++    "10": f("10"),
++    "11": f("11"),
++    "12": f("12"),
++  };
++}
++
++/** Sign at a (possibly out-of-range / negative) Aries-first index, wrapped modulo 12. */
++export function signAt(index: number): ZodiacSign {
++  const wrapped = ((index % 12) + 12) % 12;
++  const sign = ZODIAC_SIGNS_ARIES_FIRST[wrapped];
++  if (sign === undefined) {
++    throw new Error(`BLOCK_ERROR: sign index ${index} out of range`);
++  }
++  return sign;
++}
++
++/** House (1..12) of a sign relative to a Lagna sign (whole-sign). Returns null if either sign is invalid. */
++export function wholeSignHouse(lagnaSign: ZodiacSign, sign: ZodiacSign): number | null {
++  const lagnaIndex = ZODIAC_SIGNS_ARIES_FIRST.indexOf(lagnaSign);
++  const signIndex = ZODIAC_SIGNS_ARIES_FIRST.indexOf(sign);
++  if (lagnaIndex < 0 || signIndex < 0) return null;
++  return ((signIndex - lagnaIndex + 12) % 12) + 1;
++}
++
++export type { CanonicalChart };
+diff --git a/src/engine/blocks/blockTypes.ts b/src/engine/blocks/blockTypes.ts
+new file mode 100644
+index 0000000..3b619ed
+--- /dev/null
++++ b/src/engine/blocks/blockTypes.ts
+@@ -0,0 +1,77 @@
++/**
++ * Phase 3 — BlockResult contract.
++ *
++ * A block is a pure, deterministic builder evaluated at the chart instant:
++ *     (BlockContext) -> BlockResult<T>
++ * where T is an EXISTING interface from dssme-canonical-types.ts (no parallel output types).
++ *
++ * BlockResult is deliberately separate from the (future) CanonicalEvent layer: state blocks never
++ * call temporal solvers. Governing design: PHASE_3_ARCHITECTURE_DESIGN.md §5.
++ *
++ * Intentionally ABSENT: wall-clock timestamps, version strings, durations — none may enter
++ * deterministic output.
++ */
++
++import type {
++  CanonicalChart,
++  ChartProvenance,
++  Dssme16BlockResult,
++} from "../../types/dssme-canonical-types.ts";
++import type { PanchangaResult } from "../panchanga/panchangaTypes.ts";
++
++/** Key of a block inside Dssme16BlockResult (everything except `_meta`). */
++export type BlockId = Exclude<keyof Dssme16BlockResult, "_meta">;
++
++export type IssueSeverity = "error" | "warning";
++
++export interface BlockIssue {
++  readonly field: string;
++  readonly message: string;
++  readonly severity: IssueSeverity;
++}
++
++/**
++ * OK            — computed, no error issues.
++ * DEFAULTED     — a graceful spec-default condition applied (spec §16 rule 18); never an error.
++ * FAILED_CLOSED — at least one `error` issue; `value` is null.
++ */
++export type BlockStatus = "OK" | "DEFAULTED" | "FAILED_CLOSED";
++
++export type BlockInput = BlockId | "CanonicalChart" | "PanchangaResult" | "EventEphemeris";
++
++export type AuxSource = "astronomy-engine:sunrise" | "astronomy-engine:sunset";
++
++export interface BlockProvenance {
++  /** Copied verbatim from chart.provenance — never defaulted. */
++  readonly chart: {
++    readonly ephemeris: ChartProvenance["ephemeris"];
++    readonly isDegraded: boolean;
++  };
++  readonly inputs: readonly BlockInput[];
++  /** Auxiliary (non-chart) sources actually used, e.g. sunrise from astronomy-engine. */
++  readonly auxSources: readonly AuxSource[];
++  /** Present only for blocks that used the Swiss-only EventEphemeris session. */
++  readonly temporal?: {
++    readonly source: "swisseph-wasm";
++    readonly nodeModel: "mean";
++    readonly ayanamsa: "Lahiri";
++    readonly flags: string;
++  };
++}
++
++export interface BlockResult<T> {
++  readonly blockId: BlockId;
++  readonly status: BlockStatus;
++  /** null iff status === "FAILED_CLOSED". */
++  readonly value: T | null;
++  /** Always chart.time.julianDayUt (the chart instant). */
++  readonly instantJdUt: number;
++  readonly provenance: BlockProvenance;
++  readonly issues: readonly BlockIssue[];
++}
++
++export interface BlockContext {
++  readonly chart: CanonicalChart;
++  /** Optional: Level 1 blocks never need it; later blocks that do must check for it. */
++  readonly panchanga?: PanchangaResult;
++}
+diff --git a/src/engine/blocks/housePositions.ts b/src/engine/blocks/housePositions.ts
+new file mode 100644
+index 0000000..1645782
+--- /dev/null
++++ b/src/engine/blocks/housePositions.ts
+@@ -0,0 +1,50 @@
++/**
++ * Block 13 (HOUSE_POSITIONS) — Level 1, pure projection of each body's house + house type.
++ * Spec: extraction Rule 6 (Angular 1,4,7,10 / Succedent 2,5,8,11 / Cadent 3,6,9,12).
++ */
++
++import type { HousePositionsBlock, NineBody } from "../../types/dssme-canonical-types.ts";
++import { getHouseType } from "../astronomy/houses.ts";
++import { NINE_BODIES_ORDER } from "../astronomy/planetaryPositions.ts";
++import type { BlockContext, BlockIssue, BlockResult } from "./blockTypes.ts";
++import { errorIssue, finalizeBlock, mapNineBodies, wholeSignHouse } from "./blockResult.ts";
++
++function validatePositions(ctx: BlockContext): BlockIssue[] {
++  const { chart } = ctx;
++  const issues: BlockIssue[] = [];
++  for (const body of NINE_BODIES_ORDER) {
++    const planet = chart.planets[body];
++    if (!planet) {
++      issues.push(errorIssue(`planets.${body}`, `${body} is missing`));
++      continue;
++    }
++    if (!Number.isInteger(planet.house) || planet.house < 1 || planet.house > 12) {
++      issues.push(errorIssue(`planets.${body}.house`, `house must be an integer 1-12, found ${String(planet.house)}`));
++      continue;
++    }
++    const expected = wholeSignHouse(chart.lagna.sign, planet.sign);
++    if (expected === null) {
++      issues.push(errorIssue(`planets.${body}.sign`, `invalid sign "${String(planet.sign)}" or Lagna sign`));
++    } else if (expected !== planet.house) {
++      issues.push(
++        errorIssue(
++          `planets.${body}.house`,
++          `${planet.sign} relative to Lagna ${chart.lagna.sign} is house ${expected}, found ${planet.house}`,
++        ),
++      );
++    }
++  }
++  return issues;
++}
++
++export function buildHousePositionsBlock(ctx: BlockContext): BlockResult<HousePositionsBlock> {
++  const issues = validatePositions(ctx);
++  const hasError = issues.some((i) => i.severity === "error");
++  const value: HousePositionsBlock | null = hasError
++    ? null
++    : mapNineBodies((body: NineBody) => {
++        const house = ctx.chart.planets[body].house;
++        return { house, type: getHouseType(house) };
++      });
++  return finalizeBlock({ blockId: "HOUSE_POSITIONS", ctx, inputs: ["CanonicalChart"], value, issues });
++}
+diff --git a/src/engine/blocks/houses.ts b/src/engine/blocks/houses.ts
+new file mode 100644
+index 0000000..498d792
+--- /dev/null
++++ b/src/engine/blocks/houses.ts
+@@ -0,0 +1,113 @@
++/**
++ * Block 5 — HOUSES (Level 1, pure projection of CanonicalChart.houses).
++ *
++ * No new astronomy and no Jyotish calculation: whole-sign houses come from the frozen Phase 1
++ * builder. This module projects CanonicalHouse -> HouseEntry and independently re-validates
++ * the spec invariants (sign sequence, lord, type, occupant coherence).
++ */
++
++import type {
++  CanonicalHouse,
++  HouseEntry,
++  HouseKey,
++  HousesBlock,
++  NineBody,
++} from "../../types/dssme-canonical-types.ts";
++import { getHouseType } from "../astronomy/houses.ts";
++import { NINE_BODIES_ORDER, SIGN_LORDS } from "../astronomy/planetaryPositions.ts";
++import type { BlockContext, BlockIssue, BlockResult } from "./blockTypes.ts";
++import {
++  HOUSE_KEYS,
++  errorIssue,
++  finalizeBlock,
++  mapHouseKeys,
++  signAt,
++} from "./blockResult.ts";
++import { ZODIAC_SIGNS_ARIES_FIRST } from "../../types/dssme-canonical-types.ts";
++
++function canonicalOccupants(occupants: readonly NineBody[]): NineBody[] {
++  return NINE_BODIES_ORDER.filter((body) => occupants.includes(body));
++}
++
++function validateHouses(ctx: BlockContext): BlockIssue[] {
++  const { chart } = ctx;
++  const issues: BlockIssue[] = [];
++
++  const lagnaIndex = ZODIAC_SIGNS_ARIES_FIRST.indexOf(chart.lagna.sign);
++  if (lagnaIndex < 0) {
++    issues.push(errorIssue("lagna.sign", `invalid Lagna sign "${String(chart.lagna.sign)}"`));
++    return issues;
++  }
++
++  const appearances = new Map<NineBody, number>();
++
++  for (const key of HOUSE_KEYS) {
++    const house: CanonicalHouse | undefined = chart.houses[key];
++    if (!house) {
++      issues.push(errorIssue(`houses.${key}`, `house ${key} is missing`));
++      continue;
++    }
++    const n = Number(key);
++
++    const expectedSign = signAt(lagnaIndex + n - 1);
++    if (house.sign !== expectedSign) {
++      issues.push(
++        errorIssue(`houses.${key}.sign`, `expected ${expectedSign} (Lagna + ${n - 1}), found ${String(house.sign)}`),
++      );
++    }
++
++    const expectedLord = SIGN_LORDS[house.sign];
++    if (expectedLord === undefined) {
++      issues.push(errorIssue(`houses.${key}.lord`, `no sign lord defined for "${String(house.sign)}"`));
++    } else if (house.lord !== expectedLord) {
++      issues.push(errorIssue(`houses.${key}.lord`, `expected ${expectedLord}, found ${String(house.lord)}`));
++    }
++
++    const expectedType = getHouseType(n);
++    if (house.type !== expectedType) {
++      issues.push(errorIssue(`houses.${key}.type`, `expected ${expectedType}, found ${String(house.type)}`));
++    }
++
++    if (new Set(house.occupants).size !== house.occupants.length) {
++      issues.push(errorIssue(`houses.${key}.occupants`, "duplicate occupant"));
++    }
++    for (const occupant of house.occupants) {
++      const planet = chart.planets[occupant];
++      if (!planet) {
++        issues.push(errorIssue(`houses.${key}.occupants`, `unknown occupant "${String(occupant)}"`));
++        continue;
++      }
++      if (planet.house !== n) {
++        issues.push(
++          errorIssue(`houses.${key}.occupants`, `${occupant} is listed in house ${n} but planet.house is ${planet.house}`),
++        );
++      }
++      appearances.set(occupant, (appearances.get(occupant) ?? 0) + 1);
++    }
++  }
++
++  for (const body of NINE_BODIES_ORDER) {
++    const count = appearances.get(body) ?? 0;
++    if (count !== 1) {
++      issues.push(errorIssue(`houses.occupants.${body}`, `${body} must appear in exactly one house, found ${count}`));
++    }
++  }
++  return issues;
++}
++
++function entryFor(ctx: BlockContext, key: HouseKey): HouseEntry {
++  const house = ctx.chart.houses[key];
++  return {
++    sign: house.sign,
++    lord: house.lord,
++    occupants: canonicalOccupants(house.occupants),
++    type: house.type,
++  };
++}
++
++export function buildHousesBlock(ctx: BlockContext): BlockResult<HousesBlock> {
++  const issues = validateHouses(ctx);
++  const hasError = issues.some((i) => i.severity === "error");
++  const value: HousesBlock | null = hasError ? null : mapHouseKeys((key) => entryFor(ctx, key));
++  return finalizeBlock({ blockId: "HOUSES", ctx, inputs: ["CanonicalChart"], value, issues });
++}
+diff --git a/src/engine/blocks/index.ts b/src/engine/blocks/index.ts
+new file mode 100644
+index 0000000..1f2015e
+--- /dev/null
++++ b/src/engine/blocks/index.ts
+@@ -0,0 +1,16 @@
++export * from "./blockTypes.ts";
++export {
++  HOUSE_KEYS,
++  createBlockContext,
++  errorIssue,
++  finalizeBlock,
++  mapHouseKeys,
++  mapNineBodies,
++  provenanceFor,
++  signAt,
++  warningIssue,
++  wholeSignHouse,
++} from "./blockResult.ts";
++export { buildHousesBlock } from "./houses.ts";
++export { buildHousePositionsBlock } from "./housePositions.ts";
++export { buildRetrogradeBlock } from "./retrograde.ts";
+diff --git a/src/engine/blocks/retrograde.ts b/src/engine/blocks/retrograde.ts
+new file mode 100644
+index 0000000..b81b992
+--- /dev/null
++++ b/src/engine/blocks/retrograde.ts
+@@ -0,0 +1,52 @@
++/**
++ * Block 13 (RETROGRADE) — Level 1, pure projection of CanonicalBodyPosition.isRetrograde.
++ *
++ * This is a chart-INSTANT speed-sign flag (speedLongitude < 0), NOT a station event.
++ * Station events are explicitly out of Phase 3 scope.
++ *
++ * Source-level alignment (PyJHora @ 48e57d29b47a3143519910a24866758116467485, drik.planets_in_retrograde):
++ *   Sun/Moon never retrograde; Mean Rahu/Ketu always retrograde; others retrograde iff speed < 0.
++ */
++
++import type { NineBody, RetrogradeBlock } from "../../types/dssme-canonical-types.ts";
++import type { BlockContext, BlockIssue, BlockResult } from "./blockTypes.ts";
++import { errorIssue, finalizeBlock, mapNineBodies } from "./blockResult.ts";
++
++function validateRetrograde(ctx: BlockContext): BlockIssue[] {
++  const { chart } = ctx;
++  const issues: BlockIssue[] = [];
++  const bodies: readonly NineBody[] = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"];
++  for (const body of bodies) {
++    const planet = chart.planets[body];
++    if (!planet) {
++      issues.push(errorIssue(`planets.${body}`, `${body} is missing`));
++      continue;
++    }
++    if (typeof planet.isRetrograde !== "boolean") {
++      issues.push(errorIssue(`planets.${body}.isRetrograde`, "isRetrograde must be boolean"));
++      continue;
++    }
++    if (body === "Sun" || body === "Moon") {
++      if (planet.isRetrograde) issues.push(errorIssue(`planets.${body}.isRetrograde`, `${body} can never be retrograde`));
++    } else if (body === "Rahu" || body === "Ketu") {
++      if (!planet.isRetrograde) {
++        issues.push(errorIssue(`planets.${body}.isRetrograde`, `${body} (mean node) must always be retrograde`));
++      }
++    } else if (planet.isRetrograde !== planet.speedLongitude < 0) {
++      issues.push(
++        errorIssue(
++          `planets.${body}.isRetrograde`,
++          `flag ${planet.isRetrograde} contradicts speedLongitude ${planet.speedLongitude}`,
++        ),
++      );
++    }
++  }
++  return issues;
++}
++
++export function buildRetrogradeBlock(ctx: BlockContext): BlockResult<RetrogradeBlock> {
++  const issues = validateRetrograde(ctx);
++  const hasError = issues.some((i) => i.severity === "error");
++  const value: RetrogradeBlock | null = hasError ? null : mapNineBodies((body) => ctx.chart.planets[body].isRetrograde);
++  return finalizeBlock({ blockId: "RETROGRADE", ctx, inputs: ["CanonicalChart"], value, issues });
++}
+diff --git a/tests/blocks/blockContract.test.ts b/tests/blocks/blockContract.test.ts
+new file mode 100644
+index 0000000..8795802
+--- /dev/null
++++ b/tests/blocks/blockContract.test.ts
+@@ -0,0 +1,94 @@
++/**
++ * Phase 3 — BlockResult contract tests (no ephemeris).
++ */
++
++import assert from "node:assert/strict";
++import {
++  createBlockContext,
++  errorIssue,
++  finalizeBlock,
++  mapHouseKeys,
++  mapNineBodies,
++  provenanceFor,
++  signAt,
++  warningIssue,
++  wholeSignHouse,
++} from "../../src/engine/blocks/index.ts";
++import { validateAstronomicalConsistency, validateCanonicalChart } from "../../src/engine/canonical/canonicalValidation.ts";
++import { HAND_JD_UT, corruptChart, makeHandChart } from "./fixtures/handChart.ts";
++
++export function runBlockContractTests(): void {
++  console.log("Running Phase 3 BlockResult Contract Tests...");
++
++  // 0. Fixture sanity: the hand-built chart is a VALID CanonicalChart under the frozen validators.
++  const chart = makeHandChart();
++  assert.deepEqual(validateCanonicalChart(chart).issues, [], "hand chart must pass structural validation");
++  assert.deepEqual(validateAstronomicalConsistency(chart).issues, [], "hand chart must pass consistency validation");
++
++  // 1. Context: provenance is mandatory and never defaulted.
++  const ctx = createBlockContext(chart);
++  assert.equal(ctx.chart, chart);
++  assert.throws(() => createBlockContext(corruptChart((d) => { delete d["provenance"]; })), /PROVENANCE_ERROR/);
++  assert.throws(
++    () => createBlockContext(corruptChart((d) => { d["provenance"] = { ephemeris: "bogus", isDegraded: false }; })),
++    /PROVENANCE_ERROR: invalid chart provenance ephemeris/,
++  );
++  assert.throws(
++    () => createBlockContext(corruptChart((d) => { d["provenance"] = { ephemeris: "swisseph-wasm", isDegraded: "no" }; })),
++    /PROVENANCE_ERROR: chart provenance isDegraded must be boolean/,
++  );
++  assert.throws(
++    () => createBlockContext(corruptChart((d) => { d["time"] = { julianDayUt: Number.NaN }; })),
++    /INVALID_INPUT/,
++  );
++
++  // 2. A DEGRADED chart is accepted by state blocks and carries its flag.
++  const degradedCtx = createBlockContext(makeHandChart("fallback"));
++  assert.deepEqual(provenanceFor(degradedCtx, ["CanonicalChart"]).chart, { ephemeris: "fallback", isDegraded: true });
++  const mixedCtx = createBlockContext(makeHandChart("mixed"));
++  assert.equal(provenanceFor(mixedCtx, ["CanonicalChart"]).chart.ephemeris, "mixed", "three-valued provenance is preserved");
++
++  // 3. Status rules live in exactly one place.
++  const base = { blockId: "HOUSES", ctx, inputs: ["CanonicalChart"] } as const;
++  const failed = finalizeBlock({ ...base, value: { x: 1 }, issues: [errorIssue("f", "boom")] });
++  assert.equal(failed.status, "FAILED_CLOSED");
++  assert.equal(failed.value, null, "FAILED_CLOSED forces value to null");
++  const warned = finalizeBlock({ ...base, value: { x: 1 }, issues: [warningIssue("f", "careful")] });
++  assert.equal(warned.status, "OK", "warnings never fail a block");
++  assert.deepEqual(warned.value, { x: 1 });
++  const defaulted = finalizeBlock({ ...base, value: { x: 1 }, issues: [], defaulted: true });
++  assert.equal(defaulted.status, "DEFAULTED");
++  const defaultedButError = finalizeBlock({ ...base, value: { x: 1 }, issues: [errorIssue("f", "boom")], defaulted: true });
++  assert.equal(defaultedButError.status, "FAILED_CLOSED", "error outranks DEFAULTED");
++  assert.throws(() => finalizeBlock({ ...base, value: null, issues: [] }), /BLOCK_ERROR/, "null value without an error is a bug");
++  assert.deepEqual(failed.issues.map((i) => i.severity), ["error"]);
++  assert.deepEqual(warned.issues.map((i) => i.severity), ["warning"]);
++
++  // 4. Shape: exactly the six contract fields; instant is the chart instant; nothing wall-clock.
++  assert.deepEqual(Object.keys(warned), ["blockId", "status", "value", "instantJdUt", "provenance", "issues"]);
++  assert.equal(warned.instantJdUt, HAND_JD_UT);
++  assert.equal(warned.instantJdUt, chart.time.julianDayUt);
++  const json = JSON.stringify(warned);
++  assert.ok(!/generatedAt|calculatedAt|timestamp|durationMs/i.test(json), "no wall-clock/duration field may appear");
++  assert.deepEqual(warned.provenance.auxSources, []);
++  assert.equal("temporal" in warned.provenance, false, "state blocks carry no temporal provenance");
++
++  // 5. Determinism of serialization.
++  const again = finalizeBlock({ ...base, value: { x: 1 }, issues: [warningIssue("f", "careful")] });
++  assert.equal(JSON.stringify(again), JSON.stringify(warned));
++
++  // 6. Canonical ordering helpers.
++  assert.deepEqual(Object.keys(mapNineBodies((b) => b)), ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"]);
++  assert.deepEqual(Object.keys(mapHouseKeys((k) => k)), ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]);
++
++  // 7. Sign arithmetic (whole-sign), hand-checked: Lagna Pisces -> Pisces=1, Aries=2, Aquarius=12.
++  assert.equal(signAt(0), "Aries");
++  assert.equal(signAt(12), "Aries");
++  assert.equal(signAt(-1), "Pisces");
++  assert.equal(wholeSignHouse("Pisces", "Pisces"), 1);
++  assert.equal(wholeSignHouse("Pisces", "Aries"), 2);
++  assert.equal(wholeSignHouse("Pisces", "Aquarius"), 12);
++  assert.equal(wholeSignHouse("Aries", "Pisces"), 12);
++
++  console.log("✓ Phase 3 BlockResult Contract Tests Passed!");
++}
+diff --git a/tests/blocks/fixtures/handChart.ts b/tests/blocks/fixtures/handChart.ts
+new file mode 100644
+index 0000000..c00d5b6
+--- /dev/null
++++ b/tests/blocks/fixtures/handChart.ts
+@@ -0,0 +1,198 @@
++/**
++ * Hand-built CanonicalChart fixture for Phase 3 block tests.
++ *
++ * SYNTHETIC. Not an ephemeris result and NOT a golden numerical fixture. The sign layout
++ * deliberately resembles the project's Chofu preset so structure is easy to read, but every
++ * degree below is a round number chosen by hand. No ephemeris is called to build it.
++ *
++ * Expected houses are written out by hand (independent of the frozen buildCanonicalHouses),
++ * so block tests are not tautological.
++ */
++
++import {
++  ZODIAC_SIGNS_ARIES_FIRST,
++  type CanonicalBodyPosition,
++  type CanonicalChart,
++  type CanonicalHouse,
++  type ChartBody,
++  type ClassicalPlanet,
++  type HouseKey,
++  type HouseType,
++  type NineBody,
++  type ZodiacSign,
++} from "../../../src/types/dssme-canonical-types.ts";
++import { getNakshatraInfo } from "../../../src/engine/astronomy/ascendant.ts";
++
+ export const HAND_JD_UT = 2461299.909722222;
++const AYANAMSA = 24.23;
++
++interface BodySpec {
++  readonly sign: ZodiacSign;
++  readonly deg: number;
++  readonly speed: number;
++  readonly retro: boolean;
++  readonly house: number;
++}
++
++/** Hand-written, whole-sign, Lagna = Pisces. */
++export const HAND_BODY_SPECS: Readonly<Record<NineBody, BodySpec>> = {
++  Sun: { sign: "Leo", deg: 28, speed: 0.97, retro: false, house: 6 },
++  Moon: { sign: "Scorpio", deg: 2, speed: 12.2, retro: false, house: 9 },
++  Mars: { sign: "Gemini", deg: 28, speed: 0.61, retro: false, house: 4 },
++  Mercury: { sign: "Virgo", deg: 14, speed: 1.59, retro: false, house: 7 },
++  Jupiter: { sign: "Cancer", deg: 22, speed: 0.2, retro: false, house: 5 },
++  Venus: { sign: "Libra", deg: 9, speed: 0.53, retro: false, house: 8 },
++  Saturn: { sign: "Pisces", deg: 17, speed: -0.07, retro: true, house: 1 },
++  Rahu: { sign: "Aquarius", deg: 4, speed: -0.053, retro: true, house: 12 },
++  Ketu: { sign: "Leo", deg: 4, speed: -0.053, retro: true, house: 6 },
++};
++
++export const HAND_LAGNA_SIGN: ZodiacSign = "Pisces";
++const HAND_LAGNA_DEG = 25;
++
++export interface ExpectedHouse {
++  readonly sign: ZodiacSign;
++  readonly lord: ClassicalPlanet;
++  readonly occupants: readonly NineBody[];
++  readonly type: HouseType;
++}
++
++/** Expected HOUSES, written by hand. */
++export const HAND_HOUSES_EXPECTED: Readonly<Record<HouseKey, ExpectedHouse>> = {
++  "1": { sign: "Pisces", lord: "Jupiter", occupants: ["Saturn"], type: "Angular" },
++  "2": { sign: "Aries", lord: "Mars", occupants: [], type: "Succedent" },
++  "3": { sign: "Taurus", lord: "Venus", occupants: [], type: "Cadent" },
++  "4": { sign: "Gemini", lord: "Mercury", occupants: ["Mars"], type: "Angular" },
++  "5": { sign: "Cancer", lord: "Moon", occupants: ["Jupiter"], type: "Succedent" },
++  "6": { sign: "Leo", lord: "Sun", occupants: ["Sun", "Ketu"], type: "Cadent" },
++  "7": { sign: "Virgo", lord: "Mercury", occupants: ["Mercury"], type: "Angular" },
++  "8": { sign: "Libra", lord: "Venus", occupants: ["Venus"], type: "Succedent" },
++  "9": { sign: "Scorpio", lord: "Mars", occupants: ["Moon"], type: "Cadent" },
++  "10": { sign: "Sagittarius", lord: "Jupiter", occupants: [], type: "Angular" },
++  "11": { sign: "Capricorn", lord: "Saturn", occupants: [], type: "Succedent" },
++  "12": { sign: "Aquarius", lord: "Saturn", occupants: ["Rahu"], type: "Cadent" },
++};
++
++function position(
++  body: ChartBody,
++  sign: ZodiacSign,
++  deg: number,
++  speed: number,
++  retro: boolean,
++  house: number,
++): CanonicalBodyPosition {
++  const sidereal = ZODIAC_SIGNS_ARIES_FIRST.indexOf(sign) * 30 + deg;
++  const nak = getNakshatraInfo(sidereal);
++  return {
++    body,
++    siderealLongitude: sidereal,
++    tropicalLongitude: (sidereal + AYANAMSA) % 360,
++    eclipticLatitude: 0,
++    speedLongitude: speed,
++    isRetrograde: retro,
++    sign,
++    signDegree: deg,
++    nakshatra: nak.nakshatra,
++    nakshatraPada: nak.pada,
++    house,
++    provenance: "swisseph-wasm",
++  };
++}
++
++function bodyPosition(body: NineBody): CanonicalBodyPosition {
++  const s = HAND_BODY_SPECS[body];
++  return position(body, s.sign, s.deg, s.speed, s.retro, s.house);
++}
++
++function houseFor(key: HouseKey): CanonicalHouse {
++  const e = HAND_HOUSES_EXPECTED[key];
++  return {
++    houseNumber: Number(key),
++    sign: e.sign,
++    lord: e.lord,
++    cuspLongitude: ZODIAC_SIGNS_ARIES_FIRST.indexOf(e.sign) * 30 + HAND_LAGNA_DEG,
++    occupants: [...e.occupants],
++    type: e.type,
++  };
++}
++
++/** Fresh object on every call, so tests may mutate freely. */
++export function makeHandChart(ephemeris: "swisseph-wasm" | "fallback" | "mixed" = "swisseph-wasm"): CanonicalChart {
++  const degraded = ephemeris !== "swisseph-wasm";
++  const src = degraded ? "fallback" : "swisseph-wasm";
++  return {
++    input: {
++      date: "2026-09-16",
++      time: "18:50:00",
++      latitude: 35.65,
++      longitude: 139.54,
++      timezone: "Asia/Tokyo",
++      timezoneOffset: 9,
++      ayanamsa: "Lahiri",
++    },
++    time: {
++      localIso: "2026-09-16T18:50:00+09:00",
++      utcIso: "2026-09-16T09:50:00.000Z",
++      julianDayUt: HAND_JD_UT,
++      timezoneOffsetHours: 9,
++    },
++    location: { latitude: 35.65, longitude: 139.54 },
++    ayanamsa: { name: "Lahiri", value: AYANAMSA },
++    lagna: position("Lagna", HAND_LAGNA_SIGN, HAND_LAGNA_DEG, 0, false, 1),
++    planets: {
++      Sun: bodyPosition("Sun"),
++      Moon: bodyPosition("Moon"),
++      Mars: bodyPosition("Mars"),
++      Mercury: bodyPosition("Mercury"),
++      Jupiter: bodyPosition("Jupiter"),
++      Venus: bodyPosition("Venus"),
++      Saturn: bodyPosition("Saturn"),
++      Rahu: bodyPosition("Rahu"),
++      Ketu: bodyPosition("Ketu"),
++    },
++    houses: {
++      "1": houseFor("1"),
++      "2": houseFor("2"),
++      "3": houseFor("3"),
++      "4": houseFor("4"),
++      "5": houseFor("5"),
++      "6": houseFor("6"),
++      "7": houseFor("7"),
++      "8": houseFor("8"),
++      "9": houseFor("9"),
++      "10": houseFor("10"),
++      "11": houseFor("11"),
++      "12": houseFor("12"),
++    },
++    provenance: {
++      ephemeris,
++      isDegraded: degraded,
++      sources: {
++        ayanamsa: src,
++        lagna: src,
++        planets: {
++          Sun: src,
++          Moon: src,
++          Mars: src,
++          Mercury: src,
++          Jupiter: src,
++          Venus: src,
++          Saturn: src,
++          Rahu: src,
++          Ketu: src,
++        },
++      },
++      runtime: { node: "hand-built", platform: "hand-built" },
++    },
++  };
++}
++
++/**
++ * Deliberately INVALID input for negative tests (missing provenance, wrong types, ...).
++ * This is the only cast in the Phase 3 test code; it is confined to this helper.
++ */
++export function corruptChart(mutate: (draft: Record<string, unknown>) => void): CanonicalChart {
++  const draft: Record<string, unknown> = JSON.parse(JSON.stringify(makeHandChart()));
++  mutate(draft);
++  return draft as unknown as CanonicalChart;
++}
+diff --git a/tests/blocks/housePositionsBlock.test.ts b/tests/blocks/housePositionsBlock.test.ts
+new file mode 100644
+index 0000000..e967651
+--- /dev/null
++++ b/tests/blocks/housePositionsBlock.test.ts
+@@ -0,0 +1,80 @@
++/**
++ * Phase 3 — HOUSE_POSITIONS block tests (hand-built chart, no ephemeris).
++ */
++
++import assert from "node:assert/strict";
++import { buildHousePositionsBlock, createBlockContext } from "../../src/engine/blocks/index.ts";
++import type { HousePositionsBlock } from "../../src/types/dssme-canonical-types.ts";
++import { HAND_JD_UT, makeHandChart } from "./fixtures/handChart.ts";
++
++const EXPECTED: HousePositionsBlock = {
++  Sun: { house: 6, type: "Cadent" },
++  Moon: { house: 9, type: "Cadent" },
++  Mars: { house: 4, type: "Angular" },
++  Mercury: { house: 7, type: "Angular" },
++  Jupiter: { house: 5, type: "Succedent" },
++  Venus: { house: 8, type: "Succedent" },
++  Saturn: { house: 1, type: "Angular" },
++  Rahu: { house: 12, type: "Cadent" },
++  Ketu: { house: 6, type: "Cadent" },
++};
++
++export function runHousePositionsBlockTests(): void {
++  console.log("Running Phase 3 HOUSE_POSITIONS Block Tests...");
++
++  const result = buildHousePositionsBlock(createBlockContext(makeHandChart()));
++  assert.equal(result.blockId, "HOUSE_POSITIONS");
++  assert.equal(result.status, "OK");
++  assert.deepEqual(result.issues, []);
++  assert.equal(result.instantJdUt, HAND_JD_UT);
++  assert.deepEqual(result.value, EXPECTED);
++  // Correct, canonical planet ordering — no reordered output permitted.
++  assert.deepEqual(Object.keys(result.value ?? {}), ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"]);
++
++  // Determinism and degraded provenance.
++  const ctx = createBlockContext(makeHandChart());
++  assert.equal(JSON.stringify(buildHousePositionsBlock(ctx)), JSON.stringify(buildHousePositionsBlock(ctx)));
++  const degraded = buildHousePositionsBlock(createBlockContext(makeHandChart("mixed")));
++  assert.equal(degraded.status, "OK");
++  assert.deepEqual(degraded.provenance.chart, { ephemeris: "mixed", isDegraded: true });
++
++  // Sign / house disagreement => FAILED_CLOSED.
++  const wrongHouse = makeHandChart();
++  wrongHouse.planets.Saturn.house = 2; // Saturn is in Pisces = Lagna sign = house 1
++  const f1 = buildHousePositionsBlock(createBlockContext(wrongHouse));
++  assert.equal(f1.status, "FAILED_CLOSED");
++  assert.equal(f1.value, null);
++  assert.ok(f1.issues.some((i) => i.severity === "error" && i.field === "planets.Saturn.house"));
++
++  // Out-of-range house => FAILED_CLOSED.
++  const outOfRange = makeHandChart();
++  outOfRange.planets.Moon.house = 13;
++  const f2 = buildHousePositionsBlock(createBlockContext(outOfRange));
++  assert.equal(f2.status, "FAILED_CLOSED");
++  assert.ok(f2.issues.some((i) => i.severity === "error" && i.field === "planets.Moon.house"));
++
++  // Fractional house => FAILED_CLOSED.
++  const fractional = makeHandChart();
++  fractional.planets.Mars.house = 4.5;
++  assert.equal(buildHousePositionsBlock(createBlockContext(fractional)).status, "FAILED_CLOSED");
++
++  // The house TYPE comes from the house number (spec Rule 6), checked for all 12 numbers.
++  const angular = [1, 4, 7, 10];
++  const succedent = [2, 5, 8, 11];
++  const cadent = [3, 6, 9, 12];
++  for (let h = 1; h <= 12; h++) {
++    const chart = makeHandChart();
++    // Put Sun in house h by choosing the matching sign relative to Lagna Pisces (index 11).
++    const signs = ["Pisces", "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius"] as const;
++    const sign = signs[h - 1];
++    assert.ok(sign !== undefined);
++    chart.planets.Sun.sign = sign;
++    chart.planets.Sun.house = h;
++    const r = buildHousePositionsBlock(createBlockContext(chart));
++    assert.equal(r.status, "OK", `house ${h}`);
++    const expectedType = angular.includes(h) ? "Angular" : succedent.includes(h) ? "Succedent" : cadent.includes(h) ? "Cadent" : "?";
++    assert.equal(r.value?.Sun.type, expectedType, `house ${h}`);
++  }
++
++  console.log("✓ Phase 3 HOUSE_POSITIONS Block Tests Passed!");
++}
+diff --git a/tests/blocks/housesBlock.test.ts b/tests/blocks/housesBlock.test.ts
+new file mode 100644
+index 0000000..24b52a5
+--- /dev/null
++++ b/tests/blocks/housesBlock.test.ts
+@@ -0,0 +1,108 @@
++/**
++ * Phase 3 — HOUSES block tests (hand-built chart, no ephemeris).
++ */
++
++import assert from "node:assert/strict";
++import { buildHousesBlock, createBlockContext, HOUSE_KEYS } from "../../src/engine/blocks/index.ts";
++import type { BlockResult } from "../../src/engine/blocks/index.ts";
++import type { HousesBlock } from "../../src/types/dssme-canonical-types.ts";
++import { HAND_HOUSES_EXPECTED, HAND_JD_UT, corruptChart, makeHandChart } from "./fixtures/handChart.ts";
++
++function expectFailed(result: BlockResult<HousesBlock>, field: string): void {
++  assert.equal(result.status, "FAILED_CLOSED");
++  assert.equal(result.value, null);
++  assert.ok(
++    result.issues.some((i) => i.severity === "error" && i.field === field),
++    `expected an error issue on "${field}", got ${JSON.stringify(result.issues)}`,
++  );
++}
++
+ export function runHousesBlockTests(): void {
++  console.log("Running Phase 3 HOUSES Block Tests...");
++
++  // 1. Happy path equals the HAND-WRITTEN expectation.
++  const ctx = createBlockContext(makeHandChart());
++  const result = buildHousesBlock(ctx);
++  assert.equal(result.blockId, "HOUSES");
++  assert.equal(result.status, "OK");
++  assert.deepEqual(result.issues, []);
++  assert.equal(result.instantJdUt, HAND_JD_UT);
++  assert.deepEqual(result.provenance, {
++    chart: { ephemeris: "swisseph-wasm", isDegraded: false },
++    inputs: ["CanonicalChart"],
++    auxSources: [],
++  });
++  assert.ok(result.value);
++  assert.deepEqual(Object.keys(result.value), [...HOUSE_KEYS]);
++  for (const key of HOUSE_KEYS) {
++    const expected = HAND_HOUSES_EXPECTED[key];
++    assert.deepEqual(result.value[key], {
++      sign: expected.sign,
++      lord: expected.lord,
++      occupants: [...expected.occupants],
++      type: expected.type,
++    });
++  }
++
++  // 2. Occupants are emitted in canonical body order regardless of input order.
++  const scrambled = makeHandChart();
++  scrambled.houses["6"].occupants = ["Ketu", "Sun"];
++  const scrambledResult = buildHousesBlock(createBlockContext(scrambled));
++  assert.equal(scrambledResult.status, "OK");
++  assert.deepEqual(scrambledResult.value?.["6"].occupants, ["Sun", "Ketu"]);
++
++  // 3. Determinism.
++  assert.equal(JSON.stringify(buildHousesBlock(ctx)), JSON.stringify(buildHousesBlock(ctx)));
++
++  // 4. Output does not alias the chart (mutating the result cannot corrupt the chart).
++  const chart = makeHandChart();
++  const aliasResult = buildHousesBlock(createBlockContext(chart));
++  aliasResult.value?.["6"].occupants.push("Moon");
++  assert.deepEqual(chart.houses["6"].occupants, ["Sun", "Ketu"]);
++
++  // 5. Degraded chart provenance is consumed by a state block and flagged, not rejected.
++  const degraded = buildHousesBlock(createBlockContext(makeHandChart("fallback")));
++  assert.equal(degraded.status, "OK");
++  assert.deepEqual(degraded.provenance.chart, { ephemeris: "fallback", isDegraded: true });
++
++  // 6. FAILED_CLOSED on each invariant violation (severity = error, value = null).
++  const wrongType = makeHandChart();
++  wrongType.houses["4"].type = "Cadent";
++  expectFailed(buildHousesBlock(createBlockContext(wrongType)), "houses.4.type");
++
++  const wrongSign = makeHandChart();
++  wrongSign.houses["2"].sign = "Taurus";
++  expectFailed(buildHousesBlock(createBlockContext(wrongSign)), "houses.2.sign");
++
++  const wrongLord = makeHandChart();
++  wrongLord.houses["5"].lord = "Mars";
++  expectFailed(buildHousesBlock(createBlockContext(wrongLord)), "houses.5.lord");
++
++  const strayOccupant = makeHandChart();
++  strayOccupant.houses["8"].occupants.push("Saturn");
++  const stray = buildHousesBlock(createBlockContext(strayOccupant));
++  expectFailed(stray, "houses.8.occupants");
++  assert.ok(stray.issues.some((i) => i.field === "houses.occupants.Saturn"), "Saturn now appears twice");
++
++  const duplicated = makeHandChart();
++  duplicated.houses["6"].occupants = ["Sun", "Sun", "Ketu"];
++  expectFailed(buildHousesBlock(createBlockContext(duplicated)), "houses.6.occupants");
++
++  const missingBody = makeHandChart();
++  missingBody.houses["1"].occupants = [];
++  expectFailed(buildHousesBlock(createBlockContext(missingBody)), "houses.occupants.Saturn");
++
++  const missingHouse = corruptChart((d) => {
++    const houses = d["houses"];
++    if (typeof houses === "object" && houses !== null) Reflect.deleteProperty(houses, "3");
++  });
++  expectFailed(buildHousesBlock(createBlockContext(missingHouse)), "houses.3");
++
++  const badLagna = corruptChart((d) => {
++    const lagna = d["lagna"];
++    if (typeof lagna === "object" && lagna !== null) Reflect.set(lagna, "sign", "Nonsense");
++  });
++  expectFailed(buildHousesBlock(createBlockContext(badLagna)), "lagna.sign");
++
++  console.log("✓ Phase 3 HOUSES Block Tests Passed!");
++}
+diff --git a/tests/blocks/level1Integration.test.ts b/tests/blocks/level1Integration.test.ts
+new file mode 100644
+index 0000000..f84e3e3
+--- /dev/null
++++ b/tests/blocks/level1Integration.test.ts
+@@ -0,0 +1,87 @@
++/**
++ * Phase 3, Level 1 — integration: live CanonicalChart -> Level 1 blocks.
++ *
++ * Uses the real Swiss engine. Assertions are SIGN-LEVEL / structural only (valid regardless of the
++ * degree-level reference-JSON discrepancy). The Chofu reference JSON is NOT used as a numeric golden.
++ */
++
++import assert from "node:assert/strict";
++import { generateCanonicalChart } from "../../src/engine/canonical/canonicalChart.ts";
++import {
++  HOUSE_KEYS,
++  buildHousePositionsBlock,
++  buildHousesBlock,
++  buildRetrogradeBlock,
++  createBlockContext,
++} from "../../src/engine/blocks/index.ts";
++import type { CanonicalChart, HouseEntry } from "../../src/types/dssme-canonical-types.ts";
++
++export async function runLevel1IntegrationTests(): Promise<void> {
++  console.log("Running Phase 3 Level 1 Integration Tests (CanonicalChart -> blocks)...");
++
++  const chart = await generateCanonicalChart({
++    date: "2026-09-16",
++    time: "18:50:00",
++    latitude: 35.65,
++    longitude: 139.54,
++    timezone: "Asia/Tokyo",
++    timezoneOffset: 9,
++    ayanamsa: "Lahiri",
++  });
++  assert.equal(chart.provenance.ephemeris, "swisseph-wasm");
++  assert.equal(chart.provenance.isDegraded, false);
++
++  const ctx = createBlockContext(chart);
++  const houses = buildHousesBlock(ctx);
++  const positions = buildHousePositionsBlock(ctx);
++  const retro = buildRetrogradeBlock(ctx);
++
++  for (const r of [houses, positions, retro]) {
++    assert.equal(r.status, "OK", `${r.blockId}: ${JSON.stringify(r.issues)}`);
++    assert.deepEqual(r.issues, []);
++    assert.equal(r.instantJdUt, chart.time.julianDayUt);
++    assert.deepEqual(r.provenance.chart, { ephemeris: "swisseph-wasm", isDegraded: false });
++    assert.equal(JSON.stringify(r), JSON.stringify(r), "stable serialization");
++  }
++
++  // Sign-level structure (Lagna Pisces at this instant; confirmed by the Phase 2 ascendant fixtures).
++  assert.equal(chart.lagna.sign, "Pisces");
++  const signs = HOUSE_KEYS.map((k) => houses.value?.[k].sign);
++  assert.deepEqual(signs, ["Pisces", "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius"]);
++  assert.deepEqual(houses.value?.["6"].occupants, ["Sun", "Ketu"], "canonical body order");
++  assert.deepEqual(houses.value?.["1"].occupants, ["Saturn"]);
++  assert.deepEqual(houses.value?.["12"].occupants, ["Rahu"]);
++  assert.equal(positions.value?.Saturn.house, 1);
++  assert.equal(positions.value?.Moon.house, 9);
++  assert.equal(retro.value?.Saturn, true);
++  assert.equal(retro.value?.Rahu, true);
++  assert.equal(retro.value?.Ketu, true);
++  assert.equal(retro.value?.Sun, false);
++
++  // Projection fidelity: HOUSES equals the frozen chart.houses field-for-field.
++  for (const key of HOUSE_KEYS) {
++    const frozen = chart.houses[key];
++    const projected: HouseEntry | undefined = houses.value?.[key];
++    assert.ok(projected);
++    assert.equal(projected.sign, frozen.sign);
++    assert.equal(projected.lord, frozen.lord);
++    assert.equal(projected.type, frozen.type);
++    assert.deepEqual(projected.occupants, [...frozen.occupants]);
++  }
++
++  // Determinism across two independent builds from the same chart.
++  assert.equal(JSON.stringify(buildHousesBlock(ctx)), JSON.stringify(houses));
++
++  // Degraded chart provenance: state blocks still build and carry the flag.
++  const degradedChart: CanonicalChart = {
++    ...chart,
++    provenance: { ...chart.provenance, ephemeris: "fallback", isDegraded: true },
++  };
++  const degradedCtx = createBlockContext(degradedChart);
++  for (const r of [buildHousesBlock(degradedCtx), buildHousePositionsBlock(degradedCtx), buildRetrogradeBlock(degradedCtx)]) {
++    assert.equal(r.status, "OK");
++    assert.deepEqual(r.provenance.chart, { ephemeris: "fallback", isDegraded: true });
++  }
++
++  console.log("✓ Phase 3 Level 1 Integration Tests Passed!");
++}
+diff --git a/tests/blocks/pyjhoraSourceAlignment.test.ts b/tests/blocks/pyjhoraSourceAlignment.test.ts
+new file mode 100644
+index 0000000..d154aa2
+--- /dev/null
++++ b/tests/blocks/pyjhoraSourceAlignment.test.ts
+@@ -0,0 +1,60 @@
++/**
++ * Phase 3, Level 1 — PyJHora SOURCE-LEVEL alignment checks.
++ *
++ * What this is:   constants and rules READ from the pinned PyJHora source and compared with DSSME.
++ * What this is NOT: PyJHora execution. No PyJHora code is run and no numerical output is compared.
++ *                 Status: "PyJHora source-level alignment verified; numerical parity not yet executed."
++ *
++ * Pinned reference: naturalstupid/PyJHora @ 48e57d29b47a3143519910a24866758116467485 (40 chars)
++ * Source read:
++ *   src/jhora/const.py:   SUN_ID=0 MOON_ID=1 MARS_ID=2 MERCURY_ID=3 JUPITER_ID=4 VENUS_ID=5 SATURN_ID=6
++ *                         RAHU_ID=7 KETU_ID=8
++ *   src/jhora/const.py:527  _house_owners_list = [2,5,3,1,0,3,5,2,4,6,6,4]     (index = sign, Aries=0)
++ *   src/jhora/panchanga/drik.py:339  planets_in_retrograde(): Sun/Moon excluded; Ketu uses Rahu's speed;
++ *                         a planet is retrograde iff swe speed (longi[3]) < 0; docstring: Mean nodes
++ *                         always retrograde. (A second, position-based retrograde function exists in
++ *                         jhora.horoscope.chart.charts and was NOT inspected.)
++ */
++
++import assert from "node:assert/strict";
++import { ZODIAC_SIGNS_ARIES_FIRST, type ClassicalPlanet } from "../../src/types/dssme-canonical-types.ts";
++import { SIGN_LORDS } from "../../src/engine/astronomy/planetaryPositions.ts";
++import { buildRetrogradeBlock, createBlockContext } from "../../src/engine/blocks/index.ts";
++import { makeHandChart } from "./fixtures/handChart.ts";
++
++/** PyJHora planet id -> DSSME name, from const.py (SUN_ID..SATURN_ID). */
++const PYJHORA_CLASSICAL_BY_ID: readonly ClassicalPlanet[] = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
++const PYJHORA_HOUSE_OWNERS: readonly number[] = [2, 5, 3, 1, 0, 3, 5, 2, 4, 6, 6, 4];
++
++export function runPyjhoraSourceAlignmentTests(): void {
++  console.log("Running Phase 3 PyJHora Source-Level Alignment Tests (Level 1)...");
++
++  // 1. Sign lords: DSSME SIGN_LORDS == PyJHora _house_owners_list, sign by sign.
++  assert.equal(PYJHORA_HOUSE_OWNERS.length, 12);
++  ZODIAC_SIGNS_ARIES_FIRST.forEach((sign, index) => {
++    const ownerId = PYJHORA_HOUSE_OWNERS[index];
++    assert.ok(ownerId !== undefined, `PyJHora owner for ${sign}`);
++    const pyjhoraOwner = PYJHORA_CLASSICAL_BY_ID[ownerId];
++    assert.ok(pyjhoraOwner !== undefined, `PyJHora planet id ${ownerId}`);
++    assert.equal(SIGN_LORDS[sign], pyjhoraOwner, `${sign} lord: DSSME ${SIGN_LORDS[sign]} vs PyJHora ${pyjhoraOwner}`);
++  });
++
++  // 2. Planet order in DSSME outputs is the PyJHora id order for the seven classical planets.
++  const block = buildRetrogradeBlock(createBlockContext(makeHandChart()));
++  assert.deepEqual(Object.keys(block.value ?? {}).slice(0, 7), [...PYJHORA_CLASSICAL_BY_ID]);
++  assert.deepEqual(Object.keys(block.value ?? {}).slice(7), ["Rahu", "Ketu"], "RAHU_ID=7, KETU_ID=8");
++
++  // 3. Retrograde rule alignment with drik.planets_in_retrograde (Swiss speed < 0):
++  //    Sun/Moon excluded; Mean Rahu/Ketu always retrograde; others retrograde iff speed < 0.
++  const chart = makeHandChart();
++  chart.planets.Mercury.speedLongitude = -0.4;
++  chart.planets.Mercury.isRetrograde = true;
++  const r = buildRetrogradeBlock(createBlockContext(chart)).value;
++  assert.equal(r?.Mercury, true);
++  assert.equal(r?.Sun, false);
++  assert.equal(r?.Moon, false);
++  assert.equal(r?.Rahu, true);
++  assert.equal(r?.Ketu, true);
++
++  console.log("✓ Phase 3 PyJHora Source-Level Alignment Passed (source-level only; numerical parity not executed)!");
++}
+diff --git a/tests/blocks/retrogradeBlock.test.ts b/tests/blocks/retrogradeBlock.test.ts
+new file mode 100644
+index 0000000..41bcd9a
+--- /dev/null
++++ b/tests/blocks/retrogradeBlock.test.ts
+@@ -0,0 +1,69 @@
++/**
++ * Phase 3 — RETROGRADE block tests (hand-built chart, no ephemeris).
++ * RETROGRADE is a chart-instant speed-sign flag; it is not a station event.
++ */
++
++import assert from "node:assert/strict";
++import { buildRetrogradeBlock, createBlockContext } from "../../src/engine/blocks/index.ts";
++import type { RetrogradeBlock } from "../../src/types/dssme-canonical-types.ts";
++import { HAND_JD_UT, makeHandChart } from "./fixtures/handChart.ts";
++
++const EXPECTED: RetrogradeBlock = {
++  Sun: false,
++  Moon: false,
++  Mars: false,
++  Mercury: false,
++  Jupiter: false,
++  Venus: false,
++  Saturn: true,
++  Rahu: true,
++  Ketu: true,
++};
++
++export function runRetrogradeBlockTests(): void {
++  console.log("Running Phase 3 RETROGRADE Block Tests...");
++
++  const result = buildRetrogradeBlock(createBlockContext(makeHandChart()));
++  assert.equal(result.blockId, "RETROGRADE");
++  assert.equal(result.status, "OK");
++  assert.deepEqual(result.issues, []);
++  assert.equal(result.instantJdUt, HAND_JD_UT);
++  assert.deepEqual(result.value, EXPECTED);
++  assert.deepEqual(Object.keys(result.value ?? {}), ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"]);
++
++  // Determinism / degraded provenance.
++  const ctx = createBlockContext(makeHandChart());
++  assert.equal(JSON.stringify(buildRetrogradeBlock(ctx)), JSON.stringify(buildRetrogradeBlock(ctx)));
++  const degraded = buildRetrogradeBlock(createBlockContext(makeHandChart("fallback")));
++  assert.equal(degraded.status, "OK");
++  assert.equal(degraded.provenance.chart.isDegraded, true);
++
++  // A retrograde Mars (negative speed, flag true) is valid.
++  const retroMars = makeHandChart();
++  retroMars.planets.Mars.speedLongitude = -0.2;
++  retroMars.planets.Mars.isRetrograde = true;
++  const rm = buildRetrogradeBlock(createBlockContext(retroMars));
++  assert.equal(rm.status, "OK");
++  assert.equal(rm.value?.Mars, true);
++
++  const expectFailed = (mutate: (c: ReturnType<typeof makeHandChart>) => void, field: string): void => {
++    const chart = makeHandChart();
++    mutate(chart);
++    const r = buildRetrogradeBlock(createBlockContext(chart));
++    assert.equal(r.status, "FAILED_CLOSED");
++    assert.equal(r.value, null);
++    assert.ok(r.issues.some((i) => i.severity === "error" && i.field === field), `${field}: ${JSON.stringify(r.issues)}`);
++  };
++
++  // Sun / Moon can never be retrograde.
++  expectFailed((c) => { c.planets.Sun.isRetrograde = true; }, "planets.Sun.isRetrograde");
++  expectFailed((c) => { c.planets.Moon.isRetrograde = true; }, "planets.Moon.isRetrograde");
++  // Mean nodes are always retrograde.
++  expectFailed((c) => { c.planets.Rahu.isRetrograde = false; }, "planets.Rahu.isRetrograde");
++  expectFailed((c) => { c.planets.Ketu.isRetrograde = false; }, "planets.Ketu.isRetrograde");
++  // Flag must agree with the speed sign for the five true planets.
++  expectFailed((c) => { c.planets.Mars.isRetrograde = true; }, "planets.Mars.isRetrograde");
++  expectFailed((c) => { c.planets.Saturn.speedLongitude = 0.05; }, "planets.Saturn.isRetrograde");
++
++  console.log("✓ Phase 3 RETROGRADE Block Tests Passed!");
++}
+diff --git a/tests/blocks/strictCheck.sh b/tests/blocks/strictCheck.sh
+new file mode 100755
+index 0000000..bcb2aac
+--- /dev/null
++++ b/tests/blocks/strictCheck.sh
+@@ -0,0 +1,27 @@
++#!/usr/bin/env bash
++# Phase 3 targeted strict check.
++# Runs tsc with tsconfig.phase3.json (strict + noUncheckedIndexedAccess) over Phase 3 files ONLY gating on
++# diagnostics located in src/engine/blocks/** and tests/blocks/**. Strict diagnostics in FROZEN Phase 1/2
++# files that those files import are reported as informational (frozen code is not modified, and the
++# repository tsconfig is not changed).
++set -u
++out="$(npx tsc -p tsconfig.phase3.json --noEmit 2>&1)"
++code=$?
++mine="$(printf '%s\n' "$out" | grep -E '^(src/engine/blocks|tests/blocks)/' || true)"
++frozen="$(printf '%s\n' "$out" | grep -E 'error TS' | grep -Ev '^(src/engine/blocks|tests/blocks)/' || true)"
++
++if [ -n "$mine" ]; then
++  echo "Phase 3 strict check FAILED:"
++  printf '%s\n' "$mine"
++  exit 1
++fi
++if [ "$code" -ne 0 ] && [ -z "$frozen" ]; then
++  echo "tsc failed unexpectedly (no Phase 3 diagnostics, no frozen-file diagnostics):"
++  printf '%s\n' "$out"
++  exit 2
++fi
++echo "Phase 3 strict check: 0 diagnostics in Phase 3 files."
++if [ -n "$frozen" ]; then
++  echo "(informational) strict-mode diagnostics inside imported FROZEN files: $(printf '%s\n' "$frozen" | wc -l | tr -d ' ')"
++fi
++exit 0
+diff --git a/tests/run_all_tests.ts b/tests/run_all_tests.ts
+index 8f4eb03..53ca2e8 100644
+--- a/tests/run_all_tests.ts
++++ b/tests/run_all_tests.ts
+@@ -14,6 +14,12 @@ import { runCanonicalChartTests } from "./canonical/canonicalChart.test.ts";
+ import { runCanonicalValidationTests } from "./canonical/canonicalValidation.test.ts";
+ import { runPyjhoraDifferentialTests } from "./differential/pyjhoraDifferential.test.ts";
+ import { runPanchangaTests } from "./panchanga/panchanga.test.ts";
++import { runBlockContractTests } from "./blocks/blockContract.test.ts";
++import { runHousesBlockTests } from "./blocks/housesBlock.test.ts";
++import { runHousePositionsBlockTests } from "./blocks/housePositionsBlock.test.ts";
++import { runRetrogradeBlockTests } from "./blocks/retrogradeBlock.test.ts";
++import { runPyjhoraSourceAlignmentTests } from "./blocks/pyjhoraSourceAlignment.test.ts";
++import { runLevel1IntegrationTests } from "./blocks/level1Integration.test.ts";
+ 
+ interface TestSuiteEntry {
+   name: string;
+@@ -32,11 +38,17 @@ const REGISTERED_SUITES: TestSuiteEntry[] = [
+   { name: "Canonical Validation & Consistency", run: runCanonicalValidationTests },
+   { name: "PyJHora-Derived Reference Fixtures", run: runPyjhoraDifferentialTests },
+   { name: "Panchanga Engine (Phase 2 - Gates A-G)", run: runPanchangaTests },
++  { name: "Phase 3 BlockResult Contract", run: runBlockContractTests },
++  { name: "Phase 3 HOUSES Block", run: runHousesBlockTests },
++  { name: "Phase 3 HOUSE_POSITIONS Block", run: runHousePositionsBlockTests },
++  { name: "Phase 3 RETROGRADE Block", run: runRetrogradeBlockTests },
++  { name: "Phase 3 PyJHora Source-Level Alignment (Level 1)", run: runPyjhoraSourceAlignmentTests },
++  { name: "Phase 3 Level 1 Integration (CanonicalChart -> blocks)", run: runLevel1IntegrationTests },
+ ];
+ 
+ async function runAll() {
+   console.log("============================================================");
+-  console.log("DSSME NATIVE ENGINE (PHASES 1 & 2) — DETERMINISTIC TEST SUITE");
++  console.log("DSSME NATIVE ENGINE (PHASES 1-3) — DETERMINISTIC TEST SUITE");
+   console.log("============================================================\n");
+ 
+   const totalRegistered = REGISTERED_SUITES.length;
+diff --git a/tsconfig.phase3.json b/tsconfig.phase3.json
+new file mode 100644
+index 0000000..7eb9ba7
+--- /dev/null
++++ b/tsconfig.phase3.json
+@@ -0,0 +1,11 @@
++{
++  "extends": "./tsconfig.json",
++  "compilerOptions": {
++    "strict": true,
++    "noUncheckedIndexedAccess": true,
++    "noImplicitReturns": true,
++    "noFallthroughCasesInSwitch": true,
++    "types": ["node"]
++  },
++  "include": ["src/engine/blocks/**/*.ts", "tests/blocks/**/*.ts"]
++}
+-- 
+2.43.0
