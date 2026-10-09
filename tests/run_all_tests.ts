@@ -14,6 +14,12 @@ import { runCanonicalChartTests } from "./canonical/canonicalChart.test.ts";
 import { runCanonicalValidationTests } from "./canonical/canonicalValidation.test.ts";
 import { runPyjhoraDifferentialTests } from "./differential/pyjhoraDifferential.test.ts";
 import { runPanchangaTests } from "./panchanga/panchanga.test.ts";
+import { runBlockContractTests } from "./blocks/blockContract.test.ts";
+import { runHousesBlockTests } from "./blocks/housesBlock.test.ts";
+import { runHousePositionsBlockTests } from "./blocks/housePositionsBlock.test.ts";
+import { runRetrogradeBlockTests } from "./blocks/retrogradeBlock.test.ts";
+import { runPyjhoraSourceAlignmentTests } from "./blocks/pyjhoraSourceAlignment.test.ts";
+import { runLevel1IntegrationTests } from "./blocks/level1Integration.test.ts";
 
 interface TestSuiteEntry {
   name: string;
@@ -32,11 +38,17 @@ const REGISTERED_SUITES: TestSuiteEntry[] = [
   { name: "Canonical Validation & Consistency", run: runCanonicalValidationTests },
   { name: "PyJHora-Derived Reference Fixtures", run: runPyjhoraDifferentialTests },
   { name: "Panchanga Engine (Phase 2 - Gates A-G)", run: runPanchangaTests },
+  { name: "Phase 3 BlockResult Contract", run: runBlockContractTests },
+  { name: "Phase 3 HOUSES Block", run: runHousesBlockTests },
+  { name: "Phase 3 HOUSE_POSITIONS Block", run: runHousePositionsBlockTests },
+  { name: "Phase 3 RETROGRADE Block", run: runRetrogradeBlockTests },
+  { name: "Phase 3 PyJHora Source-Level Alignment (Level 1)", run: runPyjhoraSourceAlignmentTests },
+  { name: "Phase 3 Level 1 Integration (CanonicalChart -> blocks)", run: runLevel1IntegrationTests },
 ];
 
 async function runAll() {
   console.log("============================================================");
-  console.log("DSSME NATIVE ENGINE (PHASES 1 & 2) — DETERMINISTIC TEST SUITE");
+  console.log("DSSME NATIVE ENGINE (PHASES 1-3) — DETERMINISTIC TEST SUITE");
   console.log("============================================================\n");
 
   const totalRegistered = REGISTERED_SUITES.length;

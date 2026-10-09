@@ -7,6 +7,14 @@
 
 ---
 
+> **Revision note (2026-10-06):** Sections C and D were re-verified line by line against PyJHora at the pinned SHA
+> (`48e57d29b47a3143519910a24866758116467485`; `const.py`, `house.py`, `charts.py`). Two statements in the
+> original were wrong and are corrected below: (1) Section D said the Moon is excluded from `planets_in_combustion`;
+> it is included, with `p` running 1..6. (2) Section C said PyJHora "proves" compound friendship for sign dignity;
+> PyJHora's static sign-dignity table is natural-relation only, and the compound table is used elsewhere
+> (Vimsopaka Bala). The direction of the S-01 and S-02 recommendations is unchanged; C.3 gains two open
+> sub-decisions. The status of all four gates remains `[AWAITING SIGN-OFF]`.
+
 ## A. Governance State
 
 * **Governing Architecture:** `PHASE_3_ARCHITECTURE_DESIGN.md` (998 lines), verified and present in project root. The historical 728-line draft (`d344312`) is retired, obsolete, and non-governing.
@@ -66,25 +74,36 @@ Files inspected in PyJHora at pinned commit `48e57d29b47a3143519910a248667581164
    * Planets in the 2nd, 3rd, 4th, 10th, 11th, and 12th houses/signs from a planet are temporary friends (offsets 1, 2, 3, 9, 10, 11).
    * Planets in the 1st, 5th, 6th, 7th, 8th, 9th (offsets 0, 4, 5, 6, 7, 8) are temporary enemies.
 3. **Five-fold Compound Relationships (Panchadha Maitri)** (`house._get_compound_relationships_of_planets`):
-   * Combines Natural + Temporary:
-     * Natural Friend + Temp Friend = **Adhi Mitra (Great Friend)** (score 4 / 5)
-     * Natural Friend + Temp Enemy = **Neutral (Sama)** (score 2 / 3)
-     * Natural Neutral + Temp Friend = **Mitra (Friend)** (score 3 / 4)
-     * Natural Neutral + Temp Enemy = **Satru (Enemy)** (score 1 / 2)
-     * Natural Enemy + Temp Enemy = **Adhi Satru (Great Enemy)** (score 0 / 1)
+   * Combines Natural + Temporary (`house.py:909-923`; the integer is the value stored in `p_compound[p][p1]`):
+     * Natural Friend + Temp Friend = **Adhi Mitra (Great Friend)** (4)
+     * Natural Neutral + Temp Friend = **Mitra (Friend)** (3)
+     * Natural Friend + Temp Enemy, **or** Natural Enemy + Temp Friend = **Sama (Neutral)** (2)
+     * Natural Neutral + Temp Enemy = **Satru (Enemy)** (1)
+     * Natural Enemy + Temp Enemy = **Adhi Satru (Great Enemy)** (0)
+   * Natural values come from `const.planet_relations` with `_FRIEND=3`, `_NEUTRAL_SAMAM=2`, `_ENEMY=1`.
+     Temporary offsets are counted forward from the planet's own sign: `(p_raasi + h) % 12` for `h` in
+     `[1,2,3,9,10,11]` (`house.py:874`).
 4. **Resolution of Chofu Reference Dignity Observation**:
    * In the Chofu reference chart, Saturn is in Pisces. The sign lord of Pisces is Jupiter.
    * Natural relationship: Saturn to Jupiter is **Neutral**.
    * Chart positions: Saturn is in Pisces (House 1); Jupiter is in Cancer (House 5, an offset of 4 signs).
    * Temporary relationship: Offset 4 is in `temporary_enemy_raasi_positions` `[0,4,5,6,7,8]`. Thus, Jupiter is a **Temporary Enemy** to Saturn.
    * Compound calculation: Natural Neutral + Temporary Enemy = **Enemy** (`"Enemy"`).
-   * **Conclusion:** The reference JSON's assignment of `"Enemy"` to Saturn in Pisces is **proven** to result from five-fold compound friendship (Panchadha Maitri), NOT simple natural friendship.
+   * **Conclusion:** The reference JSON's `"Enemy"` for Saturn in Pisces is **reproduced by** five-fold compound friendship and **not** by the natural table (which gives Neutral). This is an arithmetic match on one planet, not proof of the full rule set the reference export applies.
+5. **Where PyJHora itself uses each model (corrects the original Section C wording):**
+   * PyJHora's static sign-dignity table `const.house_strengths_of_planets` (`const.py:405-417`) is natural-relation only. Saturn in Pisces is `2` ("Samam", neutral) there. PyJHora's own sign dignity therefore does **not** reproduce the reference JSON.
+   * The compound table is used in `charts._vimsopaka_bala_of_planets` (`cr[p][d]`, with `d` the sign owner, D1 positions) and in `house._get_varga_viswa_of_planets`.
+   * PyJHora has explicit Rahu and Ketu rows (own exaltation/debilitation signs and natural relations). DSSME instead uses `dignity: "—"` plus the Saturn/Mars shadow-row convention (contract Section 9). That is a second, by-design difference.
 
 ### 3. Closure Recommendation for S-01
 **RECOMMENDATION:** 
 * `DIGNITY` (Block 13 / Block 4) must use **five-fold compound friendship (Panchadha Maitri)** when calculating planetary dignity in Rashi and Navamsha signs (Exalted, Own, Moolatrikona, Grt.Friend, Friend, Neutral, Enemy, Grt.Enemy, Debilitated).
 * Note: Top-level `DRF` in CPS (§9.2) evaluates primary MD/AD relationships using the **Natural Friendship Table** as explicitly specified in contract §9.2.
-* Gate S-01 is ready for formal operator sign-off to mark **CLOSED**.
+* Two sub-decisions are **not** settled by the evidence and need operator input before sign-off:
+  * **S-01b: Navamsha temporary relationships.** Contract Rule 17 says Navamsha dignity uses "the identical rules". Temporary friendship depends on where the *other planets* sit. Decide whether D-9 dignity uses the D-9 chart's own positions or the D-1 positions.
+  * **S-01c: Rahu/Ketu.** Confirm the Saturn/Mars shadow-row convention for dignity-keyed lookups, and record the PyJHora difference above as a Compatibility Exception.
+* DIGNITY fixtures cannot come from PyJHora's static table. A differential fixture would have to call `house._get_compound_relationships_of_planets`, and should be labelled accordingly.
+* Gate S-01 is ready for sign-off once S-01b and S-01c are decided.
 
 ---
 
@@ -126,9 +145,11 @@ def planets_in_combustion(planet_positions,use_absolute_longitude=True):
    `planet_positions[const.MOON_ID+1 : const._pp_count_upto_saturn]`
    * `const.MOON_ID = 1`. Thus `const.MOON_ID + 1 = 2`.
    * `const._pp_count_upto_saturn = 8`.
-   * Range of `p`: `2, 3, 4, 5, 6, 7` (PyJHora IDs for Mars=2, Mercury=3, Jupiter=4, Venus=5, Saturn=6).
-   * Note: The loop comment `# Exclude Lagna, Sun, Rahu and Ketu` is accurate, but it **also excludes Moon** (Moon ID is 1; slicing starts at index 2 = Mars). Moon is NOT checked for combustion in `planets_in_combustion`!
+   * `planet_positions` has Lagna prepended (`charts.py:127`), so index 0 = Lagna, 1 = Sun, 2 = Moon, 3 = Mars ... 7 = Saturn. This is why the function reads the Sun from `planet_positions[1]`.
+   * The slice `[2:8]` therefore covers **Moon through Saturn**, and `p` takes the values `1, 2, 3, 4, 5, 6` (Moon=1, Mars=2, Mercury=3, Jupiter=4, Venus=5, Saturn=6).
+   * The comment `# Exclude Lagna, Sun, Rahu and Ketu` is accurate. The Moon **is** checked. (The original version of this audit said otherwise; that was an error.)
 2. **Array index used:** `combustion_range[p - 2]`
+   * For Moon (`p = 1`): index is `1 - 2 = -1`, which Python resolves to the **last** element.
    * For Mars (`p = 2`): index is `2 - 2 = 0`.
    * For Mercury (`p = 3`): index is `3 - 2 = 1`.
    * For Jupiter (`p = 4`): index is `4 - 2 = 2`.
@@ -141,13 +162,18 @@ Examining the array indexing against the array definition reveals a fatal indexi
 * The array in `const.py:635` has 6 elements:
   `[12, 17, 14, 10, 11, 15]` with comment `#moon,mars,mercury,jupiter,venus,saturn`.
 * The author placed Moon at index 0 (`12°`), Mars at index 1 (`17°`), Mercury at index 2 (`14°`), Jupiter at index 3 (`10°`), Venus at index 4 (`11°`), Saturn at index 5 (`15°`).
-* **However**, the consumer code in `charts.py:1815` accesses `combustion_range[p - 2]`:
-  * Mars (`p=2`) accesses index 0 → gets `12` (the Moon's value)!
-  * Mercury (`p=3`) accesses index 1 → gets `17` (Mars's value)!
-  * Jupiter (`p=4`) accesses index 2 → gets `14` (Mercury's value)!
-  * Venus (`p=5`) accesses index 3 → gets `10` (Jupiter's value)!
-  * Saturn (`p=6`) accesses index 4 → gets `11` (Venus's value)!
-  * Index 5 (`15`, intended for Saturn) is **never accessed**!
+* **However**, the consumer code in `charts.py:1815` accesses `combustion_range[p - 2]`, so every planet receives its neighbour's orb (direct / retrograde):
+  * Moon (`p=1`) → index -1 → gets `15 / 16` (Saturn's value, via Python negative indexing)
+  * Mars (`p=2`) → index 0 → gets `12 / 12` (the Moon's value)
+  * Mercury (`p=3`) → index 1 → gets `17 / 8` (Mars's value)
+  * Jupiter (`p=4`) → index 2 → gets `14 / 12` (Mercury's value)
+  * Venus (`p=5`) → index 3 → gets `10 / 11` (Jupiter's value)
+  * Saturn (`p=6`) → index 4 → gets `11 / 8` (Venus's value)
+  * Every list element is used; the shift is a rotation, not a dropped element.
+* Independent of the indexing bug, three further differences from DSSME exist:
+  * The retrograde list (`[12,8,12,11,8,16]`) disagrees with DSSME's retrograde values for Mars (8 vs 17), Mercury (12 vs 13) and Saturn (16 vs 15). A commented-out alternative on the same line (`[12,17,12,8,11,15]`) suggests the author was unsure.
+  * The comparison is linear on absolute longitude (`use_absolute_longitude=True`), so a conjunction straddling 0/360 degrees is missed.
+  * The function returns a flag only; there is no Mild/Severe split.
 
 ### 5. DSSME Canonical Specification Comparison
 
@@ -174,7 +200,9 @@ DSSME Contract v1.6 (§3.1 Rule 5) explicitly specifies:
   * Jupiter: 11° (direct & retro)
   * Venus: 10° direct / 8° retro
   * Saturn: 15° (direct & retro)
-* Use circular-safe distance: `sep = abs(wrapSigned(planet_lon - sun_lon))`.
+* Use circular-safe distance: `sep = abs(wrapSigned(planet_lon - sun_lon))`. This single definition replaces the contract's "same or adjacent sign" wording, which it already covers.
+* **COMBUST is `NOT_VALIDATABLE` against PyJHora.** A differential fixture would only compare DSSME with the defect described above. Combustion tests must be hand-derived from the contract thresholds.
+* The PyJHora Compatibility Exception recorded for the test suite must describe the neighbour-orb rotation (including Moon receiving Saturn's value), not the Moon being skipped.
 * Gate S-02 is ready for formal operator sign-off to mark **CLOSED**.
 
 ---
@@ -233,7 +261,7 @@ The following architectural governance rule is permanently frozen for Phase 3 an
 
 > **PyJHora Oracle Authority Invariant:**  
 > PyJHora source code serves as an authoritative technical reference for algorithms, classical mapping rules, and structural behaviors, but is **NOT an unconditional implementation oracle**.  
-> When a verified source-level PyJHora defect or indexing bug (such as the `combustion_range[p - 2]` off-by-one error identified in §D) conflicts with an explicit, classical requirement of the **DSSME Master Contract**, the **DSSME Master Contract strictly governs**.  
+> When a verified source-level PyJHora defect or indexing bug (such as the `combustion_range[p - 2]` off-by-one rotation identified in §D) conflicts with an explicit, classical requirement of the **DSSME Master Contract**, the **DSSME Master Contract strictly governs**.  
 > The divergence must be recorded in this audit log and preserved as an explicit **PyJHora Compatibility Exception** in engine test suites and documentation.
 
 ---

@@ -1,4 +1,6 @@
-#!/usr/bin/env python3
+import hashlib
+
+F4_CONTENT = '''#!/usr/bin/env python3
 """
 S-01b experiment: Navamsha temporary friendship, Option A vs Option B.
 
@@ -412,3 +414,13 @@ def main(argv=None):
 
 if __name__ == "__main__":
     sys.exit(main())
+'''
+
+# Write F4 to current dir as s01b_navamsha_friendship_experiment.py
+with open("s01b_navamsha_friendship_experiment.py", "w", newline="\n") as f:
+    f.write(F4_CONTENT)
+
+h_f4 = hashlib.sha256(F4_CONTENT.encode('utf-8')).hexdigest()
+T_F4 = "e41f5dcd9f5114b38e9808327e46760495341b3544c6de62b14e903e844c11e7"
+print("F4 hash:", h_f4)
+print("F4 matches:", h_f4 == T_F4)
