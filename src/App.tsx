@@ -43,6 +43,18 @@ const PRESET_CHOFU: DssmeCalculationInput = {
   chartMode: "Standard",
 };
 
+const PRESET_YANGON_1980: DssmeCalculationInput = {
+  date: "1980-11-04",
+  time: "21:35:00",
+  latitude: 16.8661,
+  longitude: 96.1951,
+  timezone: "Asia/Yangon",
+  timezoneOffset: 6.5,
+  ayanamsa: "Lahiri",
+  bodyMode: "Full",
+  chartMode: "Standard",
+};
+
 export default function App() {
   const [input, setInput] = useState<DssmeCalculationInput>(PRESET_CHOFU);
   const [chart, setChart] = useState<CanonicalChart | null>(null);
@@ -213,7 +225,7 @@ export default function App() {
             </div>
 
             {/* Presets */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-slate-400 font-medium">Presets:</span>
               <button
                 type="button"
@@ -221,9 +233,27 @@ export default function App() {
                   setInput(PRESET_CHOFU);
                   handleCalculate(PRESET_CHOFU);
                 }}
-                className="px-2.5 py-1 rounded text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
+                className={`px-2.5 py-1 rounded text-xs transition border ${
+                  input.timezone === "Asia/Tokyo" && input.date === "2026-09-16"
+                    ? "bg-amber-500/20 text-amber-300 border-amber-500/50"
+                    : "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700"
+                }`}
               >
                 Chofu 2026-09-16 18:50
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setInput(PRESET_YANGON_1980);
+                  handleCalculate(PRESET_YANGON_1980);
+                }}
+                className={`px-2.5 py-1 rounded text-xs transition border ${
+                  input.timezone === "Asia/Yangon" && input.date === "1980-11-04"
+                    ? "bg-amber-500/20 text-amber-300 border-amber-500/50"
+                    : "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700"
+                }`}
+              >
+                Yangon 1980-11-04 21:35
               </button>
             </div>
           </div>
@@ -365,12 +395,36 @@ export default function App() {
 
         {/* Error Alert */}
         {error && (
-          <div className="p-4 rounded-xl bg-rose-950/50 border border-rose-600/50 text-rose-200 flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
-            <div>
-              <h4 className="font-semibold text-sm">Calculation Error</h4>
-              <p className="text-xs mt-0.5 font-mono">{error}</p>
+          <div className="p-4 rounded-xl bg-rose-950/50 border border-rose-600/50 text-rose-200 flex flex-col sm:flex-row items-start justify-between gap-3 shadow-lg">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-semibold text-sm">Calculation Error</h4>
+                <p className="text-xs mt-0.5 font-mono">{error}</p>
+              </div>
             </div>
+            {error.includes("TIMEZONE_ERROR") && (
+              <div className="flex items-center gap-2 mt-2 sm:mt-0 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const yangonInput: DssmeCalculationInput = {
+                      ...input,
+                      timezone: "Asia/Yangon",
+                      timezoneOffset: 6.5,
+                      latitude: 16.8661,
+                      longitude: 96.1951,
+                    };
+                    setInput(yangonInput);
+                    handleCalculate(yangonInput);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs shadow flex items-center gap-1.5 transition"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Switch to Asia/Yangon (+06:30)
+                </button>
+              </div>
+            )}
           </div>
         )}
 
