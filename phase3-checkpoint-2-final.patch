@@ -1,0 +1,1705 @@
+From 4c1a20cc2e485e5575137df1911633ff50a67275 Mon Sep 17 00:00:00 2001
+From: phase3-build <phase3-build@localhost>
+Date: Tue, 13 Oct 2026 00:11:37 +0000
+Subject: [PATCH] feat(phase3): Checkpoint 2 - IDENTITY, DIGNITY, COMBUST,
+ PANCHANGA state flags, D-9 core
+
+Gates closed: S-08, S-01, S-01b, S-02, S-02b, S-02c, T-09. Gate S-09 (Pushkara table) opened;
+NAVAMSHA block and is_pushkara deliberately not built. Adds Phase 3 decision log.
+Based on main 513e992 (Level 1 already integrated). No frozen Phase 1/2 file modified.
+---
+ reports/PHASE_3_BUILD_CHECKPOINT_2.md  |  34 +++++
+ reports/PHASE_3_DECISION_LOG.md        |  81 +++++++++++
+ src/engine/blocks/blockResult.ts       |  15 ++-
+ src/engine/blocks/blockTypes.ts        |   5 +
+ src/engine/blocks/combust.ts           |  99 ++++++++++++++
+ src/engine/blocks/dignity.ts           |  44 ++++++
+ src/engine/blocks/dignityTables.ts     | 107 +++++++++++++++
+ src/engine/blocks/identity.ts          | 177 +++++++++++++++++++++++++
+ src/engine/blocks/index.ts             |  19 +++
+ src/engine/blocks/navamshaCore.ts      |  55 ++++++++
+ src/engine/blocks/panchangaFlags.ts    |  66 +++++++++
+ tests/blocks/combustBlock.test.ts      | 132 ++++++++++++++++++
+ tests/blocks/dignityBlock.test.ts      | 158 ++++++++++++++++++++++
+ tests/blocks/fixtures/handPanchanga.ts |  36 +++++
+ tests/blocks/identityBlock.test.ts     | 154 +++++++++++++++++++++
+ tests/blocks/level1Integration.test.ts |  32 +++++
+ tests/blocks/level2Integration.test.ts |  84 ++++++++++++
+ tests/blocks/navamshaCore.test.ts      |  86 ++++++++++++
+ tests/blocks/panchangaFlags.test.ts    |  85 ++++++++++++
+ tests/run_all_tests.ts                 |  12 ++
+ 20 files changed, 1479 insertions(+), 2 deletions(-)
+ create mode 100644 reports/PHASE_3_BUILD_CHECKPOINT_2.md
+ create mode 100644 reports/PHASE_3_DECISION_LOG.md
+ create mode 100644 src/engine/blocks/combust.ts
+ create mode 100644 src/engine/blocks/dignity.ts
+ create mode 100644 src/engine/blocks/dignityTables.ts
+ create mode 100644 src/engine/blocks/identity.ts
+ create mode 100644 src/engine/blocks/navamshaCore.ts
+ create mode 100644 src/engine/blocks/panchangaFlags.ts
+ create mode 100644 tests/blocks/combustBlock.test.ts
+ create mode 100644 tests/blocks/dignityBlock.test.ts
+ create mode 100644 tests/blocks/fixtures/handPanchanga.ts
+ create mode 100644 tests/blocks/identityBlock.test.ts
+ create mode 100644 tests/blocks/level2Integration.test.ts
+ create mode 100644 tests/blocks/navamshaCore.test.ts
+ create mode 100644 tests/blocks/panchangaFlags.test.ts
+
+diff --git a/reports/PHASE_3_BUILD_CHECKPOINT_2.md b/reports/PHASE_3_BUILD_CHECKPOINT_2.md
+new file mode 100644
+index 0000000..e0cab57
+--- /dev/null
++++ b/reports/PHASE_3_BUILD_CHECKPOINT_2.md
+@@ -0,0 +1,34 @@
++# DSSME Phase 3 — BUILD Checkpoint 2 (Level 2)
++
++**Base:** `main` HEAD `513e992`. Checkpoint 1 (BlockResult contract, HOUSES, HOUSE_POSITIONS, RETROGRADE) is **already on main** (`d0ffa21` + `bc38d08`); its files are byte-identical to the Checkpoint 1 patch built in this session (verified by hash), so that patch is obsolete and this checkpoint applies directly to main.
++**Governing design:** `PHASE_3_ARCHITECTURE_DESIGN.md` (repository root, 998 lines). **Decisions:** `reports/PHASE_3_DECISION_LOG.md`.
++
++## Delivered
++IDENTITY · DIGNITY · COMBUST · PANCHANGA state flags (`gandanta_active`, `amavasya_zone`, `purnima_zone`) · D-9 core (`d9Placement`, `navamshaPlacements`: sign, dignity, Vargottama).
++**Not delivered (gated):** NAVAMSHA block / `is_pushkara` (S-09 open) · PANCHANGA full block mapping, `sunset_time`, temporal flags (EventEphemeris checkpoint).
++
++## Results
++| Check | Result |
++|---|---|
++| `tsc --noEmit` | exit 0 |
++| `npm run lint:phase3` | 0 diagnostics in Phase 3 files (informational strict diagnostics remain inside imported frozen files) |
++| `npm test` | 23/23 suites (11 existing + 12 Phase 3) |
++| `vite build` | succeeds |
++| Mutation sanity | 10 deliberate breakages of frozen decisions (3 at Checkpoint 1, 7 at Checkpoint 2) each caught; sources restored byte-identical |
++| Frozen Phase 1/2 files | untouched |
++
++## DSSME ↔ PyJHora mapping (SOURCE-LEVEL ONLY — PyJHora NOT executed)
++| DSSME | PyJHora source | Result |
++|---|---|---|
++| Natural friendship tables | `const._friendly_planets/_neutral_planets/_enemy_planets`, `planet_relations` | MATCH (7×7, 0 mismatches) |
++| Sign-level dignity (exalted/debilitated/own) | `const.house_strengths_of_planets`, `_house_owners_list` | 81/84 cells MATCH; 3 documented exceptions |
++| Moolatrikona ranges | `const.moola_trikona_range_of_planets` | values adopted (owner decision); no PyJHora consumer found |
++| D-9 sign / degree | `charts.navamsa_chart`, method Traditional Parasara | MATCH (rule), exact at rational boundaries by design |
++| Combustion | `const.combustion_range_*`, `charts.planets_in_combustion`, `rashmi.py` | DSSME spec governs (S-02); PyJHora internally inconsistent |
++| Pushkara Navamsha | `const.pushkara_navamsa`, `charts.planets_in_pushkara_navamsa_bhaga` | DIFFERENT — gate S-09 open |
++
++**Status: PyJHora source-level alignment verified; numerical parity not yet executed.** No numerical PyJHora benchmark exists in this checkpoint; the Chofu reference JSON was used only for internal-consistency checks of its own columns (D-9 and Pushkara flags) and never as an engine golden (T-10 open).
++
++## Open gates / next
++Open: S-09 (new), T-01…T-08, T-10, A-01, A-02, S-03…S-07.
++Next: S-09 decision → NAVAMSHA block; then Checkpoint 3 (BAV/SAV/BAV_CURRENT_SIGN/SIGN_CLUSTERS need S-04; ASPECTS S-03; DASHA S-05; HORA needs the sunset provider).
+diff --git a/reports/PHASE_3_DECISION_LOG.md b/reports/PHASE_3_DECISION_LOG.md
+new file mode 100644
+index 0000000..a72225b
+--- /dev/null
++++ b/reports/PHASE_3_DECISION_LOG.md
+@@ -0,0 +1,81 @@
++# DSSME Phase 3 — Decision Log
++
++**Governing design (declared by the project owner):** `PHASE_3_ARCHITECTURE_DESIGN.md` (repository root) — the 998-line version with the 2026-10-01 HEAD-verification addendum.
++**Historical, NON-governing:** the 728-line draft added in `d344312` and deleted in `5b79ece`.
++**Master contract state:** `f9d73c4` (v1.6) is the current repository/master-contract state. v1.6 does **not** supersede the Phase 3 design, and it is **not** an implicit decision for S-02 / T-03 / T-09: its §3, §6 and §15 are byte-identical to v1.5 (verified by script).
++Gate set of record: design §16 (20 gates) + S-01b/S-02b/S-02c (sub-gates) + S-09 (new).
++
++**Relationship to `reports/PHASE_3_GATE_RESOLUTION_AUDIT.md` (797e3bf):** that audit's recommendations were evidence packages awaiting sign-off, and its Checkpoint 2 hard freeze is lifted by the decisions below. Where they differ, **this log governs**: the audit recommended compound (Panchadha Maitri) friendship for S-01; the owner decided **natural friendship only**. Its S-02 and T-09 recommendations are adopted unchanged (with S-02b/S-02c refining separation and the severity boundary), and its S-08 recommendation is superseded by the engine-typed-contract decision.
++
++## Gate status
++
++| Gate | Status | Decision (owner, 2026-10-03) |
++|---|---|---|
++| S-08 | **CLOSED** | Canonical output follows the engine's typed contract / repository representation, never the reference JSON. `bodyMode` `"9-body"`. Coordinates numeric internally, strings only at the output boundary. Panchanga names: canonical engine spelling; aliases only at the input/normalization boundary. Residuals R1–R5 confirmed (below). |
++| S-01 | **CLOSED** | DIGNITY = Natural Friendship only. No temporary / compound / tatkalika friendship (also in NAVAMSHA). |
++| S-01b | **CLOSED** | Precedence Exalted > Moolatrikona > Own > natural Friend/Neutral/Enemy (Debilitated is a distinct sign, checked before the natural fallback). `Grt.Friend` / `Grt.Enemy` unreachable, never emitted. Moolatrikona ranges = PyJHora `moola_trikona_range_of_planets`. Mercury in Virgo = Exalted (PyJHora Compatibility Exception). Rahu/Ketu = `"—"`. |
++| S-02 | **CLOSED** | DSSME Master Contract governs; PyJHora = non-authoritative reference. Thresholds below. |
++| S-02b | **CLOSED** | Separation is circular: `min(|a−b|, 360−|a−b|)`. |
++| S-02c | **CLOSED** | Severity splits at exactly 50 % (Jupiter 5.5°); boundary belongs to SEVERE (`sep <= half`). |
++| T-09 | **CLOSED** | Candidate A: `amavasya_zone` = tithi index ∈ {29,30,1}; `purnima_zone` = ∈ {14,15,16}, from `PanchangaResult.tithi.index`; elongation is not recomputed. |
++| **S-09** | **OPEN (new)** | Pushkara Navamsha table: DSSME spec ≠ PyJHora. Blocks `NAVAMSHA.is_pushkara` and the NAVAMSHA block. |
++| T-01…T-08, T-10, A-01, A-02, S-03…S-07 | OPEN | Unchanged. Features that touch them are not written. |
++
++### Frozen thresholds (S-02)
++| Planet | Direct | Retrograde |
++|---|---:|---:|
++| Moon | 12° | n/a |
++| Mars | 17° | 17° |
++| Mercury | 14° | 13° |
++| Jupiter | 11° | 11° |
++| Venus | 10° | 8° |
++| Saturn | 15° | 15° |
++`sep <= threshold/2` ⇒ Severe; `threshold/2 < sep <= threshold` ⇒ Mild; `sep > threshold` ⇒ not combust. Sun: `combust=false, sep_deg=null`. Retrograde = frozen Swiss-speed flag.
++
++### Frozen Moolatrikona ranges (S-01b), half-open `[from, to)`
++Sun Leo 0–20 · Moon Taurus 3–30 · Mars Aries 0–12 · Mercury Virgo 15–20 · Jupiter Sagittarius 0–10 · Venus Libra 0–15 · Saturn Aquarius 0–20. Inclusivity is a DSSME implementation choice: the PyJHora range table has no consumer in the inspected modules (its Shadbala tests Moolatrikona at sign level), and its own Pushkara test is half-open. Moon/Taurus and Mercury/Virgo are Exalted, so their ranges are unreachable.
++
++### S-08 residuals (IDENTITY)
++| # | Field | Decision |
++|---|---|---|
++| R1 | `engine_version` | KEEP: from `BlockContext.engineVersion`; absent ⇒ `"NOT_FOUND"`, warning, `DEFAULTED`. No literal invented (no repository constant; sources disagree). |
++| R2 | latitude / longitude | KEEP: `"35.65N"`, `"139.54E"`. |
++| R3 | `timezone` | KEEP: `"UTC+09:00"`. |
++| R4 | `ayanamsa_value` | KEEP `"24.2300"`. **Sign convention intentionally retained / unresolved contract discrepancy:** the spec template shows `-XX.XXXX`; the engine value is positive; no unilateral change. |
++| R5 | `lagna_degree` | KEEP: `formatDms` + the `30°` rounding guard. |
++
++## PyJHora Compatibility Exceptions (PyJHora @ 48e57d29b47a3143519910a24866758116467485; source-level only — PyJHora NOT executed)
++1. **Mercury in Virgo:** DSSME Exalted (spec, reference JSON) vs PyJHora `house_strengths_of_planets` Owner.
++2. **Natural-only vs PyJHora sign matrix:** 3 of 84 cells differ — Sun/Cancer (DSSME Friend, PyJHora Neutral), Mercury/Virgo (above), Venus/Sagittarius (DSSME Neutral, PyJHora Friend). Asserted exactly in `dignityBlock.test.ts`.
++3. **Natural friendship tables:** identical to PyJHora `_friendly/_neutral/_enemy_planets` (7×7, 0 mismatches) — MATCH.
++4. **Great Friend / Great Enemy:** exist only in PyJHora's compound tables; never emitted by DSSME (S-01). v1.6 open item #4 records the same gap for DRF.
++5. **Combustion:** PyJHora's two consumers index the lists differently (`charts.py [p-2]` vs `rashmi.py [p_id-1]`) and the lists disagree with each other; DSSME thresholds govern.
++6. **D-9:** DSSME uses the same Traditional-Parasara element-seed rule as `charts.navamsa_chart`, but `floor((deg*9)/30)` is exact at rational boundaries (10° → 4th navamsa) where PyJHora's float floor-division can fall one navamsa short.
++7. **Retrograde (Level 1):** DSSME matches `drik.planets_in_retrograde` (Swiss speed); `charts.planets_in_retrograde` is an elongation-window approximation and is not used.
++
++## S-09 — Pushkara Navamsha (decision NOT taken; NAVAMSHA block not built)
++**DSSME_SPEC** (extraction §6 / master §3.2): one or two Pushkara zones per sign (table below); `is_pushkara` = the planet's Rashi degree inside its sign's zone.
++**PYJHORA_BEHAVIOR** (`const.pushkara_navamsa`, `charts.planets_in_pushkara_navamsa_bhaga`): per sign start `pn` = [20, 6°40′, 16°40′, 0] by element; zones `[pn, pn+3°20′) ∪ [pn+6°40′, pn+10°)`; nodes included.
++**REFERENCE JSON:** its nine `is_pushkara` flags (Sun, Moon true; others false) all match the DSSME table; PyJHora would also flag **Mercury** (Virgo 14°47′ ∈ 13°20′–16°40′) — 1 of 9 differs.
++
++| Sign | DSSME spec | PyJHora |
++|---|---|---|
++| Aries | 16°00′–20°00′ | 20°00′–23°20′ & 26°40′–30°00′ |
++| Taurus | 13°20′–16°40′ | 6°40′–10°00′ & 13°20′–16°40′ |
++| Gemini | 23°20′–26°40′ | 16°40′–20°00′ & 23°20′–26°40′ |
++| Cancer | 26°40′–30°00′ | 0°00′–3°20′ & 6°40′–10°00′ |
++| Leo | 0°00′–3°20′ & 26°40′–30°00′ | 20°00′–23°20′ & 26°40′–30°00′ |
++| Virgo | 23°20′–26°40′ | 6°40′–10°00′ & 13°20′–16°40′ |
++| Libra | 10°00′–13°20′ | 16°40′–20°00′ & 23°20′–26°40′ |
++| Scorpio | 0°00′–3°20′ | 0°00′–3°20′ & 6°40′–10°00′ |
++| Sagittarius | 16°40′–20°00′ | 20°00′–23°20′ & 26°40′–30°00′ |
++| Capricorn | 13°20′–16°40′ & 23°20′–26°40′ | 6°40′–10°00′ & 13°20′–16°40′ |
++| Aquarius | 6°40′–10°00′ | 16°40′–20°00′ & 23°20′–26°40′ |
++| Pisces | 10°00′–13°20′ | 0°00′–3°20′ & 6°40′–10°00′ |
++
++**DECISION REQUIRED:** (A) DSSME spec table governs (consistent with S-02 / S-01b policy and with the reference JSON); (B) PyJHora's rule; (C) other. Everything else in NAVAMSHA (`d9Placement`, `navamshaPlacements`: D-9 sign, dignity, Vargottama) is built and tested; only `is_pushkara` and block assembly wait.
++
++## Still unresolved (not blockers for what was built)
++* IDENTITY `engine_version` literal (R1); `ayanamsa_value` sign convention (R4).
++* `gandanta_active` boundary (not one of the 20 gates): implemented half-open — last zone `[26°40′, 30°)`, first zone `[0°, 3°20′)`.
++* PANCHANGA full block (string layouts, `sunset_time`, `moon_nak_entry/exit`) and the temporal flags `eclipse_proximity` / `ingress_stacking` are not started.
+diff --git a/src/engine/blocks/blockResult.ts b/src/engine/blocks/blockResult.ts
+index f38f6b2..1ba87b7 100644
+--- a/src/engine/blocks/blockResult.ts
++++ b/src/engine/blocks/blockResult.ts
+@@ -41,7 +41,12 @@ export function warningIssue(field: string, message: string): BlockIssue {
+  *
+  * A DEGRADED chart (fallback/mixed) is accepted here: state blocks may consume it and carry the flag.
+  */
+-export function createBlockContext(chart: CanonicalChart, panchanga?: PanchangaResult): BlockContext {
++export interface BlockContextOptions {
++  readonly panchanga?: PanchangaResult;
++  readonly engineVersion?: string;
++}
++
++export function createBlockContext(chart: CanonicalChart, panchanga?: PanchangaResult, options?: BlockContextOptions): BlockContext {
+   // The type says mandatory; a chart loaded from JSON may violate it at runtime.
+   const prov: ChartProvenance | undefined = chart.provenance;
+   if (!prov) {
+@@ -57,7 +62,13 @@ export function createBlockContext(chart: CanonicalChart, panchanga?: PanchangaR
+   if (!Number.isFinite(jd)) {
+     throw new Error("INVALID_INPUT: chart.time.julianDayUt must be a finite number");
+   }
+-  return panchanga === undefined ? { chart } : { chart, panchanga };
++  const pan = panchanga ?? options?.panchanga;
++  const engineVersion = options?.engineVersion;
++  return {
++    chart,
++    ...(pan === undefined ? {} : { panchanga: pan }),
++    ...(engineVersion === undefined ? {} : { engineVersion }),
++  };
+ }
+ 
+ export function provenanceFor(ctx: BlockContext, inputs: readonly BlockInput[]): BlockProvenance {
+diff --git a/src/engine/blocks/blockTypes.ts b/src/engine/blocks/blockTypes.ts
+index 3b619ed..8952b9e 100644
+--- a/src/engine/blocks/blockTypes.ts
++++ b/src/engine/blocks/blockTypes.ts
+@@ -74,4 +74,9 @@ export interface BlockContext {
+   readonly chart: CanonicalChart;
+   /** Optional: Level 1 blocks never need it; later blocks that do must check for it. */
+   readonly panchanga?: PanchangaResult;
++  /**
++   * Engine version literal for IDENTITY.engine_version. Supplied by the caller/assembler; no constant
++   * exists in the repository, so IDENTITY reports "NOT_FOUND" (DEFAULTED) when it is absent.
++   */
++  readonly engineVersion?: string;
+ }
+diff --git a/src/engine/blocks/combust.ts b/src/engine/blocks/combust.ts
+new file mode 100644
+index 0000000..16853c5
+--- /dev/null
++++ b/src/engine/blocks/combust.ts
+@@ -0,0 +1,99 @@
++/**
++ * Block 13 (COMBUST) — Level 2.
++ *
++ * Frozen decisions (owner, 2026-10-03 — reports/PHASE_3_DECISION_LOG.md):
++ *   S-02  DSSME Master Contract governs. PyJHora is a non-authoritative reference: its own two consumers of
++ *         the combustion lists index them differently (charts.py [p-2] vs rashmi.py [p_id-1]).
++ *   S-02b separation is CIRCULAR: min(|a-b|, 360-|a-b|).
++ *   S-02c severity splits at exactly 50 % of the threshold, boundary belongs to SEVERE:
++ *         sep <= half -> Severe ; half < sep <= threshold -> Mild ; sep > threshold -> not combust.
++ *
++ * Thresholds (degrees)       direct  retrograde
++ *   Moon                      12      n/a (Moon is never retrograde)
++ *   Mars                      17      17
++ *   Mercury                   14      13
++ *   Jupiter                   11      11
++ *   Venus                     10       8
++ *   Saturn                    15      15
++ * Retrograde status is the frozen Swiss-speed flag (CanonicalBodyPosition.isRetrograde).
++ * Sun has no combustion: combust=false, sep_deg=null, severity=null (spec template).
++ * sep_deg is the raw circular separation (no rounding) for the six non-Sun planets, combust or not.
++ */
++
++import type { ClassicalPlanet, CombustBlock, CombustEntry } from "../../types/dssme-canonical-types.ts";
++import type { BlockContext, BlockIssue, BlockResult } from "./blockTypes.ts";
++import { errorIssue, finalizeBlock } from "./blockResult.ts";
++
++type Combustible = Exclude<ClassicalPlanet, "Sun">;
++
++interface Threshold {
++  readonly direct: number;
++  readonly retro: number | null;
++}
++
++export const COMBUST_THRESHOLDS: Readonly<Record<Combustible, Threshold>> = {
++  Moon: { direct: 12, retro: null },
++  Mars: { direct: 17, retro: 17 },
++  Mercury: { direct: 14, retro: 13 },
++  Jupiter: { direct: 11, retro: 11 },
++  Venus: { direct: 10, retro: 8 },
++  Saturn: { direct: 15, retro: 15 },
++};
++
++export function circularSeparation(a: number, b: number): number {
++  const raw = Math.abs(a - b);
++  return Math.min(raw, 360 - raw);
++}
++
+ export function classifyCombustion(separation: number, threshold: number): Pick<CombustEntry, "combust" | "severity"> {
++  if (separation > threshold) return { combust: false, severity: null };
++  return { combust: true, severity: separation <= threshold / 2 ? "Severe" : "Mild" };
++}
++
++function validLongitude(value: number): boolean {
++  return Number.isFinite(value) && value >= 0 && value < 360;
++}
++
++function entryFor(ctx: BlockContext, planet: Combustible, issues: BlockIssue[]): CombustEntry {
++  const body = ctx.chart.planets[planet];
++  const sun = ctx.chart.planets.Sun;
++  const empty: CombustEntry = { combust: false, sep_deg: null, severity: null };
++  if (!validLongitude(body.siderealLongitude)) {
++    issues.push(errorIssue(`planets.${planet}.siderealLongitude`, `invalid longitude ${String(body.siderealLongitude)}`));
++    return empty;
++  }
++  if (typeof body.isRetrograde !== "boolean") {
++    issues.push(errorIssue(`planets.${planet}.isRetrograde`, "isRetrograde must be boolean"));
++    return empty;
++  }
++  const t = COMBUST_THRESHOLDS[planet];
++  let threshold = t.direct;
++  if (body.isRetrograde) {
++    if (t.retro === null) {
++      issues.push(errorIssue(`planets.${planet}.isRetrograde`, `${planet} can never be retrograde`));
++      return empty;
++    }
++    threshold = t.retro;
++  }
++  const sep = circularSeparation(body.siderealLongitude, sun.siderealLongitude);
++  const verdict = classifyCombustion(sep, threshold);
++  return { combust: verdict.combust, sep_deg: sep, severity: verdict.severity };
++}
++
++export function buildCombustBlock(ctx: BlockContext): BlockResult<CombustBlock> {
++  const issues: BlockIssue[] = [];
++  if (!validLongitude(ctx.chart.planets.Sun.siderealLongitude)) {
++    issues.push(errorIssue("planets.Sun.siderealLongitude", `invalid longitude ${String(ctx.chart.planets.Sun.siderealLongitude)}`));
++  }
++  const e = (p: Combustible): CombustEntry => entryFor(ctx, p, issues);
++  const value: CombustBlock = {
++    Sun: { combust: false, sep_deg: null, severity: null },
++    Moon: e("Moon"),
++    Mars: e("Mars"),
++    Mercury: e("Mercury"),
++    Jupiter: e("Jupiter"),
++    Venus: e("Venus"),
++    Saturn: e("Saturn"),
++  };
++  return finalizeBlock({ blockId: "COMBUST", ctx, inputs: ["CanonicalChart"], value, issues });
++}
+diff --git a/src/engine/blocks/dignity.ts b/src/engine/blocks/dignity.ts
+new file mode 100644
+index 0000000..18ee32a
+--- /dev/null
++++ b/src/engine/blocks/dignity.ts
+@@ -0,0 +1,44 @@
++/**
++ * Block 13 (DIGNITY) — Level 2. Natural-friendship-only dignity (gates S-01 / S-01b closed).
++ * Rahu and Ketu carry no dignity of their own: always "—" (no exaltation / MT / own / friendship logic).
++ * See dignityTables.ts for the frozen precedence and sources.
++ */
++
++import type { ClassicalPlanet, DignityBlock } from "../../types/dssme-canonical-types.ts";
++import { ZODIAC_SIGNS_ARIES_FIRST } from "../../types/dssme-canonical-types.ts";
++import type { BlockContext, BlockIssue, BlockResult } from "./blockTypes.ts";
++import { errorIssue, finalizeBlock, mapNineBodies } from "./blockResult.ts";
++import { classicalDignity, isClassicalPlanet } from "./dignityTables.ts";
++
++const CLASSICAL: readonly ClassicalPlanet[] = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
++
++function validate(ctx: BlockContext): BlockIssue[] {
++  const issues: BlockIssue[] = [];
++  for (const planet of CLASSICAL) {
++    const p = ctx.chart.planets[planet];
++    if (!p) {
++      issues.push(errorIssue(`planets.${planet}`, `${planet} is missing`));
++      continue;
++    }
++    if (!ZODIAC_SIGNS_ARIES_FIRST.includes(p.sign)) {
++      issues.push(errorIssue(`planets.${planet}.sign`, `invalid sign "${String(p.sign)}"`));
++    }
++    if (!Number.isFinite(p.signDegree) || p.signDegree < 0 || p.signDegree >= 30) {
++      issues.push(errorIssue(`planets.${planet}.signDegree`, `degree ${String(p.signDegree)} outside [0, 30)`));
++    }
++  }
++  return issues;
++}
++
++export function buildDignityBlock(ctx: BlockContext): BlockResult<DignityBlock> {
++  const issues = validate(ctx);
++  const hasError = issues.some((i) => i.severity === "error");
++  const value: DignityBlock | null = hasError
++    ? null
++    : mapNineBodies((body) => {
++        if (!isClassicalPlanet(body)) return "—";
++        const p = ctx.chart.planets[body];
++        return classicalDignity(body, p.sign, p.signDegree);
++      });
++  return finalizeBlock({ blockId: "DIGNITY", ctx, inputs: ["CanonicalChart"], value, issues });
++}
+diff --git a/src/engine/blocks/dignityTables.ts b/src/engine/blocks/dignityTables.ts
+new file mode 100644
+index 0000000..cc41daf
+--- /dev/null
++++ b/src/engine/blocks/dignityTables.ts
+@@ -0,0 +1,107 @@
++/**
++ * DIGNITY tables and the single-planet dignity function (Level 2).
++ *
++ * Frozen decisions (owner, 2026-10-03 — see reports/PHASE_3_DECISION_LOG.md):
++ *   S-01  closed: Natural Friendship ONLY. No temporary / compound / tatkalika friendship.
++ *   S-01b closed: precedence  Exalted > Moolatrikona > Own > (Debilitated) > natural Friend / Neutral / Enemy.
++ *         `Grt.Friend` / `Grt.Enemy` are UNREACHABLE under natural-only and are never emitted.
++ *         Moolatrikona degree ranges are the PyJHora const.moola_trikona_range_of_planets values.
++ *         Exalted wins over Moolatrikona inside the same sign (Moon/Taurus, Mercury/Virgo).
++ *         Mercury in Virgo is EXALTED (DSSME spec) — a PyJHora Compatibility Exception (PyJHora: Owner).
++ *
++ * Sources (PyJHora @ 48e57d29b47a3143519910a24866758116467485, const.py):
++ *   house_strengths_of_planets  (4 = exalted sign, 0 = debilitated sign, 5 = own)
++ *   _friendly_planets / _neutral_planets / _enemy_planets  == DSSME Master Contract §9.2 (7x7, 0 mismatches)
++ *   moola_trikona_range_of_planets
++ * Moolatrikona ranges are applied half-open [from, to): the PyJHora range table has no consumer in the
++ * inspected modules, so inclusivity is a DSSME implementation choice (matches PyJHora's own half-open
++ * Pushkara test style).
++ */
++
++import type { ClassicalPlanet, Dignity, NineBody, ZodiacSign } from "../../types/dssme-canonical-types.ts";
++import { SIGN_LORDS } from "../astronomy/planetaryPositions.ts";
++
++export type ClassicalDignity = Exclude<Dignity, "Grt.Friend" | "Grt.Enemy" | "—">;
++export type NaturalRelation = "Friend" | "Neutral" | "Enemy";
++
++export const EXALTATION_SIGN: Readonly<Record<ClassicalPlanet, ZodiacSign>> = {
++  Sun: "Aries",
++  Moon: "Taurus",
++  Mars: "Capricorn",
++  Mercury: "Virgo", // DSSME spec: "Exalted for Mercury is Virgo only" (PyJHora matrix: Owner)
++  Jupiter: "Cancer",
++  Venus: "Pisces",
++  Saturn: "Libra",
++};
++
++export const DEBILITATION_SIGN: Readonly<Record<ClassicalPlanet, ZodiacSign>> = {
++  Sun: "Libra",
++  Moon: "Scorpio",
++  Mars: "Cancer",
++  Mercury: "Pisces",
++  Jupiter: "Capricorn",
++  Venus: "Virgo",
++  Saturn: "Aries",
++};
++
++export interface MoolatrikonaRange {
++  readonly sign: ZodiacSign;
++  readonly fromDeg: number;
++  readonly toDeg: number;
++}
++
++export const MOOLATRIKONA: Readonly<Record<ClassicalPlanet, MoolatrikonaRange>> = {
++  Sun: { sign: "Leo", fromDeg: 0, toDeg: 20 },
++  Moon: { sign: "Taurus", fromDeg: 3, toDeg: 30 },
++  Mars: { sign: "Aries", fromDeg: 0, toDeg: 12 },
++  Mercury: { sign: "Virgo", fromDeg: 15, toDeg: 20 },
++  Jupiter: { sign: "Sagittarius", fromDeg: 0, toDeg: 10 },
++  Venus: { sign: "Libra", fromDeg: 0, toDeg: 15 },
++  Saturn: { sign: "Aquarius", fromDeg: 0, toDeg: 20 },
++};
++
++/** DSSME Master Contract §9.2 Natural Planetary Friendship Table. Neutral = every other classical planet. */
++export const NATURAL_FRIENDS: Readonly<Record<ClassicalPlanet, readonly ClassicalPlanet[]>> = {
++  Sun: ["Moon", "Mars", "Jupiter"],
++  Moon: ["Sun", "Mercury"],
++  Mars: ["Sun", "Moon", "Jupiter"],
++  Mercury: ["Sun", "Venus"],
++  Jupiter: ["Sun", "Moon", "Mars"],
++  Venus: ["Mercury", "Saturn"],
++  Saturn: ["Mercury", "Venus"],
++};
++
++export const NATURAL_ENEMIES: Readonly<Record<ClassicalPlanet, readonly ClassicalPlanet[]>> = {
++  Sun: ["Venus", "Saturn"],
++  Moon: [],
++  Mars: ["Mercury"],
++  Mercury: ["Moon"],
++  Jupiter: ["Mercury", "Venus"],
++  Venus: ["Sun", "Moon"],
++  Saturn: ["Sun", "Moon", "Mars"],
++};
++
++/** Type guard: the seven classical planets (everything except Rahu / Ketu). */
++export function isClassicalPlanet(body: NineBody): body is ClassicalPlanet {
++  return body !== "Rahu" && body !== "Ketu";
++}
++
++export function naturalRelation(planet: ClassicalPlanet, other: ClassicalPlanet): NaturalRelation {
++  if (NATURAL_FRIENDS[planet].includes(other)) return "Friend";
++  if (NATURAL_ENEMIES[planet].includes(other)) return "Enemy";
++  return "Neutral";
++}
++
++/**
++ * Dignity of one classical planet in a sign at a given degree within that sign [0, 30).
++ * Debilitation is checked before the Moolatrikona range only because the two can never share a sign.
++ */
++export function classicalDignity(planet: ClassicalPlanet, sign: ZodiacSign, signDegree: number): ClassicalDignity {
++  if (EXALTATION_SIGN[planet] === sign) return "Exalted";
++  if (DEBILITATION_SIGN[planet] === sign) return "Debilitated";
++  const mt = MOOLATRIKONA[planet];
++  if (mt.sign === sign && signDegree >= mt.fromDeg && signDegree < mt.toDeg) return "Moolatrikona";
++  const lord = SIGN_LORDS[sign];
++  if (lord === planet) return "Own";
++  return naturalRelation(planet, lord);
++}
+diff --git a/src/engine/blocks/identity.ts b/src/engine/blocks/identity.ts
+new file mode 100644
+index 0000000..af9bb36
+--- /dev/null
++++ b/src/engine/blocks/identity.ts
+@@ -0,0 +1,177 @@
++/**
++ * Block 1 — IDENTITY (Level 1).
++ *
++ * Decision Gate S-08 (CLOSED): canonical output follows the engine's typed contract / current repository
++ * representation, NOT the reference JSON. bodyMode is "9-body"; coordinates are numeric internally and
++ * rendered to strings only here, at the output boundary; aliases are accepted only at this input boundary.
++ *
++ * Formats (each in ONE function below, so a later decision can change it in one place):
++ *   timezone         "UTC+09:00"   frozen formatOffsetDisplay (spec: "UTC±HH:MM")
++ *   latitude/longitude "35.65N"     |value| exactly as the number prints + hemisphere letter, no rounding
++ *   ayanamsa_value   "24.2300"     chart.ayanamsa.value, positive decimal degrees, 4 dp   [residual R4]
++ *   lagna_degree     "25°09'04\""  frozen formatDms (rounds seconds); never "30°…" (guarded)
++ *   day              civil weekday of the LOCAL date (not the sunrise-based Vara)
++ *
++ * Session parameters (body_mode, objective, risk, geometry) pass through, never calculated. Absent => the
++ * spec literal "NOT_FOUND" (extraction Rule 12/13) with a warning and status DEFAULTED. Present but invalid
++ * => error => FAILED_CLOSED.
++ *
++ * No new Jyotish calculation: nothing here reads PyJHora.
++ */
++
++import type { IdentityBlock } from "../../types/dssme-canonical-types.ts";
++import { formatDms } from "../astronomy/ayanamsa.ts";
++import { getLagnaType } from "../astronomy/ascendant.ts";
++import { weekdayOf } from "../panchanga/vara.ts";
++import { formatOffsetDisplay } from "../../utils/timezoneHelper.ts";
++import type { BlockContext, BlockIssue, BlockResult } from "./blockTypes.ts";
++import { errorIssue, finalizeBlock, warningIssue } from "./blockResult.ts";
++
++export const NOT_FOUND = "NOT_FOUND";
++
++const WEEKDAYS: readonly string[] = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
++const RISKS: readonly string[] = ["LOW", "MEDIUM", "HIGH", "OBSERVE"];
++const GEOMETRIES: readonly string[] = ["ordered_2_digit", "ordered_3_digit"];
++
++/** Hemisphere-suffixed coordinate: |value| exactly as JS prints it, no rounding. */
++export function formatCoordinate(value: number, positive: string, negative: string): string {
++  return `${String(Math.abs(value))}${value < 0 ? negative : positive}`;
++}
++
++/** "9:05" / "09:05" / "09:05:07" -> "HH:MM:SS"; null if not a time. */
++export function normalizeTime(raw: string): string | null {
++  const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(raw.trim());
++  if (!m) return null;
++  const hour = Number(m[1]);
++  const minute = Number(m[2]);
++  const second = m[3] === undefined ? 0 : Number(m[3]);
++  if (hour > 23 || minute > 59 || second > 59) return null;
++  const pad = (n: number): string => String(n).padStart(2, "0");
++  return `${pad(hour)}:${pad(minute)}:${pad(second)}`;
++}
++
++/** Canonical "9-body" | "7-body"; alias "Full" is accepted at this input boundary only. */
++export function normalizeBodyMode(raw: string): "9-body" | "7-body" | null {
++  const v = raw.trim();
++  if (v === "9-body" || v === "Full") return "9-body";
++  if (v === "7-body") return "7-body";
++  return null;
++}
++
++function civilWeekday(date: string): string | null {
++  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
++  if (!m) return null;
++  const weekday = weekdayOf({ year: Number(m[1]), month: Number(m[2]), day: Number(m[3]) });
++  return WEEKDAYS[weekday] ?? null;
++}
++
++function lagnaDegreeString(signDegree: number, issues: BlockIssue[]): string {
++  const formatted = formatDms(signDegree);
++  if (formatted.startsWith("30")) {
++    // Rounding carried into the next sign: keep the in-sign degree strictly below 30.
++    issues.push(warningIssue("lagna_degree", "seconds rounding reached 30°; clamped to 29°59'59\""));
++    return "29°59'59\"";
++  }
++  return formatted;
++}
++
++export function buildIdentityBlock(ctx: BlockContext): BlockResult<IdentityBlock> {
++  const { chart } = ctx;
++  const issues: BlockIssue[] = [];
++  let defaulted = false;
++  const missing = (field: string, why: string): string => {
++    defaulted = true;
++    issues.push(warningIssue(field, `${why}; reporting "${NOT_FOUND}"`));
++    return NOT_FOUND;
++  };
++
++  const date = chart.input.date;
++  const day = civilWeekday(date);
++  if (day === null) issues.push(errorIssue("date", `cannot derive weekday from "${date}"`));
++
++  const time = normalizeTime(chart.input.time);
++  if (time === null) issues.push(errorIssue("time", `invalid time "${chart.input.time}"`));
++
++  const offset = chart.time.timezoneOffsetHours;
++  if (!Number.isFinite(offset)) issues.push(errorIssue("timezone", "timezone offset is not finite"));
++
++  const lat = chart.location.latitude;
++  const lon = chart.location.longitude;
++  if (!Number.isFinite(lat) || Math.abs(lat) > 90) issues.push(errorIssue("latitude", `invalid latitude ${String(lat)}`));
++  if (!Number.isFinite(lon) || Math.abs(lon) > 180) issues.push(errorIssue("longitude", `invalid longitude ${String(lon)}`));
++
++  const city = chart.location.city ?? missing("location_city", "no city supplied");
++  const country = chart.location.country ?? missing("location_country", "no country supplied");
++
++  const rawBody = chart.input.bodyMode;
++  let bodyMode: string;
++  if (rawBody === undefined) {
++    bodyMode = missing("body_mode", "session parameter not supplied");
++  } else {
++    const normalized = normalizeBodyMode(rawBody);
++    if (normalized === null) {
++      issues.push(errorIssue("body_mode", `unrecognized bodyMode "${rawBody}" (expected 9-body, 7-body, or alias Full)`));
++      bodyMode = NOT_FOUND;
++    } else {
++      bodyMode = normalized;
++    }
++  }
++
++  const objective = chart.input.objective ?? missing("objective", "session parameter not supplied");
++
++  const rawRisk = chart.input.risk;
++  let risk: string;
++  if (rawRisk === undefined) {
++    risk = missing("risk", "session parameter not supplied");
++  } else if (!RISKS.includes(rawRisk)) {
++    issues.push(errorIssue("risk", `invalid risk "${rawRisk}" (expected ${RISKS.join("|")})`));
++    risk = NOT_FOUND;
++  } else {
++    risk = rawRisk;
++  }
++
++  const rawGeometry = chart.input.geometry;
++  let geometry: string;
++  if (rawGeometry === undefined) {
++    geometry = missing("geometry", "session parameter not supplied");
++  } else if (!GEOMETRIES.includes(rawGeometry)) {
++    issues.push(errorIssue("geometry", `invalid geometry "${rawGeometry}" (expected ${GEOMETRIES.join("|")})`));
++    geometry = NOT_FOUND;
++  } else {
++    geometry = rawGeometry;
++  }
++
++  const engineVersion = ctx.engineVersion ?? missing("engine_version", "no engine version supplied to the block context");
++
++  if (chart.ayanamsa.name !== "Lahiri") issues.push(errorIssue("ayanamsa_name", `unsupported ayanamsa "${String(chart.ayanamsa.name)}"`));
++  if (!Number.isFinite(chart.ayanamsa.value)) issues.push(errorIssue("ayanamsa_value", "ayanamsa value is not finite"));
++  if (!Number.isFinite(chart.lagna.signDegree) || chart.lagna.signDegree < 0 || chart.lagna.signDegree >= 30) {
++    issues.push(errorIssue("lagna_degree", `lagna degree ${String(chart.lagna.signDegree)} outside [0,30)`));
++  }
++
++  const hasError = issues.some((i) => i.severity === "error");
++  const value: IdentityBlock | null =
++    hasError || day === null || time === null
++      ? null
++      : {
++          date,
++          day,
++          time,
++          timezone: formatOffsetDisplay(offset),
++          location_city: city,
++          location_country: country,
++          latitude: formatCoordinate(lat, "N", "S"),
++          longitude: formatCoordinate(lon, "E", "W"),
++          ayanamsa_name: chart.ayanamsa.name,
++          ayanamsa_value: chart.ayanamsa.value.toFixed(4),
++          lagna_sign: chart.lagna.sign,
++          lagna_degree: lagnaDegreeString(chart.lagna.signDegree, issues),
++          lagna_type: getLagnaType(chart.lagna.sign),
++          body_mode: bodyMode,
++          objective,
++          risk,
++          geometry,
++          engine_version: engineVersion,
++        };
++  return finalizeBlock({ blockId: "IDENTITY", ctx, inputs: ["CanonicalChart"], value, issues, defaulted });
++}
+diff --git a/src/engine/blocks/index.ts b/src/engine/blocks/index.ts
+index 1f2015e..751229f 100644
+--- a/src/engine/blocks/index.ts
++++ b/src/engine/blocks/index.ts
+@@ -1,4 +1,5 @@
+ export * from "./blockTypes.ts";
++export type { BlockContextOptions } from "./blockResult.ts";
+ export {
+   HOUSE_KEYS,
+   createBlockContext,
+@@ -14,3 +15,21 @@ export {
+ export { buildHousesBlock } from "./houses.ts";
+ export { buildHousePositionsBlock } from "./housePositions.ts";
+ export { buildRetrogradeBlock } from "./retrograde.ts";
++export { buildIdentityBlock, formatCoordinate, normalizeBodyMode, normalizeTime, NOT_FOUND } from "./identity.ts";
++export { buildDignityBlock } from "./dignity.ts";
++export {
++  DEBILITATION_SIGN,
++  EXALTATION_SIGN,
++  MOOLATRIKONA,
++  NATURAL_ENEMIES,
++  NATURAL_FRIENDS,
++  classicalDignity,
++  isClassicalPlanet,
++  naturalRelation,
++} from "./dignityTables.ts";
++export type { ClassicalDignity, NaturalRelation } from "./dignityTables.ts";
++export { d9Placement, navamshaPlacements } from "./navamshaCore.ts";
++export type { D9Placement, NavamshaPlacement } from "./navamshaCore.ts";
++export { COMBUST_THRESHOLDS, buildCombustBlock, circularSeparation, classifyCombustion } from "./combust.ts";
++export { buildPanchangaStateFlags, isAmavasyaZone, isGandanta, isPurnimaZone } from "./panchangaFlags.ts";
++export type { PanchangaStateFlags } from "./panchangaFlags.ts";
+diff --git a/src/engine/blocks/navamshaCore.ts b/src/engine/blocks/navamshaCore.ts
+new file mode 100644
+index 0000000..8c59b50
+--- /dev/null
++++ b/src/engine/blocks/navamshaCore.ts
+@@ -0,0 +1,55 @@
++/**
++ * D-9 (Navamsha) placement core — Level 2 building blocks for NAVAMSHA.
++ *
++ * NOT a block yet: `is_pushkara` is blocked by the open Decision Gate S-09 (the DSSME spec's Pushkara table
++ * differs from PyJHora's). Everything here is gate-clear.
++ *
++ * Source: PyJHora horoscope/chart/charts.py::navamsa_chart, default method "Traditional Parasara":
++ *   navamsa index  = floor(longitudeInSign / (30/9))            (0..8)
++ *   start (seed)   = fire 0 (Aries) · earth 9 (Capricorn) · air 6 (Libra) · water 3 (Cancer)
++ *   D-9 sign       = (seed + index) mod 12
++ *   D-9 degree     = (longitudeInSign * 9) mod 30
++ * This equals the classical "movable: same sign / fixed: 9th / dual: 5th" rule (asserted in tests).
++ * DIFFERENCE by design: the index uses floor((degree*9)/30), which is exact at rational boundaries (10° -> 3),
++ * whereas PyJHora's float floor-division by 3.3333333333333335 can fall one navamsa short exactly there.
++ *
++ * Dignity in D-9 (owner decision): natural friendship only; Exalted > Moolatrikona > Own precedence is
++ * applied first, with the Moolatrikona range tested against the D-9 in-sign degree.
++ */
++
++import type { CanonicalChart, Dignity, NineBody, ZodiacSign } from "../../types/dssme-canonical-types.ts";
++import { classicalDignity, isClassicalPlanet } from "./dignityTables.ts";
++import { mapNineBodies, signAt } from "./blockResult.ts";
++
++const D9_SEED: Readonly<Record<ZodiacSign, number>> = {
++  Aries: 0, Leo: 0, Sagittarius: 0, // fire
++  Taurus: 9, Virgo: 9, Capricorn: 9, // earth
++  Gemini: 6, Libra: 6, Aquarius: 6, // air
++  Cancer: 3, Scorpio: 3, Pisces: 3, // water
++};
++
+ export interface D9Placement {
++  readonly sign: ZodiacSign;
++  readonly degree: number;
++}
++
++export function d9Placement(sign: ZodiacSign, signDegree: number): D9Placement {
++  const index = Math.min(8, Math.floor((signDegree * 9) / 30));
++  return { sign: signAt(D9_SEED[sign] + index), degree: (signDegree * 9) % 30 };
++}
++
++export interface NavamshaPlacement {
++  readonly sign: ZodiacSign;
++  readonly dignity: Dignity;
++  readonly isVargottama: boolean;
++}
++
++/** D-9 sign, D-9 dignity and Vargottama for all nine bodies, in canonical order. Nodes carry "—". */
++export function navamshaPlacements(chart: CanonicalChart): Record<NineBody, NavamshaPlacement> {
++  return mapNineBodies((body) => {
++    const p = chart.planets[body];
++    const d9 = d9Placement(p.sign, p.signDegree);
++    const dignity: Dignity = isClassicalPlanet(body) ? classicalDignity(body, d9.sign, d9.degree) : "—";
++    return { sign: d9.sign, dignity, isVargottama: d9.sign === p.sign };
++  });
++}
+diff --git a/src/engine/blocks/panchangaFlags.ts b/src/engine/blocks/panchangaFlags.ts
+new file mode 100644
+index 0000000..adc6727
+--- /dev/null
++++ b/src/engine/blocks/panchangaFlags.ts
+@@ -0,0 +1,66 @@
++/**
++ * PANCHANGA state flags — Level 2 (partial PANCHANGA contribution; the full block is NOT built yet).
++ *
++ * Only the three CHART-INSTANT flags. `eclipse_proximity` and `ingress_stacking` are temporal and wait for
++ * the EventEphemeris checkpoint. The value type is a Pick of the existing PanchangaBlock interface; the
++ * result carries blockId "PANCHANGA" because it is that block's contribution, to be merged by the assembler.
++ *
++ * T-09 (CLOSED by owner): candidate A — cyclic discrete tithi index from PanchangaResult.tithi.index (1..30).
++ *   amavasya_zone = index in {29, 30, 1}        purnima_zone = index in {14, 15, 16}
++ *   Elongation is NOT recomputed.
++ *
++ * gandanta_active (spec extraction Rule 8; not one of the 20 gates): Moon OR Lagna within the LAST 3°20′ of
++ *   Cancer / Scorpio / Pisces, or the FIRST 3°20′ of Aries / Leo / Sagittarius. Boundary choice (not
++ *   specified): half-open — last zone [26°40′, 30°), first zone [0°, 3°20′).
++ */
++
++import type { PanchangaBlock, ZodiacSign } from "../../types/dssme-canonical-types.ts";
++import type { BlockContext, BlockIssue, BlockResult } from "./blockTypes.ts";
++import { errorIssue, finalizeBlock } from "./blockResult.ts";
++
++export type PanchangaStateFlags = Pick<PanchangaBlock, "gandanta_active" | "amavasya_zone" | "purnima_zone">;
++
++const GANDANTA_SPAN_DEG = 10 / 3; // 3°20′
++const WATER_ENDS: readonly ZodiacSign[] = ["Cancer", "Scorpio", "Pisces"];
++const FIRE_STARTS: readonly ZodiacSign[] = ["Aries", "Leo", "Sagittarius"];
++
++export function isAmavasyaZone(tithiIndex: number): boolean {
++  return tithiIndex === 29 || tithiIndex === 30 || tithiIndex === 1;
++}
++
++export function isPurnimaZone(tithiIndex: number): boolean {
++  return tithiIndex === 14 || tithiIndex === 15 || tithiIndex === 16;
++}
++
++export function isGandanta(sign: ZodiacSign, signDegree: number): boolean {
++  if (WATER_ENDS.includes(sign)) return signDegree >= 30 - GANDANTA_SPAN_DEG && signDegree < 30;
++  if (FIRE_STARTS.includes(sign)) return signDegree >= 0 && signDegree < GANDANTA_SPAN_DEG;
++  return false;
++}
++
++export function buildPanchangaStateFlags(ctx: BlockContext): BlockResult<PanchangaStateFlags> {
++  const issues: BlockIssue[] = [];
++  const pan = ctx.panchanga;
++  if (pan === undefined) {
++    issues.push(errorIssue("panchanga", "PanchangaResult is required for the Panchanga state flags"));
++  } else if (!Number.isInteger(pan.tithi.index) || pan.tithi.index < 1 || pan.tithi.index > 30) {
++    issues.push(errorIssue("panchanga.tithi.index", `tithi index must be an integer 1-30, found ${String(pan.tithi.index)}`));
++  }
++  const { chart } = ctx;
++  for (const [name, p] of [["Moon", chart.planets.Moon], ["Lagna", chart.lagna]] as const) {
++    if (!Number.isFinite(p.signDegree) || p.signDegree < 0 || p.signDegree >= 30) {
++      issues.push(errorIssue(`${name}.signDegree`, `degree ${String(p.signDegree)} outside [0, 30)`));
++    }
++  }
++  const value: PanchangaStateFlags | null =
++    issues.some((i) => i.severity === "error") || pan === undefined
++      ? null
++      : {
++          gandanta_active:
++            isGandanta(chart.planets.Moon.sign, chart.planets.Moon.signDegree) ||
++            isGandanta(chart.lagna.sign, chart.lagna.signDegree),
++          amavasya_zone: isAmavasyaZone(pan.tithi.index),
++          purnima_zone: isPurnimaZone(pan.tithi.index),
++        };
++  return finalizeBlock({ blockId: "PANCHANGA", ctx, inputs: ["CanonicalChart", "PanchangaResult"], value, issues });
++}
+diff --git a/tests/blocks/combustBlock.test.ts b/tests/blocks/combustBlock.test.ts
+new file mode 100644
+index 0000000..0b83737
+--- /dev/null
++++ b/tests/blocks/combustBlock.test.ts
+@@ -0,0 +1,132 @@
++/**
++ * Phase 3 — COMBUST block tests (hand-built chart, no ephemeris).
++ * Frozen: S-02 (DSSME thresholds govern), S-02b (circular separation), S-02c (exact 50 %, boundary -> Severe).
++ */
++
++import assert from "node:assert/strict";
++import {
++  COMBUST_THRESHOLDS,
++  buildCombustBlock,
++  circularSeparation,
++  classifyCombustion,
++  createBlockContext,
++} from "../../src/engine/blocks/index.ts";
++import type { CombustBlock, CombustEntry } from "../../src/types/dssme-canonical-types.ts";
++import { HAND_JD_UT, makeHandChart } from "./fixtures/handChart.ts";
++
++type Combustible = "Moon" | "Mars" | "Mercury" | "Jupiter" | "Venus" | "Saturn";
++const PLANETS: readonly Combustible[] = ["Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
++const SPEC_DIRECT: Record<Combustible, number> = { Moon: 12, Mars: 17, Mercury: 14, Jupiter: 11, Venus: 10, Saturn: 15 };
++const SPEC_RETRO: Record<Exclude<Combustible, "Moon">, number> = { Mars: 17, Mercury: 13, Jupiter: 11, Venus: 8, Saturn: 15 };
++
++function entryAt(planet: Combustible, sunLon: number, planetLon: number, retro: boolean): CombustEntry {
++  const chart = makeHandChart();
++  chart.planets.Sun.siderealLongitude = sunLon;
++  chart.planets[planet].siderealLongitude = planetLon;
++  chart.planets[planet].isRetrograde = retro;
++  const r = buildCombustBlock(createBlockContext(chart));
++  assert.equal(r.status, "OK", JSON.stringify(r.issues));
++  assert.ok(r.value);
++  return r.value[planet];
++}
++
++export function runCombustBlockTests(): void {
++  console.log("Running Phase 3 COMBUST Block Tests...");
++
++  // 1. Frozen threshold table equals the DSSME spec (S-02 = A).
++  for (const p of PLANETS) {
++    assert.equal(COMBUST_THRESHOLDS[p].direct, SPEC_DIRECT[p], `${p} direct`);
++  }
++  assert.equal(COMBUST_THRESHOLDS.Moon.retro, null);
++  for (const p of ["Mars", "Mercury", "Jupiter", "Venus", "Saturn"] as const) {
++    assert.equal(COMBUST_THRESHOLDS[p].retro, SPEC_RETRO[p], `${p} retro`);
++  }
++
++  // 2. Boundaries for every planet, direct and retrograde: threshold, half (Severe), just beyond each.
++  const sun = 100;
++  for (const p of PLANETS) {
++    const modes: [boolean, number][] = [[false, SPEC_DIRECT[p]]];
++    if (p !== "Moon") modes.push([true, SPEC_RETRO[p]]);
++    for (const [retro, thr] of modes) {
++      const label = `${p} ${retro ? "retro" : "direct"} thr=${thr}`;
++      const at = (sep: number): CombustEntry => entryAt(p, sun, sun + sep, retro);
++      assert.deepEqual(at(0), { combust: true, sep_deg: 0, severity: "Severe" }, `${label} sep 0`);
++      assert.equal(at(thr / 2).severity, "Severe", `${label} half is Severe (<=)`);
++      assert.equal(at(thr / 2 + 1e-9).severity, "Mild", `${label} just above half is Mild`);
++      assert.equal(at(thr).severity, "Mild", `${label} threshold is Mild`);
++      assert.equal(at(thr).combust, true);
++      assert.deepEqual(at(thr + 1e-9).combust, false, `${label} just beyond threshold`);
++      assert.equal(at(thr + 1e-9).severity, null);
++    }
++  }
++
++  // 3. S-02c example: Jupiter 11° -> half is 5.5 (not the spec example's 6).
++  assert.equal(entryAt("Jupiter", sun, sun + 5.5, false).severity, "Severe");
++  assert.equal(entryAt("Jupiter", sun, sun + 6, false).severity, "Mild");
++  assert.equal(entryAt("Jupiter", sun, sun + 11, false).severity, "Mild");
++
++  // 4. Retrograde thresholds differ where DSSME says so: Mercury 14 -> 13, Venus 10 -> 8.
++  assert.equal(entryAt("Mercury", sun, sun + 13.5, false).combust, true);
++  assert.equal(entryAt("Mercury", sun, sun + 13.5, true).combust, false);
++  assert.equal(entryAt("Venus", sun, sun + 9, false).combust, true);
++  assert.equal(entryAt("Venus", sun, sun + 9, true).combust, false);
++  assert.equal(entryAt("Mars", sun, sun + 16, true).combust, true, "Mars keeps 17 when retrograde");
++
++  // 5. Circular separation (S-02b): the 0°/360° wrap is handled; linear difference would miss these.
++  assert.equal(circularSeparation(358, 6), 8);
++  assert.equal(circularSeparation(6, 358), 8);
++  assert.equal(circularSeparation(0, 180), 180);
++  assert.equal(circularSeparation(10, 10), 0);
++  assert.deepEqual(entryAt("Moon", 358, 6, false), { combust: true, sep_deg: 8, severity: "Mild" });
++  assert.deepEqual(entryAt("Saturn", 2, 350, false), { combust: true, sep_deg: 12, severity: "Mild" });
++  assert.deepEqual(entryAt("Moon", 359, 5, false), { combust: true, sep_deg: 6, severity: "Severe" }, "wrap + half boundary");
++
++  // 6. classifyCombustion is the single verdict function.
++  assert.deepEqual(classifyCombustion(5.5, 11), { combust: true, severity: "Severe" });
++  assert.deepEqual(classifyCombustion(5.5000001, 11), { combust: true, severity: "Mild" });
++  assert.deepEqual(classifyCombustion(11.0000001, 11), { combust: false, severity: null });
++
++  // 7. Hand chart: integer separations, Sun entry fixed, canonical key order, sep_deg also for non-combust planets.
++  const result = buildCombustBlock(createBlockContext(makeHandChart()));
++  assert.equal(result.blockId, "COMBUST");
++  assert.equal(result.status, "OK");
++  assert.deepEqual(result.issues, []);
++  assert.equal(result.instantJdUt, HAND_JD_UT);
++  const expected: CombustBlock = {
++    Sun: { combust: false, sep_deg: null, severity: null },
++    Moon: { combust: false, sep_deg: 64, severity: null },
++    Mars: { combust: false, sep_deg: 60, severity: null },
++    Mercury: { combust: false, sep_deg: 16, severity: null },
++    Jupiter: { combust: false, sep_deg: 36, severity: null },
++    Venus: { combust: false, sep_deg: 41, severity: null },
++    Saturn: { combust: false, sep_deg: 161, severity: null },
++  };
++  assert.deepEqual(result.value, expected);
++  assert.deepEqual(Object.keys(result.value ?? {}), ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"]);
++  assert.deepEqual(result.provenance, { chart: { ephemeris: "swisseph-wasm", isDegraded: false }, inputs: ["CanonicalChart"], auxSources: [] });
++
++  // 8. FAILED_CLOSED: retrograde Moon, invalid longitude; degraded provenance is consumed; determinism.
++  const retroMoon = makeHandChart();
++  retroMoon.planets.Moon.isRetrograde = true;
++  const f1 = buildCombustBlock(createBlockContext(retroMoon));
++  assert.equal(f1.status, "FAILED_CLOSED");
++  assert.equal(f1.value, null);
++  assert.ok(f1.issues.some((i) => i.severity === "error" && i.field === "planets.Moon.isRetrograde"));
++  for (const bad of [360, -1, Number.NaN]) {
++    const c = makeHandChart();
++    c.planets.Mars.siderealLongitude = bad;
++    const r = buildCombustBlock(createBlockContext(c));
++    assert.equal(r.status, "FAILED_CLOSED");
++    assert.ok(r.issues.some((i) => i.severity === "error" && i.field === "planets.Mars.siderealLongitude"));
++  }
++  const badSun = makeHandChart();
++  badSun.planets.Sun.siderealLongitude = Number.NaN;
++  assert.ok(buildCombustBlock(createBlockContext(badSun)).issues.some((i) => i.field === "planets.Sun.siderealLongitude"));
++  const degraded = buildCombustBlock(createBlockContext(makeHandChart("fallback")));
++  assert.equal(degraded.status, "OK");
++  assert.equal(degraded.provenance.chart.isDegraded, true);
++  const ctx = createBlockContext(makeHandChart());
++  assert.equal(JSON.stringify(buildCombustBlock(ctx)), JSON.stringify(buildCombustBlock(ctx)));
++
++  console.log("✓ Phase 3 COMBUST Block Tests Passed!");
++}
+diff --git a/tests/blocks/dignityBlock.test.ts b/tests/blocks/dignityBlock.test.ts
+new file mode 100644
+index 0000000..ae02ffc
+--- /dev/null
++++ b/tests/blocks/dignityBlock.test.ts
+@@ -0,0 +1,158 @@
++/**
++ * Phase 3 — DIGNITY block tests (hand-built chart, no ephemeris).
++ * Frozen decisions: S-01 (natural friendship only), S-01b (Exalted > Moolatrikona > Own > natural relation;
++ * Mercury/Virgo Exalted; Rahu/Ketu "—"; Grt.* unreachable).
++ *
++ * PyJHora source-level alignment (NOT executed): natural tables and sign-level matrix, with the three
++ * documented PyJHora Compatibility Exceptions.
++ */
++
++import assert from "node:assert/strict";
++import {
++  NATURAL_ENEMIES,
++  NATURAL_FRIENDS,
++  buildDignityBlock,
++  classicalDignity,
++  createBlockContext,
++} from "../../src/engine/blocks/index.ts";
++import {
++  CLASSICAL_PLANETS_ORDER,
++  ZODIAC_SIGNS_ARIES_FIRST,
++  type ClassicalPlanet,
++  type DignityBlock,
++} from "../../src/types/dssme-canonical-types.ts";
++import { HAND_JD_UT, makeHandChart } from "./fixtures/handChart.ts";
++
++// PyJHora @ 48e57d29…, const.py (literals read from source). Planet ids: Sun 0 … Saturn 6.
++const PYJHORA_FRIENDLY: readonly (readonly number[])[] = [[1, 2, 4], [0, 3], [0, 1, 4], [0, 5], [0, 1, 2], [3, 6], [3, 5]];
++const PYJHORA_NEUTRAL: readonly (readonly number[])[] = [[3], [2, 4, 5, 6], [5, 6], [2, 4, 6], [6], [2, 4], [4]];
++const PYJHORA_ENEMY: readonly (readonly number[])[] = [[5, 6], [], [3], [1], [3, 5], [0, 1], [0, 1, 2]];
++/** house_strengths_of_planets: rows Sun..Saturn, columns Aries..Pisces. 5 own, 4 exalted, 3 friend, 2 samam, 1 enemy, 0 debilitated. */
++const PYJHORA_STRENGTH: readonly (readonly number[])[] = [
++  [4, 1, 2, 2, 5, 2, 0, 3, 3, 1, 1, 3],
++  [2, 4, 3, 5, 3, 3, 2, 0, 2, 2, 2, 2],
++  [5, 2, 1, 0, 3, 1, 2, 5, 3, 4, 2, 3],
++  [2, 3, 5, 1, 3, 5, 3, 2, 2, 2, 2, 0],
++  [3, 1, 1, 4, 3, 1, 1, 3, 5, 0, 2, 5],
++  [2, 5, 3, 1, 1, 0, 5, 2, 3, 3, 3, 4],
++  [0, 3, 3, 1, 1, 3, 4, 1, 2, 5, 5, 2],
++];
++const PYJHORA_CLASS: Readonly<Record<number, string>> = { 5: "Own", 4: "Exalted", 3: "Friend", 2: "Neutral", 1: "Enemy", 0: "Debilitated" };
++
++const EXPECTED_HAND: DignityBlock = {
++  Sun: "Own", // Leo 28°: outside Moolatrikona 0–20
++  Moon: "Debilitated", // Scorpio
++  Mars: "Enemy", // Gemini: lord Mercury is Mars's natural enemy
++  Mercury: "Exalted", // Virgo (DSSME spec); PyJHora: Own
++  Jupiter: "Exalted", // Cancer
++  Venus: "Moolatrikona", // Libra 9°: inside 0–15
++  Saturn: "Neutral", // Pisces: lord Jupiter is Saturn's natural neutral (reference JSON, compound: Enemy)
++  Rahu: "—",
++  Ketu: "—",
++};
++
++export function runDignityBlockTests(): void {
++  console.log("Running Phase 3 DIGNITY Block Tests...");
++
++  // 1. Hand chart equals the hand-written expectation; canonical key order; provenance / instant.
++  const result = buildDignityBlock(createBlockContext(makeHandChart()));
++  assert.equal(result.blockId, "DIGNITY");
++  assert.equal(result.status, "OK");
++  assert.deepEqual(result.issues, []);
++  assert.equal(result.instantJdUt, HAND_JD_UT);
++  assert.deepEqual(result.provenance, { chart: { ephemeris: "swisseph-wasm", isDegraded: false }, inputs: ["CanonicalChart"], auxSources: [] });
++  assert.deepEqual(result.value, EXPECTED_HAND);
++  assert.deepEqual(Object.keys(result.value ?? {}), ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"]);
++
++  // 2. Precedence and half-open Moolatrikona ranges.
++  const d = classicalDignity;
++  assert.equal(d("Moon", "Taurus", 10), "Exalted", "Exalted beats Moolatrikona (Moon 3–30 Taurus)");
++  assert.equal(d("Moon", "Taurus", 1), "Exalted");
++  assert.equal(d("Mercury", "Virgo", 17), "Exalted", "Exalted beats Moolatrikona (Mercury Virgo 15–20)");
++  assert.equal(d("Mercury", "Virgo", 25), "Exalted", "Exalted beats Own — PyJHora Compatibility Exception (PyJHora: Own)");
++  assert.equal(d("Sun", "Leo", 19.99), "Moolatrikona");
++  assert.equal(d("Sun", "Leo", 20), "Own");
++  assert.equal(d("Mars", "Aries", 11.99), "Moolatrikona");
++  assert.equal(d("Mars", "Aries", 12), "Own");
++  assert.equal(d("Mars", "Scorpio", 5), "Own");
++  assert.equal(d("Jupiter", "Sagittarius", 9.99), "Moolatrikona");
++  assert.equal(d("Jupiter", "Sagittarius", 10), "Own");
++  assert.equal(d("Jupiter", "Pisces", 5), "Own");
++  assert.equal(d("Venus", "Libra", 14.99), "Moolatrikona");
++  assert.equal(d("Venus", "Libra", 15), "Own");
++  assert.equal(d("Venus", "Taurus", 5), "Own");
++  assert.equal(d("Saturn", "Aquarius", 19.99), "Moolatrikona");
++  assert.equal(d("Saturn", "Aquarius", 20), "Own");
++  assert.equal(d("Saturn", "Capricorn", 5), "Own");
++  assert.equal(d("Moon", "Cancer", 5), "Own", "spec gotcha: Moon in Cancer is Own, not Exalted");
++  assert.equal(d("Mercury", "Gemini", 5), "Own", "spec gotcha: Mercury in Gemini is Own, not Exalted");
++  assert.equal(d("Jupiter", "Cancer", 5), "Exalted", "spec gotcha: Jupiter in Cancer is Exalted");
++
++  // 3. Natural-only: Great Friend / Great Enemy are unreachable over every sign and a degree sweep.
++  const emitted = new Set<string>();
++  for (const planet of CLASSICAL_PLANETS_ORDER) {
++    for (const sign of ZODIAC_SIGNS_ARIES_FIRST) {
++      for (const deg of [0, 2.5, 3, 9.99, 10, 14.99, 15, 17, 19.99, 20, 25, 29.99]) emitted.add(classicalDignity(planet, sign, deg));
++    }
++  }
++  assert.deepEqual([...emitted].sort(), ["Debilitated", "Enemy", "Exalted", "Friend", "Moolatrikona", "Neutral", "Own"]);
++  assert.ok(!emitted.has("Grt.Friend") && !emitted.has("Grt.Enemy"));
++
++  // 4. Source-level alignment: natural tables == PyJHora _friendly/_neutral/_enemy (ids Sun 0 … Saturn 6).
++  CLASSICAL_PLANETS_ORDER.forEach((planet, id) => {
++    const toNames = (ids: readonly number[] | undefined): ClassicalPlanet[] =>
++      (ids ?? []).map((i) => {
++        const n = CLASSICAL_PLANETS_ORDER[i];
++        assert.ok(n !== undefined);
++        return n;
++      });
++    assert.deepEqual([...NATURAL_FRIENDS[planet]].sort(), toNames(PYJHORA_FRIENDLY[id]).sort(), `${planet} friends`);
++    assert.deepEqual([...NATURAL_ENEMIES[planet]].sort(), toNames(PYJHORA_ENEMY[id]).sort(), `${planet} enemies`);
++    const neutral = CLASSICAL_PLANETS_ORDER.filter((o) => o !== planet && !NATURAL_FRIENDS[planet].includes(o) && !NATURAL_ENEMIES[planet].includes(o));
++    assert.deepEqual([...neutral].sort(), toNames(PYJHORA_NEUTRAL[id]).sort(), `${planet} neutrals`);
++  });
++
++  // 5. Source-level alignment: all 84 sign-level cells vs PyJHora house_strengths_of_planets.
++  //    Degree 29.99 sits outside every Moolatrikona range, so only sign-level classes are compared.
++  const exceptions: string[] = [];
++  CLASSICAL_PLANETS_ORDER.forEach((planet, p) => {
++    ZODIAC_SIGNS_ARIES_FIRST.forEach((sign, s) => {
++      const row = PYJHORA_STRENGTH[p];
++      assert.ok(row !== undefined);
++      const code = row[s];
++      assert.ok(code !== undefined);
++      const pyjhora = PYJHORA_CLASS[code];
++      const dssme = classicalDignity(planet, sign, 29.99);
++      if (pyjhora !== dssme) exceptions.push(`${planet}/${sign}: DSSME ${dssme} vs PyJHora ${String(pyjhora)}`);
++    });
++  });
++  assert.deepEqual(exceptions, [
++    "Sun/Cancer: DSSME Friend vs PyJHora Neutral",
++    "Mercury/Virgo: DSSME Exalted vs PyJHora Own",
++    "Venus/Sagittarius: DSSME Neutral vs PyJHora Friend",
++  ], "exactly the three documented PyJHora Compatibility Exceptions");
++
++  // 6. FAILED_CLOSED on invalid placements; degraded provenance is consumed.
++  const badSign = makeHandChart();
++  Reflect.set(badSign.planets.Sun, "sign", "Nonsense");
++  const f1 = buildDignityBlock(createBlockContext(badSign));
++  assert.equal(f1.status, "FAILED_CLOSED");
++  assert.equal(f1.value, null);
++  assert.ok(f1.issues.some((i) => i.severity === "error" && i.field === "planets.Sun.sign"));
++  for (const bad of [-0.1, 30, Number.NaN]) {
++    const c = makeHandChart();
++    c.planets.Venus.signDegree = bad;
++    const r = buildDignityBlock(createBlockContext(c));
++    assert.equal(r.status, "FAILED_CLOSED");
++    assert.ok(r.issues.some((i) => i.severity === "error" && i.field === "planets.Venus.signDegree"));
++  }
++  const degraded = buildDignityBlock(createBlockContext(makeHandChart("mixed")));
++  assert.equal(degraded.status, "OK");
++  assert.deepEqual(degraded.provenance.chart, { ephemeris: "mixed", isDegraded: true });
++
++  // 7. Determinism.
++  const ctx = createBlockContext(makeHandChart());
++  assert.equal(JSON.stringify(buildDignityBlock(ctx)), JSON.stringify(buildDignityBlock(ctx)));
++
++  console.log("✓ Phase 3 DIGNITY Block Tests Passed! (PyJHora source-level alignment only; numerical parity not executed)");
++}
+diff --git a/tests/blocks/fixtures/handPanchanga.ts b/tests/blocks/fixtures/handPanchanga.ts
+new file mode 100644
+index 0000000..f94d248
+--- /dev/null
++++ b/tests/blocks/fixtures/handPanchanga.ts
+@@ -0,0 +1,36 @@
++/**
++ * Hand-built PanchangaResult for block tests (synthetic; only tithi.index matters to the Level 2 flags).
++ */
++
++import type { PanchangaResult } from "../../../src/engine/panchanga/panchangaTypes.ts";
++import { HAND_JD_UT } from "./handChart.ts";
++
++export function makePanchanga(tithiIndex: number): PanchangaResult {
++  const shukla = tithiIndex <= 15;
++  return {
++    tithi: {
++      index: tithiIndex,
++      paksha: shukla ? "shukla" : "krishna",
++      numberInPaksha: ((tithiIndex - 1) % 15) + 1,
++      name: "hand-built",
++      elongationDeg: (tithiIndex - 1) * 12 + 6,
++      fractionElapsed: 0.5,
++    },
++    nakshatra: { index: 1, name: "Ashwini", pada: 1, moonLongitudeDeg: 1, fractionElapsed: 0.1 },
++    yoga: { index: 1, name: "Vishkambha", sumDeg: 1, fractionElapsed: 0.1 },
++    karana: { halfTithiIndex: 1, name: "Kimstughna", kind: "fixed" },
++    vara: { weekday: 3, name: "Wednesday", mode: "civil", civilDate: { year: 2026, month: 9, day: 16 } },
++    provenance: {
++      julianDayUT: HAND_JD_UT,
++      timezone: "Asia/Tokyo",
++      utcOffsetMinutes: 540,
++      ayanamsa: { name: "Lahiri", valueDeg: 24.23 },
++      sunLongitudeDeg: 148,
++      moonLongitudeDeg: 212,
++      positionSource: "swiss",
++      varaMode: "civil",
++      boundaryProvider: "none",
++      chartProvenance: {},
++    },
++  };
++}
+diff --git a/tests/blocks/identityBlock.test.ts b/tests/blocks/identityBlock.test.ts
+new file mode 100644
+index 0000000..166c8ea
+--- /dev/null
++++ b/tests/blocks/identityBlock.test.ts
+@@ -0,0 +1,154 @@
++/**
++ * Phase 3 — IDENTITY block tests (hand-built chart, no ephemeris).
++ * Decision Gate S-08 (CLOSED): canonical engine representation; "Full" is an input alias for "9-body".
++ */
++
++import assert from "node:assert/strict";
++import {
++  NOT_FOUND,
++  buildIdentityBlock,
++  createBlockContext,
++  formatCoordinate,
++  normalizeBodyMode,
++  normalizeTime,
++} from "../../src/engine/blocks/index.ts";
++import type { CanonicalChart } from "../../src/types/dssme-canonical-types.ts";
++import { HAND_JD_UT, makeHandChart } from "./fixtures/handChart.ts";
++
++function fullyDeclared(): CanonicalChart {
++  const chart = makeHandChart();
++  chart.input = {
++    ...chart.input,
++    bodyMode: "Full",
++    objective: "short-cycle speculative extraction",
++    risk: "MEDIUM",
++    geometry: "ordered_3_digit",
++  };
++  chart.location = { ...chart.location, city: "Chofu", country: "Japan" };
++  return chart;
++}
++
+ export function runIdentityBlockTests(): void {
++  console.log("Running Phase 3 IDENTITY Block Tests...");
++
++  // 1. Fully declared session + engine version => OK, spec-shaped strings, alias normalized.
++  const ok = buildIdentityBlock(createBlockContext(fullyDeclared(), undefined, { engineVersion: "TEST-ENGINE-VERSION" }));
++  assert.equal(ok.blockId, "IDENTITY");
++  assert.equal(ok.status, "OK", JSON.stringify(ok.issues));
++  assert.deepEqual(ok.issues, []);
++  assert.equal(ok.instantJdUt, HAND_JD_UT);
++  assert.deepEqual(ok.provenance, { chart: { ephemeris: "swisseph-wasm", isDegraded: false }, inputs: ["CanonicalChart"], auxSources: [] });
++  assert.deepEqual(ok.value, {
++    date: "2026-09-16",
++    day: "Wednesday",
++    time: "18:50:00",
++    timezone: "UTC+09:00",
++    location_city: "Chofu",
++    location_country: "Japan",
++    latitude: "35.65N",
++    longitude: "139.54E",
++    ayanamsa_name: "Lahiri",
++    ayanamsa_value: "24.2300",
++    lagna_sign: "Pisces",
++    lagna_degree: "25°00'00\"",
++    lagna_type: "Dual",
++    body_mode: "9-body",
++    objective: "short-cycle speculative extraction",
++    risk: "MEDIUM",
++    geometry: "ordered_3_digit",
++    engine_version: "TEST-ENGINE-VERSION",
++  });
++  assert.deepEqual(Object.keys(ok.value ?? {}), [
++    "date", "day", "time", "timezone", "location_city", "location_country", "latitude", "longitude",
++    "ayanamsa_name", "ayanamsa_value", "lagna_sign", "lagna_degree", "lagna_type",
++    "body_mode", "objective", "risk", "geometry", "engine_version",
++  ]);
++
++  // 2. Nothing declared => DEFAULTED with the spec literal NOT_FOUND (never a guess) + warnings, no errors.
++  const bare = buildIdentityBlock(createBlockContext(makeHandChart()));
++  assert.equal(bare.status, "DEFAULTED");
++  assert.ok(bare.issues.every((i) => i.severity === "warning"));
++  const fields = bare.issues.map((i) => i.field).sort();
++  assert.deepEqual(fields, ["body_mode", "engine_version", "geometry", "location_city", "location_country", "objective", "risk"]);
++  assert.equal(bare.value?.body_mode, NOT_FOUND);
++  assert.equal(bare.value?.engine_version, NOT_FOUND);
++  assert.equal(bare.value?.risk, NOT_FOUND);
++  assert.equal(bare.value?.date, "2026-09-16", "calculated fields are still produced");
++
++  // 3. Invalid session parameters => FAILED_CLOSED (error), value null.
++  const failFor = (mutate: (c: CanonicalChart) => void, field: string): void => {
++    const c = fullyDeclared();
++    mutate(c);
++    const r = buildIdentityBlock(createBlockContext(c, undefined, { engineVersion: "v" }));
++    assert.equal(r.status, "FAILED_CLOSED", field);
++    assert.equal(r.value, null);
++    assert.ok(r.issues.some((i) => i.severity === "error" && i.field === field), `${field}: ${JSON.stringify(r.issues)}`);
++  };
++  failFor((c) => { c.input = { ...c.input, bodyMode: "Bogus" }; }, "body_mode");
++  failFor((c) => { c.input = { ...c.input, risk: "EXTREME" }; }, "risk");
++  failFor((c) => { c.input = { ...c.input, geometry: "ordered_4_digit" }; }, "geometry");
++  failFor((c) => { c.input = { ...c.input, date: "2026-13-45x" }; }, "date");
++  failFor((c) => { c.input = { ...c.input, time: "25:00:00" }; }, "time");
++  failFor((c) => { c.lagna.signDegree = 31; }, "lagna_degree");
++  failFor((c) => { c.location = { ...c.location, latitude: 91 }; }, "latitude");
++  failFor((c) => { c.location = { ...c.location, longitude: -181 }; }, "longitude");
++
++  // 4. "7-body" passes through; "9-body" is canonical; "Full" is only an input alias.
++  const seven = fullyDeclared();
++  seven.input = { ...seven.input, bodyMode: "7-body" };
++  assert.equal(buildIdentityBlock(createBlockContext(seven, undefined, { engineVersion: "v" })).value?.body_mode, "7-body");
++  assert.equal(normalizeBodyMode("9-body"), "9-body");
++  assert.equal(normalizeBodyMode("Full"), "9-body");
++  assert.equal(normalizeBodyMode("full"), null, "alias match is exact");
++  assert.equal(normalizeBodyMode(""), null);
++
++  // 5. Coordinates: numeric internally, hemisphere letter, no rounding.
++  assert.equal(formatCoordinate(35.65, "N", "S"), "35.65N");
++  assert.equal(formatCoordinate(-33.8688, "N", "S"), "33.8688S");
++  assert.equal(formatCoordinate(139.54, "E", "W"), "139.54E");
++  assert.equal(formatCoordinate(-74.006, "E", "W"), "74.006W");
++  assert.equal(formatCoordinate(0, "N", "S"), "0N");
++
++  // 6. Times, timezone offsets, weekday (local civil date).
++  assert.equal(normalizeTime("9:05"), "09:05:00");
++  assert.equal(normalizeTime("09:05:07"), "09:05:07");
++  assert.equal(normalizeTime("24:00:00"), null);
++  assert.equal(normalizeTime("12:60:00"), null);
++  assert.equal(normalizeTime("noon"), null);
++  const india = fullyDeclared();
++  india.time = { ...india.time, timezoneOffsetHours: 5.5 };
++  assert.equal(buildIdentityBlock(createBlockContext(india, undefined, { engineVersion: "v" })).value?.timezone, "UTC+05:30");
++  const ny = fullyDeclared();
++  ny.time = { ...ny.time, timezoneOffsetHours: -4 };
++  assert.equal(buildIdentityBlock(createBlockContext(ny, undefined, { engineVersion: "v" })).value?.timezone, "UTC-04:00");
++  const leap = fullyDeclared();
++  leap.input = { ...leap.input, date: "2024-02-29" };
++  assert.equal(buildIdentityBlock(createBlockContext(leap, undefined, { engineVersion: "v" })).value?.day, "Thursday");
++
++  // 7. Lagna degree never prints "30°": rounding that would reach 30° is clamped, with a warning.
++  const edge = fullyDeclared();
++  edge.lagna.signDegree = 29.9999;
++  const e = buildIdentityBlock(createBlockContext(edge, undefined, { engineVersion: "v" }));
++  assert.equal(e.value?.lagna_degree, "29°59'59\"");
++  assert.ok(e.issues.some((i) => i.severity === "warning" && i.field === "lagna_degree"));
++  assert.equal(e.status, "OK", "a clamp warning is not a default and not an error");
++
++  // 8. Lagna type follows the sign (Movable / Fixed / Dual).
++  for (const [sign, type] of [["Aries", "Movable"], ["Taurus", "Fixed"], ["Gemini", "Dual"], ["Scorpio", "Fixed"]] as const) {
++    const c = fullyDeclared();
++    c.lagna.sign = sign;
++    assert.equal(buildIdentityBlock(createBlockContext(c, undefined, { engineVersion: "v" })).value?.lagna_type, type);
++  }
++
++  // 9. Determinism and degraded provenance.
++  const ctx = createBlockContext(fullyDeclared(), undefined, { engineVersion: "v" });
++  assert.equal(JSON.stringify(buildIdentityBlock(ctx)), JSON.stringify(buildIdentityBlock(ctx)));
++  const degraded = fullyDeclared();
++  degraded.provenance = { ...degraded.provenance, ephemeris: "fallback", isDegraded: true };
++  const d = buildIdentityBlock(createBlockContext(degraded, undefined, { engineVersion: "v" }));
++  assert.equal(d.status, "OK");
++  assert.deepEqual(d.provenance.chart, { ephemeris: "fallback", isDegraded: true });
++  assert.ok(!/generatedAt|calculatedAt|timestamp/i.test(JSON.stringify(ok)));
++
++  console.log("✓ Phase 3 IDENTITY Block Tests Passed!");
++}
+diff --git a/tests/blocks/level1Integration.test.ts b/tests/blocks/level1Integration.test.ts
+index f84e3e3..ca7fa2c 100644
+--- a/tests/blocks/level1Integration.test.ts
++++ b/tests/blocks/level1Integration.test.ts
+@@ -11,6 +11,7 @@ import {
+   HOUSE_KEYS,
+   buildHousePositionsBlock,
+   buildHousesBlock,
++  buildIdentityBlock,
+   buildRetrogradeBlock,
+   createBlockContext,
+ } from "../../src/engine/blocks/index.ts";
+@@ -83,5 +84,36 @@ export async function runLevel1IntegrationTests(): Promise<void> {
+     assert.deepEqual(r.provenance.chart, { ephemeris: "fallback", isDegraded: true });
+   }
+ 
++  // IDENTITY from a live chart whose input declares the session parameters (S-08: "Full" is an alias of "9-body").
++  const declared = await generateCanonicalChart({
++    date: "2026-09-16",
++    time: "18:50:00",
++    latitude: 35.65,
++    longitude: 139.54,
++    timezone: "Asia/Tokyo",
++    timezoneOffset: 9,
++    ayanamsa: "Lahiri",
++    bodyMode: "Full",
++    objective: "short-cycle speculative extraction",
++    risk: "MEDIUM",
++    geometry: "ordered_3_digit",
++  });
++  const identity = buildIdentityBlock(createBlockContext(declared, undefined, { engineVersion: "TEST-ENGINE-VERSION" }));
++  assert.equal(identity.status, "DEFAULTED", "only the country is absent in a live chart");
++  assert.deepEqual(identity.issues.map((i) => i.field), ["location_country"]);
++  const id = identity.value;
++  assert.ok(id);
++  assert.equal(id.day, "Wednesday");
++  assert.equal(id.timezone, "UTC+09:00");
++  assert.equal(id.latitude, "35.65N");
++  assert.equal(id.longitude, "139.54E");
++  assert.equal(id.lagna_sign, "Pisces");
++  assert.equal(id.lagna_type, "Dual");
++  assert.equal(id.body_mode, "9-body");
++  assert.match(id.lagna_degree, /^\d{2}°\d{2}'\d{2}"$/);
++  assert.match(id.ayanamsa_value, /^24\.\d{4}$/);
++  assert.equal(id.location_city, "Tokyo");
++  assert.equal(id.location_country, "NOT_FOUND");
++
+   console.log("✓ Phase 3 Level 1 Integration Tests Passed!");
+ }
+diff --git a/tests/blocks/level2Integration.test.ts b/tests/blocks/level2Integration.test.ts
+new file mode 100644
+index 0000000..7715ba5
+--- /dev/null
++++ b/tests/blocks/level2Integration.test.ts
+@@ -0,0 +1,84 @@
++/**
++ * Phase 3, Level 2 — integration: live CanonicalChart -> PanchangaResult -> Level 2 blocks.
++ *
++ * Real Swiss engine. Assertions are SIGN-LEVEL or carry wide margins, so they hold regardless of the
++ * open degree-level discrepancy between the engine and the Chofu reference JSON (gate T-10).
++ */
++
++import assert from "node:assert/strict";
++import { generateCanonicalChart } from "../../src/engine/canonical/canonicalChart.ts";
++import { computePanchanga, fromCanonicalChart } from "../../src/engine/panchanga/index.ts";
++import {
++  buildCombustBlock,
++  buildDignityBlock,
++  buildPanchangaStateFlags,
++  createBlockContext,
++  navamshaPlacements,
++} from "../../src/engine/blocks/index.ts";
++
++export async function runLevel2IntegrationTests(): Promise<void> {
++  console.log("Running Phase 3 Level 2 Integration Tests (CanonicalChart -> PanchangaResult -> blocks)...");
++
++  const chart = await generateCanonicalChart({
++    date: "2026-09-16",
++    time: "18:50:00",
++    latitude: 35.65,
++    longitude: 139.54,
++    timezone: "Asia/Tokyo",
++    timezoneOffset: 9,
++    ayanamsa: "Lahiri",
++  });
++  const panchanga = computePanchanga(fromCanonicalChart(chart), {}, { varaMode: "civil", includeBoundaries: false });
++  const ctx = createBlockContext(chart, panchanga);
++
++  // DIGNITY (natural friendship only): sign-level facts, Venus 9.4° is far inside Libra 0–15, Sun 29.3° far outside Leo 0–20.
++  const dignity = buildDignityBlock(ctx);
++  assert.equal(dignity.status, "OK", JSON.stringify(dignity.issues));
++  assert.deepEqual(dignity.value, {
++    Sun: "Own",
++    Moon: "Debilitated",
++    Mars: "Enemy",
++    Mercury: "Exalted",
++    Jupiter: "Exalted",
++    Venus: "Moolatrikona",
++    Saturn: "Neutral",
++    Rahu: "—",
++    Ketu: "—",
++  });
++
++  // COMBUST: nobody combust at this instant (Mercury is ~15.8° from the Sun, threshold 14).
++  const combust = buildCombustBlock(ctx);
++  assert.equal(combust.status, "OK", JSON.stringify(combust.issues));
++  for (const planet of ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"] as const) {
++    assert.equal(combust.value?.[planet].combust, false, planet);
++  }
++  const mercurySep = combust.value?.Mercury.sep_deg;
++  assert.ok(mercurySep !== null && mercurySep !== undefined && mercurySep > 14 && mercurySep < 18, `Mercury sep ${String(mercurySep)}`);
++  assert.equal(combust.value?.Sun.sep_deg, null);
++
++  // PANCHANGA state flags: tithi 6 (Shukla), Moon Scorpio 2°, Lagna Pisces 25° -> all false.
++  const flags = buildPanchangaStateFlags(ctx);
++  assert.equal(flags.status, "OK", JSON.stringify(flags.issues));
++  assert.equal(panchanga.tithi.index, 6);
++  assert.deepEqual(flags.value, { gandanta_active: false, amavasya_zone: false, purnima_zone: false });
++  assert.deepEqual(flags.provenance.inputs, ["CanonicalChart", "PanchangaResult"]);
++
++  // D-9 core: Mars at ~28.7° Gemini is in the 9th navamsa of a dual sign -> Gemini (Vargottama), margin 2° from the boundary.
++  const d9 = navamshaPlacements(chart);
++  assert.equal(chart.planets.Mars.sign, "Gemini");
++  assert.equal(d9.Mars.sign, "Gemini");
++  assert.equal(d9.Mars.isVargottama, true);
++  assert.equal(d9.Rahu.dignity, "—");
++
++  // Determinism, and degraded chart provenance flows through.
++  assert.equal(JSON.stringify(buildDignityBlock(ctx)), JSON.stringify(dignity));
++  assert.equal(JSON.stringify(buildCombustBlock(ctx)), JSON.stringify(combust));
++  const degradedChart = { ...chart, provenance: { ...chart.provenance, ephemeris: "fallback" as const, isDegraded: true } };
++  const degradedCtx = createBlockContext(degradedChart, panchanga);
++  for (const r of [buildDignityBlock(degradedCtx), buildCombustBlock(degradedCtx), buildPanchangaStateFlags(degradedCtx)]) {
++    assert.equal(r.status, "OK");
++    assert.deepEqual(r.provenance.chart, { ephemeris: "fallback", isDegraded: true });
++  }
++
++  console.log("✓ Phase 3 Level 2 Integration Tests Passed!");
++}
+diff --git a/tests/blocks/navamshaCore.test.ts b/tests/blocks/navamshaCore.test.ts
+new file mode 100644
+index 0000000..b3b1c3c
+--- /dev/null
++++ b/tests/blocks/navamshaCore.test.ts
+@@ -0,0 +1,86 @@
++/**
++ * Phase 3 — D-9 (Navamsha) core tests. NAVAMSHA block itself is NOT built: `is_pushkara` waits for gate S-09.
++ * PyJHora source-level alignment: charts.navamsa_chart, method "Traditional Parasara" (element seeds).
++ */
++
++import assert from "node:assert/strict";
++import { d9Placement, navamshaPlacements } from "../../src/engine/blocks/index.ts";
++import { ZODIAC_SIGNS_ARIES_FIRST, type CanonicalChart, type NineBody, type ZodiacSign } from "../../src/types/dssme-canonical-types.ts";
++import { makeHandChart } from "./fixtures/handChart.ts";
++
++/** Independent classical rule: movable -> same sign, fixed -> 9th from it, dual -> 5th from it. */
++function classicalD9Sign(signIndex: number, navamsa: number): ZodiacSign {
++  const mod = signIndex % 3; // Aries 0 movable, Taurus 1 fixed, Gemini 2 dual (repeats every 3 signs)
++  const start = mod === 0 ? signIndex : mod === 1 ? signIndex + 8 : signIndex + 4;
++  const sign = ZODIAC_SIGNS_ARIES_FIRST[(start + navamsa) % 12];
++  assert.ok(sign !== undefined);
++  return sign;
++}
++
++const dms = (d: number, m: number, s: number): number => d + m / 60 + s / 3600;
++
++export function runNavamshaCoreTests(): void {
++  console.log("Running Phase 3 D-9 (Navamsha) Core Tests...");
++
++  // 1. All 12 signs x 9 navamsas: element-seed rule (PyJHora) == classical movable/fixed/dual rule.
++  ZODIAC_SIGNS_ARIES_FIRST.forEach((sign, signIndex) => {
++    for (let n = 0; n < 9; n++) {
++      const midpoint = (n + 0.5) * (30 / 9);
++      assert.equal(d9Placement(sign, midpoint).sign, classicalD9Sign(signIndex, n), `${sign} navamsa ${n + 1}`);
++    }
++  });
++
++  // 2. D-9 degree = (degree * 9) mod 30, and the exact rational boundaries land in the NEXT navamsa.
++  assert.equal(d9Placement("Aries", 1).degree, 9);
++  assert.equal(d9Placement("Aries", 10).sign, "Cancer", "10° = start of the 4th navamsa");
++  assert.equal(d9Placement("Aries", 10).degree, 0);
++  assert.equal(d9Placement("Aries", 0).sign, "Aries");
++  assert.equal(d9Placement("Aries", 29.999999).sign, "Sagittarius", "9th navamsa; index clamped to 8");
++  assert.equal(d9Placement("Leo", 20).sign, d9Placement("Leo", 20.0000001).sign);
++
++  // 3. Reference JSON INTERNAL consistency (its own positions -> its own Navamsha column).
++  //    Structural check only: NOT an engine golden (degree-level discrepancy T-10 is open).
++  const reference: readonly [NineBody, ZodiacSign, number, ZodiacSign, boolean][] = [
++    ["Sun", "Leo", dms(28, 57, 17), "Sagittarius", false],
++    ["Moon", "Scorpio", dms(2, 16, 23), "Cancer", false],
++    ["Mars", "Gemini", dms(28, 22, 43), "Gemini", true],
++    ["Mercury", "Virgo", dms(14, 47, 9), "Taurus", false],
++    ["Jupiter", "Cancer", dms(22, 16, 7), "Capricorn", false],
++    ["Venus", "Libra", dms(9, 7, 25), "Sagittarius", false],
++    ["Saturn", "Pisces", dms(17, 57, 15), "Sagittarius", false],
++    ["Rahu", "Aquarius", dms(4, 15, 18), "Scorpio", false],
++    ["Ketu", "Leo", dms(4, 15, 18), "Taurus", false],
++  ];
++  const chart: CanonicalChart = makeHandChart();
++  for (const [body, sign, degree] of reference) {
++    chart.planets[body].sign = sign;
++    chart.planets[body].signDegree = degree;
++  }
++  const placements = navamshaPlacements(chart);
++  assert.deepEqual(Object.keys(placements), ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"]);
++  for (const [body, , , d9Sign, vargottama] of reference) {
++    assert.equal(placements[body].sign, d9Sign, `${body} D-9 sign`);
++    assert.equal(placements[body].isVargottama, vargottama, `${body} vargottama`);
++  }
++  // Navamsha dignity, natural friendship only (matches the reference's printed column for all seven planets).
++  assert.deepEqual(
++    [placements.Sun.dignity, placements.Moon.dignity, placements.Mars.dignity, placements.Mercury.dignity, placements.Jupiter.dignity, placements.Venus.dignity, placements.Saturn.dignity],
++    ["Friend", "Own", "Enemy", "Friend", "Debilitated", "Neutral", "Neutral"],
++  );
++  assert.equal(placements.Rahu.dignity, "—");
++  assert.equal(placements.Ketu.dignity, "—");
++
++  // 4. Navamsha dignity never introduces Grt.* (natural-only), and applies Exalted/Moolatrikona/Own first.
++  const probe = makeHandChart();
++  probe.planets.Venus.sign = "Libra";
++  probe.planets.Venus.signDegree = 0.5; // D-9: Libra seed 6 + navamsa 0 = Libra, D-9 degree 4.5 -> Moolatrikona (Libra 0–15)
++  assert.equal(navamshaPlacements(probe).Venus.sign, "Libra");
++  assert.equal(navamshaPlacements(probe).Venus.isVargottama, true);
++  assert.equal(navamshaPlacements(probe).Venus.dignity, "Moolatrikona");
++  for (const p of Object.values(placements)) assert.ok(p.dignity !== "Grt.Friend" && p.dignity !== "Grt.Enemy");
++
++  // 5. Determinism.
++  assert.equal(JSON.stringify(navamshaPlacements(chart)), JSON.stringify(navamshaPlacements(chart)));
++
++  console.log("✓ Phase 3 D-9 (Navamsha) Core Tests Passed! (source-level alignment only; is_pushkara pending S-09)");
++}
+diff --git a/tests/blocks/panchangaFlags.test.ts b/tests/blocks/panchangaFlags.test.ts
+new file mode 100644
+index 0000000..abfeb7b
+--- /dev/null
++++ b/tests/blocks/panchangaFlags.test.ts
+@@ -0,0 +1,85 @@
++/**
++ * Phase 3 — PANCHANGA state-flag tests (hand-built chart + hand-built PanchangaResult, no ephemeris).
++ * T-09 (CLOSED): candidate A — cyclic discrete tithi index: amavasya {29,30,1}, purnima {14,15,16}.
++ */
++
++import assert from "node:assert/strict";
++import {
++  buildPanchangaStateFlags,
++  createBlockContext,
++  isAmavasyaZone,
++  isGandanta,
++  isPurnimaZone,
++} from "../../src/engine/blocks/index.ts";
++import { HAND_JD_UT, makeHandChart } from "./fixtures/handChart.ts";
++import { makePanchanga } from "./fixtures/handPanchanga.ts";
++
++export function runPanchangaFlagsTests(): void {
++  console.log("Running Phase 3 PANCHANGA State-Flag Tests...");
++
++  // 1. T-09: every tithi index 1..30.
++  const amavasya = new Set([29, 30, 1]);
++  const purnima = new Set([14, 15, 16]);
++  for (let t = 1; t <= 30; t++) {
++    assert.equal(isAmavasyaZone(t), amavasya.has(t), `amavasya ${t}`);
++    assert.equal(isPurnimaZone(t), purnima.has(t), `purnima ${t}`);
++    const r = buildPanchangaStateFlags(createBlockContext(makeHandChart(), makePanchanga(t)));
++    assert.equal(r.status, "OK");
++    assert.equal(r.value?.amavasya_zone, amavasya.has(t));
++    assert.equal(r.value?.purnima_zone, purnima.has(t));
++  }
++
++  // 2. Gandanta boundaries (last 3°20′ of water signs, first 3°20′ of fire signs; half-open).
++  assert.equal(isGandanta("Cancer", 26.7), true);
++  assert.equal(isGandanta("Cancer", 26.6), false);
++  assert.equal(isGandanta("Scorpio", 29.99), true);
++  assert.equal(isGandanta("Pisces", 27), true);
++  assert.equal(isGandanta("Cancer", 0.1), false, "start of a water sign is not gandanta");
++  assert.equal(isGandanta("Aries", 3.3), true);
++  assert.equal(isGandanta("Aries", 3.4), false);
++  assert.equal(isGandanta("Leo", 0), true);
++  assert.equal(isGandanta("Sagittarius", 3), true);
++  assert.equal(isGandanta("Leo", 29), false, "end of a fire sign is not gandanta");
++  for (const sign of ["Taurus", "Gemini", "Virgo", "Libra", "Capricorn", "Aquarius"] as const) {
++    assert.equal(isGandanta(sign, 0), false, `${sign} start`);
++    assert.equal(isGandanta(sign, 29.99), false, `${sign} end`);
++  }
++
++  // 3. Moon OR Lagna.
++  const base = buildPanchangaStateFlags(createBlockContext(makeHandChart(), makePanchanga(6)));
++  assert.deepEqual(base.value, { gandanta_active: false, amavasya_zone: false, purnima_zone: false });
++  assert.deepEqual(Object.keys(base.value ?? {}), ["gandanta_active", "amavasya_zone", "purnima_zone"]);
++  const lagna = makeHandChart();
++  lagna.lagna.signDegree = 27; // Pisces 27°
++  assert.equal(buildPanchangaStateFlags(createBlockContext(lagna, makePanchanga(6))).value?.gandanta_active, true);
++  const moon = makeHandChart();
++  moon.planets.Moon.sign = "Cancer";
++  moon.planets.Moon.signDegree = 27;
++  assert.equal(buildPanchangaStateFlags(createBlockContext(moon, makePanchanga(6))).value?.gandanta_active, true);
++
++  // 4. Contract: provenance, instant, determinism, degraded chart.
++  assert.equal(base.blockId, "PANCHANGA");
++  assert.equal(base.instantJdUt, HAND_JD_UT);
++  assert.deepEqual(base.provenance, { chart: { ephemeris: "swisseph-wasm", isDegraded: false }, inputs: ["CanonicalChart", "PanchangaResult"], auxSources: [] });
++  const ctx = createBlockContext(makeHandChart(), makePanchanga(15));
++  assert.equal(JSON.stringify(buildPanchangaStateFlags(ctx)), JSON.stringify(buildPanchangaStateFlags(ctx)));
++  const degraded = buildPanchangaStateFlags(createBlockContext(makeHandChart("fallback"), makePanchanga(15)));
++  assert.equal(degraded.status, "OK");
++  assert.equal(degraded.provenance.chart.isDegraded, true);
++
++  // 5. FAILED_CLOSED: missing PanchangaResult, invalid tithi index, invalid degrees.
++  const missing = buildPanchangaStateFlags(createBlockContext(makeHandChart()));
++  assert.equal(missing.status, "FAILED_CLOSED");
++  assert.equal(missing.value, null);
++  assert.ok(missing.issues.some((i) => i.severity === "error" && i.field === "panchanga"));
++  for (const bad of [0, 31, 2.5, Number.NaN]) {
++    const r = buildPanchangaStateFlags(createBlockContext(makeHandChart(), makePanchanga(bad)));
++    assert.equal(r.status, "FAILED_CLOSED", `tithi ${bad}`);
++    assert.ok(r.issues.some((i) => i.severity === "error" && i.field === "panchanga.tithi.index"));
++  }
++  const badDeg = makeHandChart();
++  badDeg.planets.Moon.signDegree = 30;
++  assert.ok(buildPanchangaStateFlags(createBlockContext(badDeg, makePanchanga(6))).issues.some((i) => i.field === "Moon.signDegree"));
++
++  console.log("✓ Phase 3 PANCHANGA State-Flag Tests Passed!");
++}
+diff --git a/tests/run_all_tests.ts b/tests/run_all_tests.ts
+index 53ca2e8..8916827 100644
+--- a/tests/run_all_tests.ts
++++ b/tests/run_all_tests.ts
+@@ -15,11 +15,17 @@ import { runCanonicalValidationTests } from "./canonical/canonicalValidation.tes
+ import { runPyjhoraDifferentialTests } from "./differential/pyjhoraDifferential.test.ts";
+ import { runPanchangaTests } from "./panchanga/panchanga.test.ts";
+ import { runBlockContractTests } from "./blocks/blockContract.test.ts";
++import { runIdentityBlockTests } from "./blocks/identityBlock.test.ts";
+ import { runHousesBlockTests } from "./blocks/housesBlock.test.ts";
+ import { runHousePositionsBlockTests } from "./blocks/housePositionsBlock.test.ts";
+ import { runRetrogradeBlockTests } from "./blocks/retrogradeBlock.test.ts";
+ import { runPyjhoraSourceAlignmentTests } from "./blocks/pyjhoraSourceAlignment.test.ts";
+ import { runLevel1IntegrationTests } from "./blocks/level1Integration.test.ts";
++import { runDignityBlockTests } from "./blocks/dignityBlock.test.ts";
++import { runNavamshaCoreTests } from "./blocks/navamshaCore.test.ts";
++import { runCombustBlockTests } from "./blocks/combustBlock.test.ts";
++import { runPanchangaFlagsTests } from "./blocks/panchangaFlags.test.ts";
++import { runLevel2IntegrationTests } from "./blocks/level2Integration.test.ts";
+ 
+ interface TestSuiteEntry {
+   name: string;
+@@ -39,11 +45,17 @@ const REGISTERED_SUITES: TestSuiteEntry[] = [
+   { name: "PyJHora-Derived Reference Fixtures", run: runPyjhoraDifferentialTests },
+   { name: "Panchanga Engine (Phase 2 - Gates A-G)", run: runPanchangaTests },
+   { name: "Phase 3 BlockResult Contract", run: runBlockContractTests },
++  { name: "Phase 3 IDENTITY Block", run: runIdentityBlockTests },
+   { name: "Phase 3 HOUSES Block", run: runHousesBlockTests },
+   { name: "Phase 3 HOUSE_POSITIONS Block", run: runHousePositionsBlockTests },
+   { name: "Phase 3 RETROGRADE Block", run: runRetrogradeBlockTests },
+   { name: "Phase 3 PyJHora Source-Level Alignment (Level 1)", run: runPyjhoraSourceAlignmentTests },
+   { name: "Phase 3 Level 1 Integration (CanonicalChart -> blocks)", run: runLevel1IntegrationTests },
++  { name: "Phase 3 DIGNITY Block (S-01/S-01b)", run: runDignityBlockTests },
++  { name: "Phase 3 D-9 Navamsha Core", run: runNavamshaCoreTests },
++  { name: "Phase 3 COMBUST Block (S-02/S-02b/S-02c)", run: runCombustBlockTests },
++  { name: "Phase 3 PANCHANGA State Flags (T-09)", run: runPanchangaFlagsTests },
++  { name: "Phase 3 Level 2 Integration (CanonicalChart -> PanchangaResult -> blocks)", run: runLevel2IntegrationTests },
+ ];
+ 
+ async function runAll() {
+-- 
+2.43.0
