@@ -30,6 +30,7 @@ import {
   isValidIanaTimezone,
   formatOffsetDisplay,
 } from "./utils/timezoneHelper.ts";
+import { getDefaultLocationForTimezone } from "./data/timezoneLocations.ts";
 
 const PRESET_CHOFU: DssmeCalculationInput = {
   date: "2026-09-16",
@@ -52,44 +53,76 @@ export default function App() {
   const [showJson, setShowJson] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
 
+  const [selectedCityLocation, setSelectedCityLocation] = useState<string>("Tokyo/Chofu, Japan");
+
   // Auto-run initial chart on mount
   useEffect(() => {
     handleCalculate(PRESET_CHOFU);
   }, []);
 
   const handleDateChange = (newDate: string) => {
-    const updated = { ...input, date: newDate };
-    if (isValidIanaTimezone(updated.timezone)) {
-      const res = deriveTimezoneOffset(updated.timezone, newDate, updated.time);
-      if (res.valid && res.offsetHours !== undefined) {
-        updated.timezoneOffset = res.offsetHours;
+    setInput((prev) => {
+      const updated = { ...prev, date: newDate };
+      if (isValidIanaTimezone(updated.timezone)) {
+        const res = deriveTimezoneOffset(updated.timezone, newDate, updated.time);
+        if (res.valid && res.offsetHours !== undefined) {
+          updated.timezoneOffset = res.offsetHours;
+        }
       }
-    }
-    setInput(updated);
+      return updated;
+    });
   };
 
   const handleTimeChange = (newTime: string) => {
-    const updated = { ...input, time: newTime };
-    if (isValidIanaTimezone(updated.timezone)) {
-      const res = deriveTimezoneOffset(updated.timezone, updated.date, newTime);
-      if (res.valid && res.offsetHours !== undefined) {
-        updated.timezoneOffset = res.offsetHours;
+    setInput((prev) => {
+      const updated = { ...prev, time: newTime };
+      if (isValidIanaTimezone(updated.timezone)) {
+        const res = deriveTimezoneOffset(updated.timezone, updated.date, newTime);
+        if (res.valid && res.offsetHours !== undefined) {
+          updated.timezoneOffset = res.offsetHours;
+        }
       }
+      return updated;
+    });
+  };
+
+  const handleLocationSelect = (
+    lat: number,
+    lon: number,
+    city?: string,
+    country?: string
+  ) => {
+    setInput((prev) => ({
+      ...prev,
+      latitude: lat,
+      longitude: lon,
+    }));
+    if (city && country) {
+      setSelectedCityLocation(`${city}, ${country}`);
+    } else if (city) {
+      setSelectedCityLocation(city);
     }
-    setInput(updated);
   };
 
   const handleTimezoneChange = (newTz: string, autoDerivedOffset?: number) => {
-    const updated = { ...input, timezone: newTz };
-    if (autoDerivedOffset !== undefined) {
-      updated.timezoneOffset = autoDerivedOffset;
-    } else if (isValidIanaTimezone(newTz)) {
-      const res = deriveTimezoneOffset(newTz, updated.date, updated.time);
-      if (res.valid && res.offsetHours !== undefined) {
-        updated.timezoneOffset = res.offsetHours;
+    setInput((prev) => {
+      const updated = { ...prev, timezone: newTz };
+      if (autoDerivedOffset !== undefined) {
+        updated.timezoneOffset = autoDerivedOffset;
+      } else if (isValidIanaTimezone(newTz)) {
+        const res = deriveTimezoneOffset(newTz, updated.date, updated.time);
+        if (res.valid && res.offsetHours !== undefined) {
+          updated.timezoneOffset = res.offsetHours;
+        }
       }
-    }
-    setInput(updated);
+      const defaultLoc = getDefaultLocationForTimezone(newTz);
+      if (defaultLoc) {
+        updated.latitude = defaultLoc.latitude;
+        updated.longitude = defaultLoc.longitude;
+        setSelectedCityLocation(`${defaultLoc.city}, ${defaultLoc.country}`);
+      }
+      return updated;
+    });
   };
 
   async function handleCalculate(inputData: DssmeCalculationInput = input) {
@@ -113,6 +146,27 @@ export default function App() {
       return;
     }
 
+    // Ensure timezone offset is consistent with timezone and datetime
+    let finalInputData = { ...inputData };
+    const tzCheck = deriveTimezoneOffset(inputData.timezone, inputData.date, inputData.time);
+    if (tzCheck.valid && tzCheck.offsetHours !== undefined) {
+      // If user provided 6.5h while timezone is still Asia/Tokyo, detect if they intended Asia/Yangon (+6.5)
+      if (Math.abs(inputData.timezoneOffset - 6.5) < 0.01 && inputData.timezone === "Asia/Tokyo") {
+        finalInputData.timezone = "Asia/Yangon";
+        const yLoc = getDefaultLocationForTimezone("Asia/Yangon");
+        if (yLoc) {
+          finalInputData.latitude = yLoc.latitude;
+          finalInputData.longitude = yLoc.longitude;
+          setSelectedCityLocation(`${yLoc.city}, ${yLoc.country}`);
+        }
+        setInput(finalInputData);
+      } else if (Math.abs(inputData.timezoneOffset - tzCheck.offsetHours) > 0.05) {
+        // Automatically align offset with the chosen IANA timezone for the given date/time
+        finalInputData.timezoneOffset = tzCheck.offsetHours;
+        setInput(finalInputData);
+      }
+    }
+
     const t0 = performance.now();
 
     try {
@@ -120,7 +174,7 @@ export default function App() {
       const response = await fetch("/api/canonical-chart", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(inputData),
+        body: JSON.stringify(finalInputData),
       });
 
       if (response.ok) {
@@ -133,14 +187,14 @@ export default function App() {
           return;
         }
         // Fallback to client-side deterministic engine if network / 5xx error
-        const fallbackChart = await generateCanonicalChart(inputData);
+        const fallbackChart = await generateCanonicalChart(finalInputData);
         setChart(fallbackChart);
       }
       setCalcTimeMs(Math.round((performance.now() - t0) * 10) / 10);
     } catch (err: unknown) {
       console.warn("Server API fetch skipped/failed, executing client-side engine:", err);
       try {
-        const clientChart = await generateCanonicalChart(inputData);
+        const clientChart = await generateCanonicalChart(finalInputData);
         setChart(clientChart);
         setCalcTimeMs(Math.round((performance.now() - t0) * 10) / 10);
       } catch (clientErr: unknown) {
@@ -270,7 +324,8 @@ export default function App() {
               time={input.time}
               currentOffset={input.timezoneOffset}
               onTimezoneChange={handleTimezoneChange}
-              onOffsetChange={(newOffset) => setInput({ ...input, timezoneOffset: newOffset })}
+              onOffsetChange={(newOffset) => setInput((prev) => ({ ...prev, timezoneOffset: newOffset }))}
+              onLocationSelect={handleLocationSelect}
             />
 
             <div>
@@ -302,9 +357,16 @@ export default function App() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1 flex items-center gap-1">
-                <MapPin className="h-3.5 w-3.5 text-slate-500" />
-                Latitude (+N / -S)
+              <label className="block text-xs font-medium text-slate-400 mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5 text-slate-500" />
+                  Latitude (+N / -S)
+                </span>
+                {selectedCityLocation && (
+                  <span className="text-[10px] text-amber-400 font-mono truncate max-w-[130px]" title={selectedCityLocation}>
+                    {selectedCityLocation.split(",")[0]}
+                  </span>
+                )}
               </label>
               <input
                 type="number"
@@ -365,12 +427,90 @@ export default function App() {
 
         {/* Error Alert */}
         {error && (
-          <div className="p-4 rounded-xl bg-rose-950/50 border border-rose-600/50 text-rose-200 flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
-            <div>
-              <h4 className="font-semibold text-sm">Calculation Error</h4>
-              <p className="text-xs mt-0.5 font-mono">{error}</p>
+          <div className="p-4 rounded-xl bg-rose-950/50 border border-rose-600/50 text-rose-200 flex flex-col sm:flex-row items-start justify-between gap-3 shadow-lg">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-semibold text-sm">Calculation Error</h4>
+                <p className="text-xs mt-0.5 font-mono">{error}</p>
+              </div>
             </div>
+
+            {/* Smart One-Click Quick Fixes */}
+            {error.includes("TIMEZONE_ERROR") && (
+              <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0 shrink-0">
+                {/* Fix 1: Typo in Year 0198 -> 1980 for Myanmar (Yangon) */}
+                {input.date.startsWith("0198") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const correctedYear = input.date.replace(/^0198/, "1980");
+                      const yangonInput: DssmeCalculationInput = {
+                        ...input,
+                        date: correctedYear,
+                        timezone: "Asia/Yangon",
+                        timezoneOffset: 6.5,
+                        latitude: 16.8661,
+                        longitude: 96.1951,
+                      };
+                      setInput(yangonInput);
+                      setSelectedCityLocation("Yangon, Myanmar");
+                      handleCalculate(yangonInput);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs shadow flex items-center gap-1.5 transition"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Fix Year (1980) & Yangon (+06:30)
+                  </button>
+                )}
+
+                {/* Fix 2: Switch to Asia/Yangon */}
+                {input.timezone !== "Asia/Yangon" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const yangonInput: DssmeCalculationInput = {
+                        ...input,
+                        timezone: "Asia/Yangon",
+                        timezoneOffset: 6.5,
+                        latitude: 16.8661,
+                        longitude: 96.1951,
+                      };
+                      setInput(yangonInput);
+                      setSelectedCityLocation("Yangon, Myanmar");
+                      handleCalculate(yangonInput);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 font-semibold text-xs shadow flex items-center gap-1.5 transition"
+                  >
+                    Switch to Asia/Yangon (+06:30)
+                  </button>
+                )}
+
+                {/* Fix 3: Sync to expected offset for current timezone */}
+                {(() => {
+                  const derived = deriveTimezoneOffset(input.timezone, input.date, input.time);
+                  if (derived.valid && derived.offsetHours !== undefined) {
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const syncedInput: DssmeCalculationInput = {
+                            ...input,
+                            timezoneOffset: derived.offsetHours!,
+                          };
+                          setInput(syncedInput);
+                          handleCalculate(syncedInput);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs shadow flex items-center gap-1.5 transition"
+                      >
+                        Sync TZ to {derived.formattedOffset}
+                      </button>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+            )}
           </div>
         )}
 

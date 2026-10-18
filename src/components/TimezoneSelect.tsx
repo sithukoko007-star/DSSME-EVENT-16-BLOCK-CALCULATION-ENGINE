@@ -15,6 +15,11 @@ import {
   isValidIanaTimezone,
   formatOffsetDisplay,
 } from "../utils/timezoneHelper.ts";
+import {
+  CityLocation,
+  getDefaultLocationForTimezone,
+  getLocationsForTimezone,
+} from "../data/timezoneLocations.ts";
 
 interface TimezoneSelectProps {
   timezone: string;
@@ -23,6 +28,7 @@ interface TimezoneSelectProps {
   currentOffset: number;
   onTimezoneChange: (newTz: string, autoDerivedOffset?: number) => void;
   onOffsetChange?: (newOffset: number) => void;
+  onLocationSelect?: (lat: number, lon: number, city?: string, country?: string) => void;
 }
 
 /**
@@ -123,7 +129,11 @@ const QUICK_SHORTCUTS = [
  * Helper to display human-friendly city/region names alongside IANA identifiers
  */
 function formatTimezoneDescriptor(tz: string): string {
-  if (tz === "UTC") return "Coordinated Universal Time";
+  if (tz === "UTC") return "Greenwich (UTC · United Kingdom)";
+  const loc = getDefaultLocationForTimezone(tz);
+  if (loc) {
+    return `${loc.city}, ${loc.country} (${loc.latitude > 0 ? "+" : ""}${loc.latitude.toFixed(2)}°, ${loc.longitude > 0 ? "+" : ""}${loc.longitude.toFixed(2)}°)`;
+  }
   const parts = tz.split("/");
   const city = parts[parts.length - 1]?.replace(/_/g, " ") || tz;
   const region = parts[0] || "";
@@ -137,6 +147,7 @@ export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
   currentOffset,
   onTimezoneChange,
   onOffsetChange,
+  onLocationSelect,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [filterText, setFilterText] = useState(timezone);
@@ -157,6 +168,11 @@ export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
   const offsetValidation = useMemo(() => {
     return deriveTimezoneOffset(timezone, date, time);
   }, [timezone, date, time]);
+
+  // Locations matching current timezone
+  const currentTzLocations = useMemo(() => {
+    return getLocationsForTimezone(timezone);
+  }, [timezone]);
 
   // Filter ~50 common IANA timezone options as the user types
   const filteredOptions = useMemo(() => {
@@ -219,9 +235,9 @@ export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
   }, [highlightedIndex, isOpen]);
 
   /**
-   * Select a timezone value and trigger the offset derivation logic
+   * Select a timezone value and trigger the offset and location derivation logic
    */
-  const selectTimezone = (selectedTz: string) => {
+  const selectTimezone = (selectedTz: string, specificLoc?: CityLocation) => {
     setFilterText(selectedTz);
     setIsTyping(false);
     setIsOpen(false);
@@ -235,6 +251,12 @@ export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
     onTimezoneChange(selectedTz, derivedOffset);
     if (onOffsetChange && derivedOffset !== undefined) {
       onOffsetChange(derivedOffset);
+    }
+
+    // Auto-populate coordinates from specific location or default location
+    const loc = specificLoc ?? getDefaultLocationForTimezone(selectedTz);
+    if (loc && onLocationSelect) {
+      onLocationSelect(loc.latitude, loc.longitude, loc.city, loc.country);
     }
   };
 
@@ -256,6 +278,10 @@ export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
       onTimezoneChange(val.trim(), derived);
       if (onOffsetChange && derived !== undefined) {
         onOffsetChange(derived);
+      }
+      const loc = getDefaultLocationForTimezone(val.trim());
+      if (loc && onLocationSelect) {
+        onLocationSelect(loc.latitude, loc.longitude, loc.city, loc.country);
       }
     }
   };
@@ -449,6 +475,27 @@ export const TimezoneSelect: React.FC<TimezoneSelectProps> = ({
           </button>
         ))}
       </div>
+
+      {/* City Chips for active timezone */}
+      {currentTzLocations.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+          <span className="text-[10px] text-slate-500 font-mono">Cities:</span>
+          {currentTzLocations.slice(0, 5).map((loc) => (
+            <button
+              key={`${loc.city}-${loc.timezone}`}
+              type="button"
+              onClick={() => selectTimezone(loc.timezone, loc)}
+              className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-amber-300 border border-slate-800 hover:border-slate-700 transition flex items-center gap-1"
+              title={`${loc.city}, ${loc.country} (${loc.latitude > 0 ? "+" : ""}${loc.latitude}, ${loc.longitude > 0 ? "+" : ""}${loc.longitude})`}
+            >
+              <span>{loc.city}</span>
+              <span className="text-[9px] text-slate-500">
+                {loc.latitude.toFixed(1)}°
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Searchable Dropdown Options List */}
       {isOpen && (

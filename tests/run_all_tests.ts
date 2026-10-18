@@ -10,6 +10,7 @@ import { runJulianDayTests } from "./astronomy/julianDay.test.ts";
 import { runPlanetaryPositionsTests } from "./astronomy/planetaryPositions.test.ts";
 import { runTimezoneTests } from "./astronomy/timezone.test.ts";
 import { runTimezoneHelperTests } from "./astronomy/timezoneHelper.test.ts";
+import { runTimezoneLocationsTests } from "./astronomy/timezoneLocations.test.ts";
 import { runCanonicalChartTests } from "./canonical/canonicalChart.test.ts";
 import { runCanonicalValidationTests } from "./canonical/canonicalValidation.test.ts";
 import { runPyjhoraDifferentialTests } from "./differential/pyjhoraDifferential.test.ts";
@@ -29,6 +30,7 @@ interface TestSuiteEntry {
 const REGISTERED_SUITES: TestSuiteEntry[] = [
   { name: "Timezone & UTC Resolution", run: runTimezoneTests },
   { name: "Timezone Helper & IANA Offset Derivation", run: runTimezoneHelperTests },
+  { name: "Timezone Locations & Coordinates", run: runTimezoneLocationsTests },
   { name: "Julian Day UT Calculation", run: runJulianDayTests },
   { name: "Lahiri Ayanamsa Calculation", run: runAyanamsaTests },
   { name: "Planetary Positions Calculation", run: runPlanetaryPositionsTests },
