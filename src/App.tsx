@@ -31,6 +31,9 @@ import {
   formatOffsetDisplay,
 } from "./utils/timezoneHelper.ts";
 import { getDefaultLocationForTimezone } from "./data/timezoneLocations.ts";
+import { buildDssme16BlockResult } from "./engine/chartblocks/index.ts";
+import { runDssmeEngine } from "./engine/dssme/dssmeEngine.ts";
+import type { DssmeRunResult } from "./engine/dssme/types.ts";
 
 const PRESET_CHOFU: DssmeCalculationInput = {
   date: "2026-09-16",
@@ -54,6 +57,16 @@ export default function App() {
   const [copied, setCopied] = useState<boolean>(false);
 
   const [selectedCityLocation, setSelectedCityLocation] = useState<string>("Tokyo/Chofu, Japan");
+
+  // DSSME Engine state
+  const [dssmeBodyMode, setDssmeBodyMode] = useState<"7-body" | "9-body">("9-body");
+  const [dssmeRisk, setDssmeRisk] = useState<"LOW" | "MEDIUM" | "HIGH" | "OBSERVE">("MEDIUM");
+  const [dssmeGeometry, setDssmeGeometry] = useState<"ordered_2_digit" | "ordered_3_digit">("ordered_2_digit");
+  const [dssmeResult, setDssmeResult] = useState<DssmeRunResult | null>(null);
+  const [dssmeLoading, setDssmeLoading] = useState<boolean>(false);
+  const [dssmeError, setDssmeError] = useState<string | null>(null);
+  const [showDssmeJson, setShowDssmeJson] = useState<boolean>(false);
+  const [dssmeTimeMs, setDssmeTimeMs] = useState<number | null>(null);
 
   // Auto-run initial chart on mount
   useEffect(() => {
@@ -210,6 +223,41 @@ export default function App() {
     navigator.clipboard.writeText(JSON.stringify(chart, null, 2));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function handleRunDssme() {
+    if (!chart) {
+      setDssmeError("먼저 Compute Canonical Chart를 실행하세요. (First compute the canonical chart.)");
+      return;
+    }
+    setDssmeLoading(true);
+    setDssmeError(null);
+    setDssmeResult(null);
+    const t0 = performance.now();
+    try {
+      // Build 16-block result from canonical chart
+      const blockResult = await buildDssme16BlockResult(chart, undefined, {
+        session: {
+          bodyMode: dssmeBodyMode,
+          risk: dssmeRisk,
+          geometry: dssmeGeometry,
+        },
+      });
+      // Run DSSME engine
+      const result = runDssmeEngine({
+        chart: blockResult,
+        bodyMode: dssmeBodyMode,
+        objective: "short-cycle speculative extraction",
+        risk: dssmeRisk,
+        geometry: dssmeGeometry,
+      });
+      setDssmeResult(result);
+      setDssmeTimeMs(Math.round((performance.now() - t0) * 10) / 10);
+    } catch (err: unknown) {
+      setDssmeError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDssmeLoading(false);
+    }
   }
 
   return (
@@ -737,6 +785,319 @@ export default function App() {
                   );
                 })}
               </div>
+            </div>
+
+            {/* ── DSSME Engine Section ────────────────────────────────── */}
+            <div className="bg-slate-900/80 border border-amber-500/20 rounded-xl p-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-amber-400" />
+                    DSSME Engine v1.6 — Digit Generation Pipeline (S0→S15)
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Deterministic · Non-adaptive · 2 Discontinuities (S11, S15) · §8–§14 Contract
+                  </p>
+                </div>
+                {dssmeTimeMs !== null && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 font-mono text-xs text-slate-300">
+                    <Cpu className="h-3 w-3 text-amber-400" />
+                    {dssmeTimeMs}ms
+                  </span>
+                )}
+              </div>
+
+              {/* DSSME Controls */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Body Mode</label>
+                  <select
+                    value={dssmeBodyMode}
+                    onChange={(e) => setDssmeBodyMode(e.target.value as "7-body" | "9-body")}
+                    className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-amber-500 font-mono"
+                  >
+                    <option value="9-body">9-body (+ Rahu/Ketu)</option>
+                    <option value="7-body">7-body (Classical)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Risk Posture</label>
+                  <select
+                    value={dssmeRisk}
+                    onChange={(e) => setDssmeRisk(e.target.value as "LOW" | "MEDIUM" | "HIGH" | "OBSERVE")}
+                    className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-amber-500 font-mono"
+                  >
+                    <option value="LOW">LOW</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="HIGH">HIGH</option>
+                    <option value="OBSERVE">OBSERVE</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Geometry</label>
+                  <select
+                    value={dssmeGeometry}
+                    onChange={(e) => setDssmeGeometry(e.target.value as "ordered_2_digit" | "ordered_3_digit")}
+                    className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-amber-500 font-mono"
+                  >
+                    <option value="ordered_2_digit">2D Pair (00–99)</option>
+                    <option value="ordered_3_digit">3D Triplet (000–999)</option>
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={handleRunDssme}
+                    disabled={dssmeLoading || !chart}
+                    className="w-full px-4 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm shadow-md shadow-amber-500/20 flex items-center justify-center gap-2 transition disabled:opacity-50 cursor-pointer"
+                  >
+                    {dssmeLoading ? (
+                      <>Running…</>
+                    ) : (
+                      <>
+                        <ArrowRight className="h-4 w-4" />
+                        Run DSSME Engine
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* DSSME Error */}
+              {dssmeError && (
+                <div className="mb-4 p-3 rounded-lg bg-rose-950/50 border border-rose-600/50 text-rose-200 text-xs font-mono flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+                  {dssmeError}
+                </div>
+              )}
+
+              {/* DSSME Results */}
+              {dssmeResult && (() => {
+                const isAbort = "status" in dssmeResult;
+                if (isAbort) {
+                  return (
+                    <div className="p-4 rounded-lg bg-rose-950/30 border border-rose-600/40 text-rose-200">
+                      <div className="flex items-center gap-2 font-semibold text-sm mb-1">
+                        <AlertCircle className="h-4 w-4 text-rose-400" />
+                        {dssmeResult.status === "CLOSED" ? "CLOSED — No Output" : "ABORT"}
+                      </div>
+                      <p className="text-xs font-mono text-rose-300">{dssmeResult.reason}</p>
+                      {dssmeResult.warnings.length > 0 && (
+                        <ul className="mt-2 space-y-0.5 text-[11px] text-rose-400 font-mono">
+                          {dssmeResult.warnings.slice(0, 6).map((w, i) => (
+                            <li key={i}>• {w}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                }
+
+                // Success result
+                const out = dssmeResult;
+                const is2D = out.geometry === "ordered_2_digit";
+                const pairs = is2D ? (out as {authorized_pairs: {pair:string; category:string; P_raw:number; time_gate:string|null}[]}).authorized_pairs : null;
+                const triplets = !is2D ? (out as {authorized_triplets: {triplet:string; category:string; P_raw:number; volatile_positions:number; time_gate:string|null}[]}).authorized_triplets : null;
+                const dv = is2D ? (out as {digit_vector: Record<string,number>}).digit_vector : (out as {digit_vector_normalized: Record<string,number>}).digit_vector_normalized;
+                const dvMax = Math.max(...Object.values(dv));
+
+                return (
+                  <div className="space-y-4">
+                    {/* Summary header */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 text-xs font-mono">
+                      {[
+                        { label: "Regime", val: out.regime, color: out.regime === "OPEN" ? "text-emerald-400" : "text-amber-400" },
+                        { label: "ZW State", val: out.zw_state, color: out.zw_state === "OPEN" ? "text-emerald-400" : "text-amber-400" },
+                        { label: "Mode", val: out.mode, color: "text-slate-200" },
+                        { label: "θ_s", val: out.threshold.toFixed(2), color: "text-amber-300" },
+                        { label: "Field", val: out.field_type_enriched, color: "text-slate-200" },
+                        { label: "k_max", val: out.k_max.toString(), color: "text-slate-200" },
+                      ].map(({ label, val, color }) => (
+                        <div key={label} className="bg-slate-950/60 border border-slate-800 rounded-lg p-2 text-center">
+                          <div className="text-slate-500 text-[10px]">{label}</div>
+                          <div className={`font-bold mt-0.5 ${color}`}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Survivors */}
+                    <div>
+                      <div className="text-xs text-slate-400 font-medium mb-1.5">
+                        Survivors (S11 ≥ θ_s)
+                        {out.dasha_divergence && (
+                          <span className="ml-2 px-1.5 py-0.5 rounded bg-rose-950/60 text-rose-400 text-[10px] border border-rose-700/50">DASHA_DIVERGENCE</span>
+                        )}
+                        {out.soft_mode_active && (
+                          <span className="ml-2 px-1.5 py-0.5 rounded bg-amber-950/60 text-amber-400 text-[10px] border border-amber-700/50">SOFT MODE</span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {out.survivors.map((p) => (
+                          <span key={p} className="px-2 py-0.5 rounded-full bg-emerald-900/40 border border-emerald-600/40 text-emerald-300 text-xs font-mono">
+                            {p}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Digit Vector bar chart */}
+                    <div>
+                      <div className="text-xs text-slate-400 font-medium mb-2">
+                        Digit Strength Vector (D₀…D₉)
+                        <span className="ml-2 text-[10px] text-slate-500">Primary: {out.primary_cluster.join(", ")} · Volatile⚡: {out.volatile_digits.join(", ")}</span>
+                      </div>
+                      <div className="grid grid-cols-10 gap-1">
+                        {Array.from({ length: 10 }, (_, d) => {
+                          const val = dv[d.toString()] ?? 0;
+                          const pct = dvMax > 0 ? (val / dvMax) * 100 : 0;
+                          const isVolatile = [0,4,7,9].includes(d);
+                          const isPrimary = out.primary_cluster.includes(d);
+                          return (
+                            <div key={d} className="flex flex-col items-center gap-1">
+                              <div className="text-[10px] font-mono text-slate-400">{(val * 100).toFixed(0)}</div>
+                              <div className="w-full bg-slate-800 rounded-sm overflow-hidden" style={{ height: 48 }}>
+                                <div
+                                  className={`w-full rounded-sm transition-all ${
+                                    isPrimary
+                                      ? isVolatile ? "bg-orange-500" : "bg-amber-400"
+                                      : isVolatile ? "bg-orange-800" : "bg-slate-600"
+                                  }`}
+                                  style={{ height: `${pct}%`, marginTop: `${100 - pct}%` }}
+                                />
+                              </div>
+                              <div className={`text-[11px] font-bold font-mono ${isPrimary ? "text-amber-300" : "text-slate-400"}`}>
+                                {d}{isVolatile ? "⚡" : ""}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Authorized Pairs or Triplets */}
+                    {is2D && pairs && (
+                      <div>
+                        <div className="text-xs text-slate-400 font-medium mb-2">
+                          Authorized Pairs — S15 ({pairs.length}/{out.k_max})
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                          {pairs.slice(0, out.k_max).map((p) => {
+                            const catColor = p.category === "Primary"
+                              ? "border-amber-500/60 bg-amber-950/20 text-amber-300"
+                              : p.category === "Secondary"
+                                ? "border-slate-600/60 bg-slate-900 text-slate-300"
+                                : p.category === "Burst"
+                                  ? "border-orange-500/60 bg-orange-950/20 text-orange-300"
+                                  : "border-slate-700/40 bg-slate-950 text-slate-500";
+                            return (
+                              <div key={p.pair} className={`rounded-lg border p-2 text-center font-mono ${catColor}`}>
+                                <div className="text-2xl font-bold tracking-widest">{p.pair}</div>
+                                <div className="text-[10px] mt-1 opacity-70">{p.category}</div>
+                                <div className="text-[10px] opacity-50">{(p.P_raw * 100).toFixed(2)}%</div>
+                                {p.time_gate && (
+                                  <div className="text-[9px] mt-0.5 text-orange-400 leading-tight">{p.time_gate.split(" ")[0]}</div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {/* Compact sets */}
+                        {is2D && "compact_4" in out && (
+                          <div className="mt-3 flex flex-wrap gap-3 text-xs font-mono">
+                            <span className="text-slate-400">Compact-4:</span>
+                            {(out as {compact_4:string[]}).compact_4.map(p => (
+                              <span key={p} className="px-2 py-0.5 rounded bg-amber-900/40 border border-amber-600/40 text-amber-300 font-bold">{p}</span>
+                            ))}
+                            <span className="text-slate-600">|</span>
+                            <span className="text-slate-400">Compact-6:</span>
+                            {(out as {compact_6:string[]}).compact_6.map(p => (
+                              <span key={p} className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">{p}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {!is2D && triplets && (
+                      <div>
+                        <div className="text-xs text-slate-400 font-medium mb-2">
+                          Authorized Triplets — S15 ({triplets.length}/{out.k_max})
+                          {"volatile_mass_pct" in out && (
+                            <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-mono ${
+                              (out as {volatile_mass_pct:number}).volatile_mass_pct > 50
+                                ? "bg-rose-950/60 text-rose-400 border border-rose-700/50"
+                                : (out as {volatile_mass_pct:number}).volatile_mass_pct > 35
+                                  ? "bg-orange-950/60 text-orange-400 border border-orange-700/50"
+                                  : "bg-slate-800 text-slate-400 border border-slate-700"
+                            }`}>
+                              ⚡ {(out as {volatile_mass_pct:number}).volatile_mass_pct.toFixed(1)}% volatile
+                            </span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+                          {triplets.slice(0, out.k_max).map((t) => {
+                            const catColor = t.category === "Primary"
+                              ? "border-amber-500/60 bg-amber-950/20 text-amber-300"
+                              : t.category === "Secondary"
+                                ? "border-slate-600/60 bg-slate-900 text-slate-300"
+                                : t.category === "Burst"
+                                  ? "border-orange-500/60 bg-orange-950/20 text-orange-300"
+                                  : "border-slate-700/40 bg-slate-950 text-slate-500";
+                            return (
+                              <div key={t.triplet} className={`rounded-lg border p-2 text-center font-mono ${catColor}`}>
+                                <div className="text-xl font-bold tracking-widest">{t.triplet}</div>
+                                <div className="text-[10px] mt-1 opacity-70">{t.category}</div>
+                                <div className="text-[10px] opacity-50">{(t.P_raw * 100).toFixed(3)}%</div>
+                                {t.volatile_positions > 0 && (
+                                  <div className="text-[9px] text-orange-400">{"⚡".repeat(t.volatile_positions)}</div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {/* 3D Compact sets */}
+                        {"compact_3" in out && (
+                          <div className="mt-3 flex flex-wrap gap-3 text-xs font-mono">
+                            <span className="text-slate-400">Compact-3:</span>
+                            {(out as {compact_3:string[]}).compact_3.map(t => (
+                              <span key={t} className="px-2 py-0.5 rounded bg-amber-900/40 border border-amber-600/40 text-amber-300 font-bold">{t}</span>
+                            ))}
+                            <span className="text-slate-600">|</span>
+                            <span className="text-slate-400">Compact-5:</span>
+                            {(out as {compact_5:string[]}).compact_5.map(t => (
+                              <span key={t} className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">{t}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Warnings */}
+                    {out.warnings.filter(w => !w.includes("ZW_STATE") && !w.includes("→")).length > 0 && (
+                      <div className="p-3 rounded-lg bg-amber-950/20 border border-amber-700/30 text-amber-300 text-[11px] font-mono space-y-0.5">
+                        {out.warnings.filter(w => !w.includes("ZW_STATE") && !w.includes("→")).slice(0, 5).map((w, i) => (
+                          <div key={i}>⚠ {w}</div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* JSON toggle */}
+                    <button
+                      type="button"
+                      onClick={() => setShowDssmeJson(!showDssmeJson)}
+                      className="text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1 transition"
+                    >
+                      {showDssmeJson ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      {showDssmeJson ? "Hide" : "Show"} Full DSSME JSON Audit
+                    </button>
+                    {showDssmeJson && (
+                      <pre className="p-4 rounded-lg bg-slate-950 border border-slate-800 text-[10px] font-mono text-amber-300/80 overflow-x-auto max-h-96">
+                        {JSON.stringify(dssmeResult, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Collapsible Canonical Chart JSON Inspector */}
