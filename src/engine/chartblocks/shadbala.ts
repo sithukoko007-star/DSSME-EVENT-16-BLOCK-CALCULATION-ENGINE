@@ -146,8 +146,120 @@ function digBala(planet: ClassicalPlanet, house: number): number {
 }
 
 /**
+ * Dignity score mapping for Saptavargaja Bala computation.
+ * Full Saptavargaja uses 7 vargas (D1,D2,D3,D7,D9,D12,D30).
+ * This partial implementation uses D1+D9 (2 of 7 vargas available).
+ *
+ * Per-varga score (Parashari):
+ *   Exalted/Moolatrikona → 20; Own → 15; Grt.Friend → 12; Friend → 10;
+ *   Neutral → 7; Enemy → 5; Grt.Enemy → 3; Debilitated → 2
+ * Maximum per varga (Exalted) = 20 → max 2 vargas = 40.
+ * We scale D1+D9 score to fit within the partial range:
+ *   Full Saptavargaja range: 15 (all debilitated) → 150 (all exalted).
+ *   D1+D9 partial contribution (2/7): scaled proportionally.
+ */
+function dignityScore(dignity: string): number {
+  switch (dignity) {
+    case "Exalted":      return 20;
+    case "Moolatrikona": return 20;
+    case "Own":          return 15;
+    case "Grt.Friend":   return 12;
+    case "Friend":       return 10;
+    case "Neutral":      return 7;
+    case "Enemy":        return 5;
+    case "Grt.Enemy":    return 3;
+    case "Debilitated":  return 2;
+    default:             return 7; // neutral fallback
+  }
+}
+
+function saptavargajaBalaPartial(
+  planet: ClassicalPlanet,
+  d1Sign: ZodiacSign,
+  d1Degree: number,
+  d9Sign: ZodiacSign
+): number {
+  // D1 dignity
+  const d1Dignity = getClassicalDignityForSapta(planet, d1Sign, d1Degree);
+  const d1Score = dignityScore(d1Dignity);
+
+  // D9 dignity
+  const d9Dignity = getClassicalDignityForSapta(planet, d9Sign, undefined);
+  const d9Score = dignityScore(d9Dignity);
+
+  // Sum of D1+D9 (max=40 if both exalted, min=4 if both debilitated)
+  const rawScore = d1Score + d9Score;
+
+  // Scale to Saptavargaja partial range.
+  // We approximate: treating D1+D9 as 2 of 7 vargas, each max=20.
+  // Full range (7 vargas): min=7*2=14, max=7*20=140.
+  // D1+D9 range: min=4, max=40.
+  // Scale linearly into [14, 140] proportional to 2/7:
+  // partial = 14 + (rawScore - 4) / (40 - 4) * (140 - 14)
+  const scaled = 14 + ((rawScore - 4) / 36) * 126;
+  return parseFloat(Math.min(140, Math.max(14, scaled)).toFixed(2));
+}
+
+// Inline dignity helper for Saptavargaja (avoids circular import)
+const _SAPTA_EXALT: Record<ClassicalPlanet, ZodiacSign> = {
+  Sun: "Aries", Moon: "Taurus", Mars: "Capricorn", Mercury: "Virgo",
+  Jupiter: "Cancer", Venus: "Pisces", Saturn: "Libra",
+};
+const _SAPTA_DEBIT: Record<ClassicalPlanet, ZodiacSign> = {
+  Sun: "Libra", Moon: "Scorpio", Mars: "Cancer", Mercury: "Pisces",
+  Jupiter: "Capricorn", Venus: "Virgo", Saturn: "Aries",
+};
+const _SAPTA_OWN: Record<ClassicalPlanet, ZodiacSign[]> = {
+  Sun: ["Leo"], Moon: ["Cancer"], Mars: ["Aries", "Scorpio"],
+  Mercury: ["Gemini", "Virgo"], Jupiter: ["Sagittarius", "Pisces"],
+  Venus: ["Taurus", "Libra"], Saturn: ["Capricorn", "Aquarius"],
+};
+const _SAPTA_MULA_SIGN: Record<ClassicalPlanet, ZodiacSign> = {
+  Sun: "Leo", Moon: "Taurus", Mars: "Aries", Mercury: "Virgo",
+  Jupiter: "Sagittarius", Venus: "Libra", Saturn: "Aquarius",
+};
+const _SAPTA_MULA_RANGE: Record<ClassicalPlanet, [number, number]> = {
+  Sun: [0, 20], Moon: [4, 20], Mars: [0, 12], Mercury: [15, 20],
+  Jupiter: [0, 10], Venus: [0, 15], Saturn: [0, 20],
+};
+const _SAPTA_FRIEND: Record<ClassicalPlanet, Partial<Record<ClassicalPlanet, string>>> = {
+  Sun:     { Moon: "Friend", Mars: "Friend", Jupiter: "Friend", Mercury: "Neutral", Venus: "Enemy", Saturn: "Enemy" },
+  Moon:    { Sun: "Friend", Mercury: "Friend", Mars: "Neutral", Jupiter: "Neutral", Venus: "Neutral", Saturn: "Neutral" },
+  Mars:    { Sun: "Friend", Moon: "Friend", Jupiter: "Friend", Venus: "Neutral", Saturn: "Neutral", Mercury: "Enemy" },
+  Mercury: { Sun: "Friend", Venus: "Friend", Mars: "Neutral", Jupiter: "Neutral", Saturn: "Neutral", Moon: "Enemy" },
+  Jupiter: { Sun: "Friend", Moon: "Friend", Mars: "Friend", Saturn: "Neutral", Mercury: "Enemy", Venus: "Enemy" },
+  Venus:   { Mercury: "Friend", Saturn: "Friend", Mars: "Neutral", Jupiter: "Neutral", Sun: "Enemy", Moon: "Enemy" },
+  Saturn:  { Mercury: "Friend", Venus: "Friend", Jupiter: "Neutral", Sun: "Enemy", Moon: "Enemy", Mars: "Enemy" },
+};
+const _SAPTA_SIGN_LORDS: Record<ZodiacSign, ClassicalPlanet> = {
+  Aries: "Mars", Taurus: "Venus", Gemini: "Mercury", Cancer: "Moon",
+  Leo: "Sun", Virgo: "Mercury", Libra: "Venus", Scorpio: "Mars",
+  Sagittarius: "Jupiter", Capricorn: "Saturn", Aquarius: "Saturn", Pisces: "Jupiter",
+};
+
+function getClassicalDignityForSapta(
+  planet: ClassicalPlanet,
+  sign: ZodiacSign,
+  signDegree?: number
+): string {
+  if (_SAPTA_EXALT[planet] === sign) return "Exalted";
+  if (_SAPTA_DEBIT[planet] === sign) return "Debilitated";
+  const mooSign = _SAPTA_MULA_SIGN[planet];
+  const mooRange = _SAPTA_MULA_RANGE[planet];
+  if (mooSign === sign && mooRange) {
+    const deg = signDegree ?? 0;
+    if (deg >= mooRange[0] && deg < mooRange[1]) return "Moolatrikona";
+  }
+  if ((_SAPTA_OWN[planet] ?? []).includes(sign)) return "Own";
+  const signLord = _SAPTA_SIGN_LORDS[sign];
+  if (signLord === planet) return "Own";
+  const friendLevel = _SAPTA_FRIEND[planet]?.[signLord];
+  return friendLevel ?? "Neutral";
+}
+
+/**
  * Sthana Bala (positional strength) = sum of sub-components.
- * Sub-components: Uchcha, Saptavargaja (approximated), Ojha-Yugma, Kendradi, Drekkana
+ * Sub-components: Uchcha, Saptavargaja (D1+D9 partial), Ojha-Yugma, Kendradi, Drekkana
  */
 function sthanaBala(
   planet: ClassicalPlanet,
@@ -157,16 +269,23 @@ function sthanaBala(
   house: number
 ): number {
   const uchcha = uchhaBala(planet, siderealLon);
-  // Saptavargaja Bala (D1+D2+D3+D7+D9+D12+D30 dignities) — approximated
-  // In a full implementation, compute D-9 etc. Here: use Rashi dignity * 30 + own * 45
-  // Simplified: a minimum of 75 virupas representing partial varga strength
-  const saptavargaja = 75; // conservative placeholder — actual requires all vargas
+
+  // Saptavargaja Bala — D1+D9 partial computation (2 of 7 vargas)
+  const d9Sign = navamshaSignForSapta(siderealLon);
+  const saptavargaja = saptavargajaBalaPartial(planet, sign, signDegree, d9Sign);
 
   const ojhaYugma = ojhaYugmaBala(planet, sign);
   const kendradi = kendradiBala(house);
   const drekkanaB = drekkana(planet, signDegree, sign);
 
   return uchcha + saptavargaja + ojhaYugma + kendradi + drekkanaB;
+}
+
+/** D-9 sign from D-1 sidereal longitude (for Saptavargaja). */
+function navamshaSignForSapta(siderealLon: number): ZodiacSign {
+  const d9Lon = (siderealLon * 9) % 360;
+  const signIdx = Math.floor(d9Lon / 30);
+  return ZODIAC_SIGNS_ARIES_FIRST[signIdx]!;
 }
 
 /**
@@ -193,25 +312,48 @@ function kaalaBalaForPlanet(planet: ClassicalPlanet, input: KaalaInput): number 
   else if (nocturnal.includes(planet)) nathonnatha = input.isNight ? 60 : 15;
   else nathonnatha = 30; // Mercury is neutral
 
-  // 2. Paksha Bala: Shukla paksha → benefics stronger; Krishna → malefics
+  // 2. Paksha Bala: graduated by tithiIndex.
+  //    Classical (Parashari): Moon's Paksha Bala = tithiIndex × 12 (max=180 at full moon).
+  //    For Kaala Bala sub-component, cap contribution at 60 virupas.
+  //    Benefics strengthen with waxing, malefics strengthen with waning.
+  //    tithiIndex 1–15 = Shukla; 16–30 = Krishna (mapped as 30-tithiIndex+1 for waning count).
   const benefics: ClassicalPlanet[] = ["Moon", "Mercury", "Jupiter", "Venus"];
   const malefics: ClassicalPlanet[] = ["Sun", "Mars", "Saturn"];
-  const pakshaBenefit = benefics.includes(planet);
-  const pakshaMalefic = malefics.includes(planet);
   const pakshaIsShukla = input.paksha === "shukla";
+  // Raw tithi phase (1=new moon direction, 15=opposition direction)
+  const tithiPhase = pakshaIsShukla
+    ? input.tithiIndex         // 1–15, waxing
+    : (30 - input.tithiIndex + 1); // 1–15, waning (tithi 16→15, tithi 30→1)
+  const phaseFraction = Math.min(15, Math.max(1, tithiPhase)) / 15; // 0.067–1.0
 
-  let paksha = 30;
-  if ((pakshaBenefit && pakshaIsShukla) || (pakshaMalefic && !pakshaIsShukla)) paksha = 60;
-  else if ((pakshaBenefit && !pakshaIsShukla) || (pakshaMalefic && pakshaIsShukla)) paksha = 0;
+  let paksha: number;
+  if (benefics.includes(planet)) {
+    // Benefics strong in Shukla, weak in Krishna
+    paksha = pakshaIsShukla
+      ? Math.round(phaseFraction * 60)   // 4–60 in Shukla
+      : Math.round((1 - phaseFraction) * 60); // 0–56 in Krishna (weakens as moon wanes)
+  } else if (malefics.includes(planet)) {
+    // Malefics strong in Krishna, weak in Shukla
+    paksha = pakshaIsShukla
+      ? Math.round((1 - phaseFraction) * 60)
+      : Math.round(phaseFraction * 60);
+  } else {
+    paksha = 30; // neutral fallback
+  }
 
-  // 3. Tribhaga Bala: day split into thirds; Sun=first, Moon=last, Saturn=middle by day
-  //    Night: Mercury=first, Moon=middle, Mars=last
+  // 3. Tribhaga Bala: day split into thirds; each third has a lord.
+  //    Day thirds: Saturn=1st, Mercury=2nd, Moon=3rd (each receives 60 if they are lord of any third)
+  //    Night thirds: Moon=1st, Mercury=2nd, Mars=3rd
+  //    Classical rule: planet gets 60 virupas if it lords ANY of the thirds for the period.
+  //    Simplified: all lords of the 3 day or 3 night thirds receive 60; others get 0.
   let tribhaga = 0;
   if (!input.isNight) {
-    const dayLords: ClassicalPlanet[] = ["Saturn", "Sun", "Moon"]; // thirds 1,2,3
+    // Day lords: Saturn, Mercury, Moon — all three receive 60 (any lord of any third)
+    const dayLords: ClassicalPlanet[] = ["Saturn", "Mercury", "Moon"];
     if (dayLords.includes(planet)) tribhaga = 60;
   } else {
-    const nightLords: ClassicalPlanet[] = ["Mars", "Mercury", "Moon"];
+    // Night lords: Moon, Mercury, Mars — classical order
+    const nightLords: ClassicalPlanet[] = ["Moon", "Mercury", "Mars"];
     if (nightLords.includes(planet)) tribhaga = 60;
   }
 
@@ -269,10 +411,21 @@ function chestaBala(planet: ClassicalPlanet, speedLon: number): number {
   const speed = speedLon; // deg/day (negative = retrograde)
 
   if (speed < 0) {
-    // Retrograde: 15 virupas
-    return 15;
+    // Retrograde (Vakra): classical Parashari = 30 virupas.
+    // Some texts say retrograde gets exaltation-level strength (≈30),
+    // since retrograde motion indicates geocentric proximity/visibility.
+    return 30;
   }
-  // Speed ratio vs mean: cap at 60, scale linearly
+
+  if (Math.abs(speed) < mean * 0.05) {
+    // Stationary (Vimala): near-zero speed = 0 virupas
+    return 0;
+  }
+
+  // Direct motion: scale linearly from mean.
+  // speed = mean → ratio 1.0 → 30 virupas (average Chesta)
+  // speed = 2×mean → ratio 2.0 → 60 virupas (maximum Chesta)
+  // speed = 0 → 0 virupas
   const ratio = Math.abs(speed) / mean;
   return Math.min(60, Math.max(0, ratio * 30));
 }
@@ -301,7 +454,10 @@ function drigBala(
     const otherPos = allPlanets[other];
     const otherHouse = otherPos.house;
 
-    // House difference (1–12)
+    // House difference (forward count FROM the aspecting planet TO the target).
+    // diff=7 → aspecting planet is 7 houses behind target → 7th aspect (full; all planets).
+    // diff=4/8 → Mars special aspects; diff=5/9 → Jupiter; diff=3/10 → Saturn.
+    // Note: "target - other" gives forward count from other (aspecting) to target.
     const diff = ((targetHouse - otherHouse + 12) % 12) + 1;
 
     // Aspect fractions per Vedic rules

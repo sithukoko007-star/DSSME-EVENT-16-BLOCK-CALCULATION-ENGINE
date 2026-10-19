@@ -235,14 +235,8 @@ export default function App() {
     setDssmeResult(null);
     const t0 = performance.now();
     try {
-      // Build 16-block result from canonical chart
-      const blockResult = await buildDssme16BlockResult(chart, undefined, {
-        session: {
-          bodyMode: dssmeBodyMode,
-          risk: dssmeRisk,
-          geometry: dssmeGeometry,
-        },
-      });
+      // Build 16-block result from canonical chart (panchanga not available here → undefined)
+      const blockResult = await buildDssme16BlockResult(chart, undefined);
       // Run DSSME engine
       const result = runDssmeEngine({
         chart: blockResult,
