@@ -1,0 +1,3955 @@
+{
+ "contract": "DSSME_MASTER_CONTRACT_v1.6",
+ "tolerance": 1e-09,
+ "comparison": "numbers: |actual-expected| <= tolerance; strings/lists/objects: exact; null means 'undefined'",
+ "groups": {
+  "explicit": "stated by the contract text",
+  "interpretation": "needs a reading of ambiguous text; skip if you disagree"
+ },
+ "counts": {
+  "total": 244,
+  "explicit": 240,
+  "interpretation": 4
+ },
+ "excluded": [
+  {
+   "item": "DRF Friend / Enemy / Great Friend / Great Enemy tiers",
+   "reason": "Pending decision (contract §22.2 item 4). Vectors cover identity branches, Neutral-tier derivation, the AD-secondary modifier and the clamp only."
+  },
+  {
+   "item": "Raw ASPECTS_PLANETS scores -> I_aspect tier",
+   "reason": "Contract defines the four tiers but not the score thresholds that select them. Vectors take the tier as input."
+  },
+  {
+   "item": "Friend/Enemy lookup direction for asymmetric pairs",
+   "reason": "The Natural Friendship Table is not symmetric (e.g. Sun lists Mercury neutral; Mercury lists Sun a friend) and the contract does not state which row is read. Vectors use symmetric pairs only."
+  },
+  {
+   "item": "SS_nav: Pushkara combined with Exalted/Own/etc.",
+   "reason": "Only Vargottama is stated to take priority; Pushkara vs dignity precedence is implied by table order only."
+  },
+  {
+   "item": "VR amplifier identity as a schema field",
+   "reason": "The 16-block schema has no field recording which body triggered Z-3. Vectors pass `amplifiers` explicitly."
+  },
+  {
+   "item": "BB_norm / S_disp values strictly between published bands (e.g. 0.695, 0.845)",
+   "reason": "DSSME contract does not state a half-open interval convention. Vectors use band interiors and exactly-representable lower edges."
+  },
+  {
+   "item": "Moolatrikona in DCF self-disposition",
+   "reason": "§8 S9 Step 2 says Own or Exalted only."
+  },
+  {
+   "item": "Rahu/Ketu shadow-row lookups",
+   "reason": "Not exercised; vectors use the seven classical planets."
+  },
+  {
+   "item": "Step K digit magnitudes (K.6 emphasis tiers); S15 authorization; Z-gates; S1",
+   "reason": "Unchanged by v1.6 and out of scope for these vectors."
+  },
+  {
+   "item": "S12 T-bar and archetype population",
+   "reason": "Pending decision (§22.2 item 5). S12 vectors use uniform T so they hold under either choice."
+  }
+ ],
+ "vectors": [
+  {
+   "id": "KIF-01",
+   "assertion": "A1",
+   "function": "KIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "kaala_pct": 1.5,
+    "other_pct": [
+     1,
+     1,
+     1,
+     1
+    ]
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "KIF-02",
+   "assertion": "A1",
+   "function": "KIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "kaala_pct": 1.51,
+    "other_pct": [
+     1,
+     1,
+     1,
+     1
+    ]
+   },
+   "expected": 0.95,
+   "note": ""
+  },
+  {
+   "id": "KIF-03",
+   "assertion": "A1",
+   "function": "KIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "kaala_pct": 2.5,
+    "other_pct": [
+     1,
+     1,
+     1,
+     1
+    ]
+   },
+   "expected": 0.95,
+   "note": ""
+  },
+  {
+   "id": "KIF-04",
+   "assertion": "A1",
+   "function": "KIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "kaala_pct": 2.51,
+    "other_pct": [
+     1,
+     1,
+     1,
+     1
+    ]
+   },
+   "expected": 0.85,
+   "note": ""
+  },
+  {
+   "id": "KIF-05",
+   "assertion": "A1",
+   "function": "KIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "kaala_pct": 1.0,
+    "other_pct": [
+     1,
+     1,
+     1,
+     1
+    ]
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "DIF-01",
+   "assertion": "A1",
+   "function": "DIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "drig_bala": 5.0
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "DIF-02",
+   "assertion": "A1",
+   "function": "DIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "drig_bala": 0.0
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "DIF-03",
+   "assertion": "A1",
+   "function": "DIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "drig_bala": -0.01
+   },
+   "expected": 0.95,
+   "note": ""
+  },
+  {
+   "id": "DIF-04",
+   "assertion": "A1",
+   "function": "DIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "drig_bala": -20.0
+   },
+   "expected": 0.95,
+   "note": ""
+  },
+  {
+   "id": "DIF-05",
+   "assertion": "A1",
+   "function": "DIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "drig_bala": -20.01
+   },
+   "expected": 0.85,
+   "note": ""
+  },
+  {
+   "id": "AIF-01",
+   "assertion": "A1",
+   "function": "AIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "components": [
+     45.0,
+     10,
+     10,
+     10,
+     10,
+     5
+    ],
+    "rs": 100.0
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "AIF-02",
+   "assertion": "A1",
+   "function": "AIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "components": [
+     45.01,
+     10,
+     10,
+     10,
+     10,
+     5
+    ],
+    "rs": 100.0
+   },
+   "expected": 0.95,
+   "note": ""
+  },
+  {
+   "id": "AIF-03",
+   "assertion": "A1",
+   "function": "AIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "components": [
+     60.0,
+     10,
+     10,
+     10,
+     10,
+     5
+    ],
+    "rs": 100.0
+   },
+   "expected": 0.95,
+   "note": ""
+  },
+  {
+   "id": "AIF-04",
+   "assertion": "A1",
+   "function": "AIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "components": [
+     60.01,
+     10,
+     10,
+     10,
+     10,
+     5
+    ],
+    "rs": 100.0
+   },
+   "expected": 0.88,
+   "note": ""
+  },
+  {
+   "id": "AIF-05",
+   "assertion": "A1",
+   "function": "AIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "components": [
+     20.0,
+     10,
+     10,
+     10,
+     10,
+     5
+    ],
+    "rs": 100.0
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "CIF-01",
+   "assertion": "A1",
+   "function": "CIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "n_planets": 3,
+    "sav": 30
+   },
+   "expected": 0.97,
+   "note": ""
+  },
+  {
+   "id": "CIF-02",
+   "assertion": "A1",
+   "function": "CIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "n_planets": 3,
+    "sav": 29
+   },
+   "expected": 0.93,
+   "note": ""
+  },
+  {
+   "id": "CIF-03",
+   "assertion": "A1",
+   "function": "CIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "n_planets": 3,
+    "sav": 25
+   },
+   "expected": 0.93,
+   "note": ""
+  },
+  {
+   "id": "CIF-04",
+   "assertion": "A1",
+   "function": "CIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "n_planets": 3,
+    "sav": 24
+   },
+   "expected": 0.88,
+   "note": ""
+  },
+  {
+   "id": "CIF-05",
+   "assertion": "A1",
+   "function": "CIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "n_planets": 2,
+    "sav": 28
+   },
+   "expected": 0.98,
+   "note": ""
+  },
+  {
+   "id": "CIF-06",
+   "assertion": "A1",
+   "function": "CIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "n_planets": 2,
+    "sav": 27
+   },
+   "expected": 0.95,
+   "note": ""
+  },
+  {
+   "id": "CIF-07",
+   "assertion": "A1",
+   "function": "CIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "n_planets": 1,
+    "sav": 10
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "YIF-01",
+   "assertion": "A1",
+   "function": "YIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "yogas": []
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "YIF-02",
+   "assertion": "A1",
+   "function": "YIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "yogas": [
+     "Dhana Yoga"
+    ]
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "YIF-03",
+   "assertion": "A1",
+   "function": "YIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "yogas": [
+     "Daridra Yoga"
+    ]
+   },
+   "expected": 0.96,
+   "note": ""
+  },
+  {
+   "id": "YIF-04",
+   "assertion": "A1",
+   "function": "YIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "yogas": [
+     "Daridra Yoga",
+     "Graha Yuddha"
+    ]
+   },
+   "expected": 0.92,
+   "note": ""
+  },
+  {
+   "id": "YIF-05",
+   "assertion": "A1",
+   "function": "YIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "yogas": [
+     "Dhana Yoga",
+     "Daridra Yoga"
+    ]
+   },
+   "expected": 0.99,
+   "note": ""
+  },
+  {
+   "id": "YIF-06",
+   "assertion": "A1",
+   "function": "YIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "yogas": [
+     "Daridra Yoga",
+     "Graha Yuddha",
+     "Shakata Yoga",
+     "Kemadruma",
+     "Paapa Kartari"
+    ]
+   },
+   "expected": 0.88,
+   "note": ""
+  },
+  {
+   "id": "YIF-07",
+   "assertion": "A1",
+   "function": "YIF",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "yogas": [
+     "Dhana Yoga",
+     "Lakshmi Yoga",
+     "Adhi Yoga",
+     "Raja Yoga",
+     "Gaja Kesari"
+    ]
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "SIF-01",
+   "assertion": "A1",
+   "function": "SIF_v3",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "components": {
+     "KIF": 1,
+     "DIF": 1,
+     "AIF": 1,
+     "CIF": 1,
+     "YIF": 1
+    }
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "SIF-02",
+   "assertion": "A1",
+   "function": "SIF_v3",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "components": {
+     "KIF": 0.85,
+     "DIF": 1,
+     "AIF": 0.88,
+     "CIF": 0.93,
+     "YIF": 0.96
+    }
+   },
+   "expected": 0.85,
+   "note": ""
+  },
+  {
+   "id": "SIF-03",
+   "assertion": "A1",
+   "function": "SIF_v3",
+   "contract_ref": "§8 S6",
+   "group": "explicit",
+   "inputs": {
+    "components": {
+     "KIF": 0.8,
+     "DIF": 1,
+     "AIF": 1,
+     "CIF": 1,
+     "YIF": 1
+    }
+   },
+   "expected": 0.82,
+   "note": "SIF-03 is synthetic (below every legal sub-factor floor): proves the 0.82 clamp literal"
+  },
+  {
+   "id": "ZC-01",
+   "assertion": "A2",
+   "function": "ZC",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "zw_state": "OPEN",
+    "planet": "Jupiter"
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "ZC-02",
+   "assertion": "A2",
+   "function": "ZC",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "zw_state": "OPEN",
+    "planet": "Mars"
+   },
+   "expected": 0.97,
+   "note": ""
+  },
+  {
+   "id": "ZC-03",
+   "assertion": "A2",
+   "function": "ZC",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "zw_state": "DAMPED",
+    "planet": "Jupiter"
+   },
+   "expected": 0.95,
+   "note": ""
+  },
+  {
+   "id": "ZC-04",
+   "assertion": "A2",
+   "function": "ZC",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "zw_state": "DAMPED",
+    "planet": "Rahu"
+   },
+   "expected": 0.85,
+   "note": ""
+  },
+  {
+   "id": "PC-S01",
+   "assertion": "A2",
+   "function": "PC",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "paksha": "Shukla",
+    "tithi_in_paksha": 2
+   },
+   "expected": 1.02,
+   "note": ""
+  },
+  {
+   "id": "PC-S02",
+   "assertion": "A2",
+   "function": "PC",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "paksha": "Shukla",
+    "tithi_in_paksha": 12
+   },
+   "expected": 1.02,
+   "note": ""
+  },
+  {
+   "id": "PC-S03",
+   "assertion": "A2",
+   "function": "PC",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "paksha": "Shukla",
+    "tithi_in_paksha": 1
+   },
+   "expected": 0.98,
+   "note": ""
+  },
+  {
+   "id": "PC-S04",
+   "assertion": "A2",
+   "function": "PC",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "paksha": "Shukla",
+    "tithi_in_paksha": 13
+   },
+   "expected": 0.98,
+   "note": ""
+  },
+  {
+   "id": "PC-S05",
+   "assertion": "A2",
+   "function": "PC",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "paksha": "Shukla",
+    "tithi_in_paksha": 15
+   },
+   "expected": 0.98,
+   "note": ""
+  },
+  {
+   "id": "PC-K01",
+   "assertion": "A2",
+   "function": "PC",
+   "contract_ref": "§8 S7",
+   "group": "interpretation",
+   "inputs": {
+    "paksha": "Krishna",
+    "tithi_in_paksha": 3
+   },
+   "expected": 0.94,
+   "note": "assumes paksha-relative tithi numbering (1-15); contract text does not say so explicitly"
+  },
+  {
+   "id": "PC-K02",
+   "assertion": "A2",
+   "function": "PC",
+   "contract_ref": "§8 S7",
+   "group": "interpretation",
+   "inputs": {
+    "paksha": "Krishna",
+    "tithi_in_paksha": 12
+   },
+   "expected": 0.94,
+   "note": "assumes paksha-relative tithi numbering (1-15); contract text does not say so explicitly"
+  },
+  {
+   "id": "PC-K03",
+   "assertion": "A2",
+   "function": "PC",
+   "contract_ref": "§8 S7",
+   "group": "interpretation",
+   "inputs": {
+    "paksha": "Krishna",
+    "tithi_in_paksha": 1
+   },
+   "expected": 0.88,
+   "note": "assumes paksha-relative tithi numbering (1-15); contract text does not say so explicitly"
+  },
+  {
+   "id": "PC-K04",
+   "assertion": "A2",
+   "function": "PC",
+   "contract_ref": "§8 S7",
+   "group": "interpretation",
+   "inputs": {
+    "paksha": "Krishna",
+    "tithi_in_paksha": 14
+   },
+   "expected": 0.88,
+   "note": "assumes paksha-relative tithi numbering (1-15); contract text does not say so explicitly"
+  },
+  {
+   "id": "VR-01",
+   "assertion": "A2",
+   "function": "VR",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Mars",
+    "amplifiers": []
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "VR-02",
+   "assertion": "A2",
+   "function": "VR",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Mars",
+    "amplifiers": [
+     "Mars"
+    ]
+   },
+   "expected": 0.85,
+   "note": ""
+  },
+  {
+   "id": "VR-03",
+   "assertion": "A2",
+   "function": "VR",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Rahu",
+    "amplifiers": [
+     "Mars"
+    ]
+   },
+   "expected": 0.95,
+   "note": ""
+  },
+  {
+   "id": "VR-04",
+   "assertion": "A2",
+   "function": "VR",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Jupiter",
+    "amplifiers": [
+     "Mars"
+    ]
+   },
+   "expected": 0.95,
+   "note": ""
+  },
+  {
+   "id": "VR-05",
+   "assertion": "A2",
+   "function": "VR",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Mars",
+    "amplifiers": [
+     "Mars",
+     "Rahu"
+    ]
+   },
+   "expected": 0.8,
+   "note": ""
+  },
+  {
+   "id": "VR-06",
+   "assertion": "A2",
+   "function": "VR",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Jupiter",
+    "amplifiers": [
+     "Mars",
+     "Rahu"
+    ]
+   },
+   "expected": 0.9,
+   "note": ""
+  },
+  {
+   "id": "SSD-01",
+   "assertion": "A2",
+   "function": "SS_dignity",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "dignity": "Exalted"
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "SSD-02",
+   "assertion": "A2",
+   "function": "SS_dignity",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "dignity": "Own"
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "SSD-03",
+   "assertion": "A2",
+   "function": "SS_dignity",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "dignity": "Moolatrikona"
+   },
+   "expected": 0.98,
+   "note": ""
+  },
+  {
+   "id": "SSD-04",
+   "assertion": "A2",
+   "function": "SS_dignity",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "dignity": "Grt.Friend"
+   },
+   "expected": 0.97,
+   "note": ""
+  },
+  {
+   "id": "SSD-05",
+   "assertion": "A2",
+   "function": "SS_dignity",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "dignity": "Friend"
+   },
+   "expected": 0.96,
+   "note": ""
+  },
+  {
+   "id": "SSD-06",
+   "assertion": "A2",
+   "function": "SS_dignity",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "dignity": "Neutral"
+   },
+   "expected": 0.95,
+   "note": ""
+  },
+  {
+   "id": "SSD-07",
+   "assertion": "A2",
+   "function": "SS_dignity",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "dignity": "Enemy"
+   },
+   "expected": 0.9,
+   "note": ""
+  },
+  {
+   "id": "SSD-08",
+   "assertion": "A2",
+   "function": "SS_dignity",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "dignity": "Grt.Enemy"
+   },
+   "expected": 0.88,
+   "note": ""
+  },
+  {
+   "id": "SSD-09",
+   "assertion": "A2",
+   "function": "SS_dignity",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "dignity": "Debilitated"
+   },
+   "expected": 0.75,
+   "note": ""
+  },
+  {
+   "id": "SSH-01",
+   "assertion": "A2",
+   "function": "SS_house",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "house_type": "Angular"
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "SSH-02",
+   "assertion": "A2",
+   "function": "SS_house",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "house_type": "Succedent"
+   },
+   "expected": 0.98,
+   "note": ""
+  },
+  {
+   "id": "SSH-03",
+   "assertion": "A2",
+   "function": "SS_house",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "house_type": "Cadent"
+   },
+   "expected": 0.95,
+   "note": ""
+  },
+  {
+   "id": "SSB-0",
+   "assertion": "A2",
+   "function": "SS_bav",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "bav": 0
+   },
+   "expected": 0.85,
+   "note": ""
+  },
+  {
+   "id": "SSB-1",
+   "assertion": "A2",
+   "function": "SS_bav",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "bav": 1
+   },
+   "expected": 0.87,
+   "note": ""
+  },
+  {
+   "id": "SSB-2",
+   "assertion": "A2",
+   "function": "SS_bav",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "bav": 2
+   },
+   "expected": 0.89,
+   "note": ""
+  },
+  {
+   "id": "SSB-3",
+   "assertion": "A2",
+   "function": "SS_bav",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "bav": 3
+   },
+   "expected": 0.92,
+   "note": ""
+  },
+  {
+   "id": "SSB-4",
+   "assertion": "A2",
+   "function": "SS_bav",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "bav": 4
+   },
+   "expected": 0.95,
+   "note": ""
+  },
+  {
+   "id": "SSB-5",
+   "assertion": "A2",
+   "function": "SS_bav",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "bav": 5
+   },
+   "expected": 0.97,
+   "note": ""
+  },
+  {
+   "id": "SSB-6",
+   "assertion": "A2",
+   "function": "SS_bav",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "bav": 6
+   },
+   "expected": 0.99,
+   "note": ""
+  },
+  {
+   "id": "SSB-7",
+   "assertion": "A2",
+   "function": "SS_bav",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "bav": 7
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "SSB-8",
+   "assertion": "A2",
+   "function": "SS_bav",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "bav": 8
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "SSN-01",
+   "assertion": "A3",
+   "function": "SS_nav",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": null
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "SSN-02",
+   "assertion": "A3",
+   "function": "SS_nav",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": {
+     "sign": "X",
+     "dignity": "Neutral",
+     "is_vargottama": true,
+     "is_pushkara": false
+    }
+   },
+   "expected": 1.04,
+   "note": ""
+  },
+  {
+   "id": "SSN-03",
+   "assertion": "A3",
+   "function": "SS_nav",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": {
+     "sign": "X",
+     "dignity": "Neutral",
+     "is_vargottama": false,
+     "is_pushkara": true
+    }
+   },
+   "expected": 1.03,
+   "note": ""
+  },
+  {
+   "id": "SSN-04",
+   "assertion": "A3",
+   "function": "SS_nav",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": {
+     "sign": "X",
+     "dignity": "Exalted",
+     "is_vargottama": false,
+     "is_pushkara": false
+    }
+   },
+   "expected": 1.02,
+   "note": ""
+  },
+  {
+   "id": "SSN-05",
+   "assertion": "A3",
+   "function": "SS_nav",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": {
+     "sign": "X",
+     "dignity": "Own",
+     "is_vargottama": false,
+     "is_pushkara": false
+    }
+   },
+   "expected": 1.01,
+   "note": ""
+  },
+  {
+   "id": "SSN-06",
+   "assertion": "A3",
+   "function": "SS_nav",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": {
+     "sign": "X",
+     "dignity": "Friend",
+     "is_vargottama": false,
+     "is_pushkara": false
+    }
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "SSN-07",
+   "assertion": "A3",
+   "function": "SS_nav",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": {
+     "sign": "X",
+     "dignity": "Neutral",
+     "is_vargottama": false,
+     "is_pushkara": false
+    }
+   },
+   "expected": 0.98,
+   "note": ""
+  },
+  {
+   "id": "SSN-08",
+   "assertion": "A3",
+   "function": "SS_nav",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": {
+     "sign": "X",
+     "dignity": "Enemy",
+     "is_vargottama": false,
+     "is_pushkara": false
+    }
+   },
+   "expected": 0.95,
+   "note": ""
+  },
+  {
+   "id": "SSN-09",
+   "assertion": "A3",
+   "function": "SS_nav",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": {
+     "sign": "X",
+     "dignity": "Debilitated",
+     "is_vargottama": false,
+     "is_pushkara": false
+    }
+   },
+   "expected": 0.91,
+   "note": ""
+  },
+  {
+   "id": "SSN-10",
+   "assertion": "A3",
+   "function": "SS_nav",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": {
+     "sign": "X",
+     "dignity": "Debilitated",
+     "is_vargottama": true,
+     "is_pushkara": false
+    }
+   },
+   "expected": 1.04,
+   "note": ""
+  },
+  {
+   "id": "T-01",
+   "assertion": "A2",
+   "function": "T_v3",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "ZC": 1,
+    "PC": 1,
+    "VR": 1,
+    "SS_dignity": 1,
+    "SS_house": 1,
+    "SS_bav": 1,
+    "SS_nav": 1
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "T-02",
+   "assertion": "A2",
+   "function": "T_v3",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "ZC": 1,
+    "PC": 1.02,
+    "VR": 1,
+    "SS_dignity": 1,
+    "SS_house": 1,
+    "SS_bav": 1,
+    "SS_nav": 1.04
+   },
+   "expected": 1.0,
+   "note": "raw 1.0608 -> clamp 1.00"
+  },
+  {
+   "id": "T-03",
+   "assertion": "A2",
+   "function": "T_v3",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "ZC": 0.85,
+    "PC": 0.88,
+    "VR": 0.8,
+    "SS_dignity": 0.75,
+    "SS_house": 0.95,
+    "SS_bav": 0.85,
+    "SS_nav": 0.91
+   },
+   "expected": 0.58,
+   "note": "raw 0.3298 -> clamp 0.58"
+  },
+  {
+   "id": "T-04",
+   "assertion": "A2",
+   "function": "T_v3",
+   "contract_ref": "§8 S7",
+   "group": "explicit",
+   "inputs": {
+    "ZC": 0.95,
+    "PC": 0.94,
+    "VR": 1.0,
+    "SS_dignity": 0.95,
+    "SS_house": 0.98,
+    "SS_bav": 0.95,
+    "SS_nav": 0.98
+   },
+   "expected": 0.7740175729999997,
+   "note": "interior"
+  },
+  {
+   "id": "RB-01",
+   "assertion": "A4",
+   "function": "RB",
+   "contract_ref": "§8 S8",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Jupiter"
+   },
+   "expected": 1.15,
+   "note": ""
+  },
+  {
+   "id": "RB-02",
+   "assertion": "A4",
+   "function": "RB",
+   "contract_ref": "§8 S8",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Venus"
+   },
+   "expected": 1.15,
+   "note": ""
+  },
+  {
+   "id": "RB-03",
+   "assertion": "A4",
+   "function": "RB",
+   "contract_ref": "§8 S8",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Mercury"
+   },
+   "expected": 1.1,
+   "note": ""
+  },
+  {
+   "id": "RB-04",
+   "assertion": "A4",
+   "function": "RB",
+   "contract_ref": "§8 S8",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Rahu"
+   },
+   "expected": 1.1,
+   "note": ""
+  },
+  {
+   "id": "RB-05",
+   "assertion": "A4",
+   "function": "RB",
+   "contract_ref": "§8 S8",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Mars"
+   },
+   "expected": 1.05,
+   "note": ""
+  },
+  {
+   "id": "RB-06",
+   "assertion": "A4",
+   "function": "RB",
+   "contract_ref": "§8 S8",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Moon"
+   },
+   "expected": 0.95,
+   "note": ""
+  },
+  {
+   "id": "RB-07",
+   "assertion": "A4",
+   "function": "RB",
+   "contract_ref": "§8 S8",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Sun"
+   },
+   "expected": 0.95,
+   "note": ""
+  },
+  {
+   "id": "RB-08",
+   "assertion": "A4",
+   "function": "RB",
+   "contract_ref": "§8 S8",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Ketu"
+   },
+   "expected": 0.9,
+   "note": ""
+  },
+  {
+   "id": "RB-09",
+   "assertion": "A4",
+   "function": "RB",
+   "contract_ref": "§8 S8",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Saturn"
+   },
+   "expected": 0.85,
+   "note": ""
+  },
+  {
+   "id": "RB-10",
+   "assertion": "A4",
+   "function": "RB",
+   "contract_ref": "§8 S8",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Jupiter",
+    "context": {
+     "regime": "DAMPED",
+     "field_type": "VOLATILE",
+     "survivors": 2,
+     "zw_state": "DAMPED"
+    }
+   },
+   "expected": 1.15,
+   "note": "context must not change RB"
+  },
+  {
+   "id": "D-01",
+   "assertion": "A5",
+   "function": "D",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "dignity": "Exalted"
+   },
+   "expected": 1.05,
+   "note": ""
+  },
+  {
+   "id": "D-02",
+   "assertion": "A5",
+   "function": "D",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "dignity": "Own"
+   },
+   "expected": 1.03,
+   "note": ""
+  },
+  {
+   "id": "D-03",
+   "assertion": "A5",
+   "function": "D",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "dignity": "Moolatrikona"
+   },
+   "expected": 1.03,
+   "note": ""
+  },
+  {
+   "id": "D-04",
+   "assertion": "A5",
+   "function": "D",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "dignity": "Grt.Friend"
+   },
+   "expected": 1.02,
+   "note": ""
+  },
+  {
+   "id": "D-05",
+   "assertion": "A5",
+   "function": "D",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "dignity": "Friend"
+   },
+   "expected": 1.01,
+   "note": ""
+  },
+  {
+   "id": "D-06",
+   "assertion": "A5",
+   "function": "D",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "dignity": "Neutral"
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "D-07",
+   "assertion": "A5",
+   "function": "D",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "dignity": "Enemy"
+   },
+   "expected": 0.96,
+   "note": ""
+  },
+  {
+   "id": "D-08",
+   "assertion": "A5",
+   "function": "D",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "dignity": "Grt.Enemy"
+   },
+   "expected": 0.93,
+   "note": ""
+  },
+  {
+   "id": "D-09",
+   "assertion": "A5",
+   "function": "D",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "dignity": "Debilitated"
+   },
+   "expected": 0.92,
+   "note": ""
+  },
+  {
+   "id": "C-01",
+   "assertion": "A5",
+   "function": "C",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "combust": "none"
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "C-02",
+   "assertion": "A5",
+   "function": "C",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "combust": "mild"
+   },
+   "expected": 0.95,
+   "note": ""
+  },
+  {
+   "id": "C-03",
+   "assertion": "A5",
+   "function": "C",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "combust": "severe"
+   },
+   "expected": 0.85,
+   "note": ""
+  },
+  {
+   "id": "R-01",
+   "assertion": "A5",
+   "function": "R",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "retrograde": false
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "R-02",
+   "assertion": "A5",
+   "function": "R",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "retrograde": true
+   },
+   "expected": 0.97,
+   "note": ""
+  },
+  {
+   "id": "IA-01",
+   "assertion": "A5",
+   "function": "I_aspect",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "tier": "clean"
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "IA-02",
+   "assertion": "A5",
+   "function": "I_aspect",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "tier": "mild_hostile"
+   },
+   "expected": 0.97,
+   "note": ""
+  },
+  {
+   "id": "IA-03",
+   "assertion": "A5",
+   "function": "I_aspect",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "tier": "severe_hostile"
+   },
+   "expected": 0.88,
+   "note": ""
+  },
+  {
+   "id": "IA-04",
+   "assertion": "A5",
+   "function": "I_aspect",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "tier": "benefic_support"
+   },
+   "expected": 1.02,
+   "note": ""
+  },
+  {
+   "id": "H-01",
+   "assertion": "A5",
+   "function": "H",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "house_type": "Angular"
+   },
+   "expected": 1.03,
+   "note": ""
+  },
+  {
+   "id": "H-02",
+   "assertion": "A5",
+   "function": "H",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "house_type": "Succedent"
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "H-03",
+   "assertion": "A5",
+   "function": "H",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "house_type": "Cadent"
+   },
+   "expected": 0.95,
+   "note": ""
+  },
+  {
+   "id": "DCF-01",
+   "assertion": "A5",
+   "function": "DCF",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "self_disposited": true
+   },
+   "expected": 1.03,
+   "note": ""
+  },
+  {
+   "id": "DCF-02",
+   "assertion": "A5",
+   "function": "DCF",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "self_disposited": false,
+    "s_disp": 0.9,
+    "dispositor_dignity": "Neutral"
+   },
+   "expected": 1.03,
+   "note": ""
+  },
+  {
+   "id": "DCF-03",
+   "assertion": "A5",
+   "function": "DCF",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "self_disposited": false,
+    "s_disp": 0.75,
+    "dispositor_dignity": "Neutral"
+   },
+   "expected": 1.01,
+   "note": ""
+  },
+  {
+   "id": "DCF-04",
+   "assertion": "A5",
+   "function": "DCF",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "self_disposited": false,
+    "s_disp": 0.6,
+    "dispositor_dignity": "Neutral"
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "DCF-05",
+   "assertion": "A5",
+   "function": "DCF",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "self_disposited": false,
+    "s_disp": 0.4,
+    "dispositor_dignity": "Neutral"
+   },
+   "expected": 0.97,
+   "note": ""
+  },
+  {
+   "id": "DCF-06",
+   "assertion": "A5",
+   "function": "DCF",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "self_disposited": false,
+    "s_disp": 0.2,
+    "dispositor_dignity": "Neutral"
+   },
+   "expected": 0.94,
+   "note": ""
+  },
+  {
+   "id": "DCF-07",
+   "assertion": "A5",
+   "function": "DCF",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "self_disposited": false,
+    "s_disp": 0.2,
+    "dispositor_dignity": "Debilitated"
+   },
+   "expected": 0.92,
+   "note": ""
+  },
+  {
+   "id": "DCF-08",
+   "assertion": "A5",
+   "function": "DCF",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "self_disposited": false,
+    "s_disp": 0.9,
+    "dispositor_dignity": "Exalted"
+   },
+   "expected": 1.03,
+   "note": ""
+  },
+  {
+   "id": "DCF-09",
+   "assertion": "A5",
+   "function": "DCF",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "self_disposited": false,
+    "s_disp": 0.85,
+    "dispositor_dignity": "Neutral"
+   },
+   "expected": 1.03,
+   "note": ""
+  },
+  {
+   "id": "DCF-10",
+   "assertion": "A5",
+   "function": "DCF",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "self_disposited": false,
+    "s_disp": 0.7,
+    "dispositor_dignity": "Neutral"
+   },
+   "expected": 1.01,
+   "note": ""
+  },
+  {
+   "id": "DCF-11",
+   "assertion": "A5",
+   "function": "DCF",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "self_disposited": false,
+    "s_disp": 0.5,
+    "dispositor_dignity": "Neutral"
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "DCF-12",
+   "assertion": "A5",
+   "function": "DCF",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "self_disposited": false,
+    "s_disp": 0.35,
+    "dispositor_dignity": "Neutral"
+   },
+   "expected": 0.97,
+   "note": ""
+  },
+  {
+   "id": "PAS-01",
+   "assertion": "A5",
+   "function": "PAS_v3",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "D": 1,
+    "C": 1,
+    "R": 1,
+    "I_aspect": 1,
+    "H": 1,
+    "DCF": 1
+   },
+   "expected": 1,
+   "note": ""
+  },
+  {
+   "id": "PAS-02",
+   "assertion": "A5",
+   "function": "PAS_v3",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "D": 1.05,
+    "C": 1,
+    "R": 1,
+    "I_aspect": 1.02,
+    "H": 1.03,
+    "DCF": 1.03
+   },
+   "expected": 1.1362239000000003,
+   "note": "legal maximum"
+  },
+  {
+   "id": "PAS-03",
+   "assertion": "A5",
+   "function": "PAS_v3",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "D": 0.92,
+    "C": 0.85,
+    "R": 0.97,
+    "I_aspect": 0.88,
+    "H": 0.95,
+    "DCF": 0.92
+   },
+   "expected": 0.5834082848000001,
+   "note": "legal minimum"
+  },
+  {
+   "id": "PAS-04",
+   "assertion": "A5",
+   "function": "PAS_v3",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "D": 1.2,
+    "C": 1,
+    "R": 1,
+    "I_aspect": 1.2,
+    "H": 1,
+    "DCF": 1
+   },
+   "expected": 1.14,
+   "note": "synthetic: proves upper clamp 1.14"
+  },
+  {
+   "id": "PAS-05",
+   "assertion": "A5",
+   "function": "PAS_v3",
+   "contract_ref": "§8 S9",
+   "group": "explicit",
+   "inputs": {
+    "D": 0.5,
+    "C": 1,
+    "R": 1,
+    "I_aspect": 1,
+    "H": 1,
+    "DCF": 1
+   },
+   "expected": 0.58,
+   "note": "synthetic: proves lower clamp 0.58"
+  },
+  {
+   "id": "TF-01",
+   "assertion": "A6",
+   "function": "TF",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "tithi_1_30": 1
+   },
+   "expected": 1.02,
+   "note": ""
+  },
+  {
+   "id": "TF-02",
+   "assertion": "A6",
+   "function": "TF",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "tithi_1_30": 2
+   },
+   "expected": 1.01,
+   "note": ""
+  },
+  {
+   "id": "TF-03",
+   "assertion": "A6",
+   "function": "TF",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "tithi_1_30": 3
+   },
+   "expected": 1.03,
+   "note": ""
+  },
+  {
+   "id": "TF-04",
+   "assertion": "A6",
+   "function": "TF",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "tithi_1_30": 4
+   },
+   "expected": 0.98,
+   "note": ""
+  },
+  {
+   "id": "TF-05",
+   "assertion": "A6",
+   "function": "TF",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "tithi_1_30": 5
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "TF-06",
+   "assertion": "A6",
+   "function": "TF",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "tithi_1_30": 18
+   },
+   "expected": 1.03,
+   "note": ""
+  },
+  {
+   "id": "TF-07",
+   "assertion": "A6",
+   "function": "TF",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "tithi_1_30": 30
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "DLR-01",
+   "assertion": "A6",
+   "function": "DLR",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Sun",
+    "weekday_lord": "Sun"
+   },
+   "expected": 1.03,
+   "note": "symmetric pair"
+  },
+  {
+   "id": "NF-01",
+   "assertion": "A6",
+   "function": "NF",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Sun",
+    "nakshatra_lord_planet": "Sun"
+   },
+   "expected": 1.03,
+   "note": "symmetric pair"
+  },
+  {
+   "id": "HP-01",
+   "assertion": "A6",
+   "function": "HP",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Sun",
+    "hora_ruler": "Sun"
+   },
+   "expected": 1.03,
+   "note": "symmetric pair"
+  },
+  {
+   "id": "DLR-02",
+   "assertion": "A6",
+   "function": "DLR",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Sun",
+    "weekday_lord": "Mars"
+   },
+   "expected": 1.01,
+   "note": "symmetric pair"
+  },
+  {
+   "id": "NF-02",
+   "assertion": "A6",
+   "function": "NF",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Sun",
+    "nakshatra_lord_planet": "Mars"
+   },
+   "expected": 1.01,
+   "note": "symmetric pair"
+  },
+  {
+   "id": "HP-02",
+   "assertion": "A6",
+   "function": "HP",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Sun",
+    "hora_ruler": "Mars"
+   },
+   "expected": 1.01,
+   "note": "symmetric pair"
+  },
+  {
+   "id": "DLR-03",
+   "assertion": "A6",
+   "function": "DLR",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Mars",
+    "weekday_lord": "Venus"
+   },
+   "expected": 1.0,
+   "note": "symmetric pair"
+  },
+  {
+   "id": "NF-03",
+   "assertion": "A6",
+   "function": "NF",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Mars",
+    "nakshatra_lord_planet": "Venus"
+   },
+   "expected": 1.0,
+   "note": "symmetric pair"
+  },
+  {
+   "id": "HP-03",
+   "assertion": "A6",
+   "function": "HP",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Mars",
+    "hora_ruler": "Venus"
+   },
+   "expected": 1.0,
+   "note": "symmetric pair"
+  },
+  {
+   "id": "DLR-04",
+   "assertion": "A6",
+   "function": "DLR",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Sun",
+    "weekday_lord": "Venus"
+   },
+   "expected": 0.98,
+   "note": "symmetric pair"
+  },
+  {
+   "id": "NF-04",
+   "assertion": "A6",
+   "function": "NF",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Sun",
+    "nakshatra_lord_planet": "Venus"
+   },
+   "expected": 0.97,
+   "note": "symmetric pair"
+  },
+  {
+   "id": "HP-04",
+   "assertion": "A6",
+   "function": "HP",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Sun",
+    "hora_ruler": "Venus"
+   },
+   "expected": 0.97,
+   "note": "symmetric pair"
+  },
+  {
+   "id": "NAKL-01",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Ashwini"
+   },
+   "expected": "Ketu",
+   "note": ""
+  },
+  {
+   "id": "NAKL-02",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Bharani"
+   },
+   "expected": "Venus",
+   "note": ""
+  },
+  {
+   "id": "NAKL-03",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Krittika"
+   },
+   "expected": "Sun",
+   "note": ""
+  },
+  {
+   "id": "NAKL-04",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Rohini"
+   },
+   "expected": "Moon",
+   "note": ""
+  },
+  {
+   "id": "NAKL-05",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Mrigashira"
+   },
+   "expected": "Mars",
+   "note": ""
+  },
+  {
+   "id": "NAKL-06",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Ardra"
+   },
+   "expected": "Rahu",
+   "note": ""
+  },
+  {
+   "id": "NAKL-07",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Punarvasu"
+   },
+   "expected": "Jupiter",
+   "note": ""
+  },
+  {
+   "id": "NAKL-08",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Pushya"
+   },
+   "expected": "Saturn",
+   "note": ""
+  },
+  {
+   "id": "NAKL-09",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Ashlesha"
+   },
+   "expected": "Mercury",
+   "note": ""
+  },
+  {
+   "id": "NAKL-10",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Magha"
+   },
+   "expected": "Ketu",
+   "note": ""
+  },
+  {
+   "id": "NAKL-11",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Purva Phalguni"
+   },
+   "expected": "Venus",
+   "note": ""
+  },
+  {
+   "id": "NAKL-12",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Uttara Phalguni"
+   },
+   "expected": "Sun",
+   "note": ""
+  },
+  {
+   "id": "NAKL-13",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Hasta"
+   },
+   "expected": "Moon",
+   "note": ""
+  },
+  {
+   "id": "NAKL-14",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Chitra"
+   },
+   "expected": "Mars",
+   "note": ""
+  },
+  {
+   "id": "NAKL-15",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Swati"
+   },
+   "expected": "Rahu",
+   "note": ""
+  },
+  {
+   "id": "NAKL-16",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Vishakha"
+   },
+   "expected": "Jupiter",
+   "note": ""
+  },
+  {
+   "id": "NAKL-17",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Anuradha"
+   },
+   "expected": "Saturn",
+   "note": ""
+  },
+  {
+   "id": "NAKL-18",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Jyeshtha"
+   },
+   "expected": "Mercury",
+   "note": ""
+  },
+  {
+   "id": "NAKL-19",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Mula"
+   },
+   "expected": "Ketu",
+   "note": ""
+  },
+  {
+   "id": "NAKL-20",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Purva Ashadha"
+   },
+   "expected": "Venus",
+   "note": ""
+  },
+  {
+   "id": "NAKL-21",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Uttara Ashadha"
+   },
+   "expected": "Sun",
+   "note": ""
+  },
+  {
+   "id": "NAKL-22",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Shravana"
+   },
+   "expected": "Moon",
+   "note": ""
+  },
+  {
+   "id": "NAKL-23",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Dhanishta"
+   },
+   "expected": "Mars",
+   "note": ""
+  },
+  {
+   "id": "NAKL-24",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Shatabhisha"
+   },
+   "expected": "Rahu",
+   "note": ""
+  },
+  {
+   "id": "NAKL-25",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Purva Bhadrapada"
+   },
+   "expected": "Jupiter",
+   "note": ""
+  },
+  {
+   "id": "NAKL-26",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Uttara Bhadrapada"
+   },
+   "expected": "Saturn",
+   "note": ""
+  },
+  {
+   "id": "NAKL-27",
+   "assertion": "A6",
+   "function": "nakshatra_lord",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "nakshatra": "Revati"
+   },
+   "expected": "Mercury",
+   "note": ""
+  },
+  {
+   "id": "TM-01",
+   "assertion": "A6",
+   "function": "TM_v3",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "DLR": 1,
+    "TF": 1,
+    "NF": 1,
+    "HP": 1
+   },
+   "expected": 1,
+   "note": ""
+  },
+  {
+   "id": "TM-02",
+   "assertion": "A6",
+   "function": "TM_v3",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "DLR": 1.03,
+    "TF": 1.03,
+    "NF": 1.03,
+    "HP": 1.03
+   },
+   "expected": 1.05,
+   "note": "raw 1.1255 -> clamp 1.05"
+  },
+  {
+   "id": "TM-03",
+   "assertion": "A6",
+   "function": "TM_v3",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "DLR": 0.98,
+    "TF": 0.98,
+    "NF": 0.97,
+    "HP": 0.97
+   },
+   "expected": 0.9036403599999998,
+   "note": "raw 0.9036, above the 0.90 floor: clamp does not bind"
+  },
+  {
+   "id": "TM-04",
+   "assertion": "A6",
+   "function": "TM_v3",
+   "contract_ref": "§8 S10",
+   "group": "explicit",
+   "inputs": {
+    "DLR": 1.01,
+    "TF": 1.02,
+    "NF": 1.0,
+    "HP": 1.01
+   },
+   "expected": 1.040502,
+   "note": "interior"
+  },
+  {
+   "id": "BHF-B1",
+   "assertion": "A8",
+   "function": "BHF",
+   "contract_ref": "§9.1",
+   "group": "explicit",
+   "inputs": {
+    "totals12": [
+     151.184834123,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100
+    ],
+    "house": 1
+   },
+   "expected": 1.05,
+   "note": "BB_norm ~ 1.45 (house 1 is not a speculative house)"
+  },
+  {
+   "id": "BHF-B2",
+   "assertion": "A8",
+   "function": "BHF",
+   "contract_ref": "§9.1",
+   "group": "explicit",
+   "inputs": {
+    "totals12": [
+     124.489795918,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100
+    ],
+    "house": 1
+   },
+   "expected": 1.03,
+   "note": "BB_norm ~ 1.22 (house 1 is not a speculative house)"
+  },
+  {
+   "id": "BHF-B3",
+   "assertion": "A8",
+   "function": "BHF",
+   "contract_ref": "§9.1",
+   "group": "explicit",
+   "inputs": {
+    "totals12": [
+     107.685269899,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100
+    ],
+    "house": 1
+   },
+   "expected": 1.01,
+   "note": "BB_norm ~ 1.07 (house 1 is not a speculative house)"
+  },
+  {
+   "id": "BHF-B4",
+   "assertion": "A8",
+   "function": "BHF",
+   "contract_ref": "§9.1",
+   "group": "explicit",
+   "inputs": {
+    "totals12": [
+     91.335740072,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100
+    ],
+    "house": 1
+   },
+   "expected": 1.0,
+   "note": "BB_norm ~ 0.92 (house 1 is not a speculative house)"
+  },
+  {
+   "id": "BHF-B5",
+   "assertion": "A8",
+   "function": "BHF",
+   "contract_ref": "§9.1",
+   "group": "explicit",
+   "inputs": {
+    "totals12": [
+     75.422974176,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100
+    ],
+    "house": 1
+   },
+   "expected": 0.96,
+   "note": "BB_norm ~ 0.77 (house 1 is not a speculative house)"
+  },
+  {
+   "id": "BHF-B6",
+   "assertion": "A8",
+   "function": "BHF",
+   "contract_ref": "§9.1",
+   "group": "explicit",
+   "inputs": {
+    "totals12": [
+     59.92970123,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100
+    ],
+    "house": 1
+   },
+   "expected": 0.92,
+   "note": "BB_norm ~ 0.62 (house 1 is not a speculative house)"
+  },
+  {
+   "id": "BHF-B7",
+   "assertion": "A8",
+   "function": "BHF",
+   "contract_ref": "§9.1",
+   "group": "explicit",
+   "inputs": {
+    "totals12": [
+     28.205128205,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100
+    ],
+    "house": 1
+   },
+   "expected": 0.88,
+   "note": "BB_norm ~ 0.3 (house 1 is not a speculative house)"
+  },
+  {
+   "id": "BHF-E1",
+   "assertion": "A8",
+   "function": "BHF",
+   "contract_ref": "§9.1",
+   "group": "explicit",
+   "inputs": {
+    "totals12": [
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100
+    ],
+    "house": 3
+   },
+   "expected": 1.01,
+   "note": "BB_norm exactly 1.00, lower edge inclusive"
+  },
+  {
+   "id": "BHF-E2",
+   "assertion": "A8",
+   "function": "BHF",
+   "contract_ref": "§9.1",
+   "group": "explicit",
+   "inputs": {
+    "totals12": [
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "house": 3
+   },
+   "expected": 1.0,
+   "note": "all-zero BLOCK_7 -> neutral 1.00"
+  },
+  {
+   "id": "BHF-S1",
+   "assertion": "A8",
+   "function": "BHF",
+   "contract_ref": "§9.1",
+   "group": "explicit",
+   "inputs": {
+    "totals12": [
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100
+    ],
+    "house": 2
+   },
+   "expected": 1.0201,
+   "note": "speculative house, norm 1.00: 1.01 x 1.01 once"
+  },
+  {
+   "id": "BHF-S2",
+   "assertion": "A8",
+   "function": "BHF",
+   "contract_ref": "§9.1",
+   "group": "explicit",
+   "inputs": {
+    "totals12": [
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100
+    ],
+    "house": 5
+   },
+   "expected": 1.0201,
+   "note": "speculative house, norm 1.00: 1.01 x 1.01 once"
+  },
+  {
+   "id": "BHF-S3",
+   "assertion": "A8",
+   "function": "BHF",
+   "contract_ref": "§9.1",
+   "group": "explicit",
+   "inputs": {
+    "totals12": [
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100
+    ],
+    "house": 8
+   },
+   "expected": 1.0201,
+   "note": "speculative house, norm 1.00: 1.01 x 1.01 once"
+  },
+  {
+   "id": "BHF-S4",
+   "assertion": "A8",
+   "function": "BHF",
+   "contract_ref": "§9.1",
+   "group": "explicit",
+   "inputs": {
+    "totals12": [
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100
+    ],
+    "house": 11
+   },
+   "expected": 1.0201,
+   "note": "speculative house, norm 1.00: 1.01 x 1.01 once"
+  },
+  {
+   "id": "BHF-S5",
+   "assertion": "A8",
+   "function": "BHF",
+   "contract_ref": "§9.1",
+   "group": "explicit",
+   "inputs": {
+    "totals12": [
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     151.184834123
+    ],
+    "house": 12
+   },
+   "expected": 1.05,
+   "note": "non-speculative house 12, strong"
+  },
+  {
+   "id": "BHF-S6",
+   "assertion": "A8",
+   "function": "BHF",
+   "contract_ref": "§9.1",
+   "group": "explicit",
+   "inputs": {
+    "totals12": [
+     100,
+     100,
+     100,
+     100,
+     151.184834123,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100
+    ],
+    "house": 5
+   },
+   "expected": 1.05,
+   "note": "speculative house 5, strong: capped at 1.05"
+  },
+  {
+   "id": "BHF-S7",
+   "assertion": "A8",
+   "function": "BHF",
+   "contract_ref": "§9.1",
+   "group": "explicit",
+   "inputs": {
+    "totals12": [
+     100,
+     100,
+     100,
+     100,
+     91.335740072,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100,
+     100
+    ],
+    "house": 5
+   },
+   "expected": 1.0,
+   "note": "speculative house 5, norm < 1.00: no bonus"
+  },
+  {
+   "id": "DRF-01",
+   "assertion": "A9",
+   "function": "DRF",
+   "contract_ref": "§9.2",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Jupiter",
+    "md": "Jupiter",
+    "ad": "Sun"
+   },
+   "expected": 1.08,
+   "note": "identity branch"
+  },
+  {
+   "id": "DRF-02",
+   "assertion": "A9",
+   "function": "DRF",
+   "contract_ref": "§9.2",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Jupiter",
+    "md": "Jupiter",
+    "ad": "Jupiter"
+   },
+   "expected": 1.08,
+   "note": "identity branch"
+  },
+  {
+   "id": "DRF-03",
+   "assertion": "A9",
+   "function": "DRF",
+   "contract_ref": "§9.2",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Sun",
+    "md": "Jupiter",
+    "ad": "Sun"
+   },
+   "expected": 1.05,
+   "note": "identity branch"
+  },
+  {
+   "id": "DRF-04",
+   "assertion": "A9",
+   "function": "DRF",
+   "contract_ref": "§9.2",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Venus",
+    "md": "Mars",
+    "ad": "Sun"
+   },
+   "expected": 0.98,
+   "note": "symmetric pairs; MD tier = Neutral"
+  },
+  {
+   "id": "DRF-05",
+   "assertion": "A9",
+   "function": "DRF",
+   "contract_ref": "§9.2",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Venus",
+    "md": "Mars",
+    "ad": "Saturn"
+   },
+   "expected": 1.01,
+   "note": "symmetric pairs; MD tier = Neutral"
+  },
+  {
+   "id": "DRF-06",
+   "assertion": "A9",
+   "function": "DRF",
+   "contract_ref": "§9.2",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Venus",
+    "md": "Mars",
+    "ad": "Mars"
+   },
+   "expected": 1.0,
+   "note": "symmetric pairs; MD tier = Neutral"
+  },
+  {
+   "id": "DRF-07",
+   "assertion": "A9",
+   "function": "DRF",
+   "contract_ref": "§9.2",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Venus",
+    "md": "Mars",
+    "ad": "Saturn",
+    "md_tier_value": 1.04
+   },
+   "expected": 1.0504,
+   "note": "tier value supplied directly (mapping undecided): AD modifier applied once"
+  },
+  {
+   "id": "DRF-08",
+   "assertion": "A9",
+   "function": "DRF",
+   "contract_ref": "§9.2",
+   "group": "explicit",
+   "inputs": {
+    "planet": "Venus",
+    "md": "Mars",
+    "ad": "Sun",
+    "md_tier_value": 0.88
+   },
+   "expected": 0.88,
+   "note": "synthetic: 0.88 x 0.98 = 0.8624 -> clamp 0.88"
+  },
+  {
+   "id": "VGF-01",
+   "assertion": "A10",
+   "function": "VGF",
+   "contract_ref": "§9.3",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": null
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "VGF-02",
+   "assertion": "A10",
+   "function": "VGF",
+   "contract_ref": "§9.3",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": {
+     "sign": "X",
+     "dignity": "Neutral",
+     "is_vargottama": true,
+     "is_pushkara": false
+    }
+   },
+   "expected": 1.06,
+   "note": ""
+  },
+  {
+   "id": "VGF-03",
+   "assertion": "A10",
+   "function": "VGF",
+   "contract_ref": "§9.3",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": {
+     "sign": "X",
+     "dignity": "Neutral",
+     "is_vargottama": false,
+     "is_pushkara": true
+    }
+   },
+   "expected": 1.0296,
+   "note": ""
+  },
+  {
+   "id": "VGF-04",
+   "assertion": "A10",
+   "function": "VGF",
+   "contract_ref": "§9.3",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": {
+     "sign": "X",
+     "dignity": "Exalted",
+     "is_vargottama": false,
+     "is_pushkara": false
+    }
+   },
+   "expected": 1.02,
+   "note": ""
+  },
+  {
+   "id": "VGF-05",
+   "assertion": "A10",
+   "function": "VGF",
+   "contract_ref": "§9.3",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": {
+     "sign": "X",
+     "dignity": "Own",
+     "is_vargottama": false,
+     "is_pushkara": false
+    }
+   },
+   "expected": 1.01,
+   "note": ""
+  },
+  {
+   "id": "VGF-06",
+   "assertion": "A10",
+   "function": "VGF",
+   "contract_ref": "§9.3",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": {
+     "sign": "X",
+     "dignity": "Friend",
+     "is_vargottama": false,
+     "is_pushkara": false
+    }
+   },
+   "expected": 1.0,
+   "note": ""
+  },
+  {
+   "id": "VGF-07",
+   "assertion": "A10",
+   "function": "VGF",
+   "contract_ref": "§9.3",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": {
+     "sign": "X",
+     "dignity": "Neutral",
+     "is_vargottama": false,
+     "is_pushkara": false
+    }
+   },
+   "expected": 0.99,
+   "note": ""
+  },
+  {
+   "id": "VGF-08",
+   "assertion": "A10",
+   "function": "VGF",
+   "contract_ref": "§9.3",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": {
+     "sign": "X",
+     "dignity": "Enemy",
+     "is_vargottama": false,
+     "is_pushkara": false
+    }
+   },
+   "expected": 0.97,
+   "note": ""
+  },
+  {
+   "id": "VGF-09",
+   "assertion": "A10",
+   "function": "VGF",
+   "contract_ref": "§9.3",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": {
+     "sign": "X",
+     "dignity": "Debilitated",
+     "is_vargottama": false,
+     "is_pushkara": false
+    }
+   },
+   "expected": 0.93,
+   "note": ""
+  },
+  {
+   "id": "VGF-10",
+   "assertion": "A10",
+   "function": "VGF",
+   "contract_ref": "§9.3",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": {
+     "sign": "X",
+     "dignity": "Exalted",
+     "is_vargottama": false,
+     "is_pushkara": true
+    }
+   },
+   "expected": 1.06,
+   "note": ""
+  },
+  {
+   "id": "VGF-11",
+   "assertion": "A10",
+   "function": "VGF",
+   "contract_ref": "§9.3",
+   "group": "explicit",
+   "inputs": {
+    "navamsha": {
+     "sign": "X",
+     "dignity": "Debilitated",
+     "is_vargottama": false,
+     "is_pushkara": true
+    }
+   },
+   "expected": 0.9672000000000001,
+   "note": ""
+  },
+  {
+   "id": "S5-01",
+   "assertion": "—",
+   "function": "S5",
+   "contract_ref": "§8 S5",
+   "group": "explicit",
+   "inputs": {
+    "rs": {
+     "Sun": 478.62,
+     "Moon": 300.0,
+     "Mercury": 572.29
+    }
+   },
+   "expected": {
+    "Sun": 0.8363242412063815,
+    "Moon": 0.5242097537961523,
+    "Mercury": 1.0
+   },
+   "note": ""
+  },
+  {
+   "id": "CPS-01",
+   "assertion": "—",
+   "function": "CPS_pre_v3",
+   "contract_ref": "§8",
+   "group": "explicit",
+   "inputs": {
+    "S": 0.9,
+    "SIF_v3": 1.0,
+    "T_v3": 0.9,
+    "RB": 1.15,
+    "PAS_v3": 1.0,
+    "TM_v3": 1.01,
+    "BHF": 1.01,
+    "DRF": 1.0,
+    "VGF": 1.0
+   },
+   "expected": 0.95022315,
+   "note": ""
+  },
+  {
+   "id": "S11-1",
+   "assertion": "A13",
+   "function": "S11",
+   "contract_ref": "§10",
+   "group": "explicit",
+   "inputs": {
+    "regime": "OPEN",
+    "mode": "ACCUMULATION",
+    "cps": {
+     "Sun": 0.45,
+     "Mars": 0.4499,
+     "Jupiter": 0.65
+    }
+   },
+   "expected": [
+    0.45,
+    [
+     "Sun",
+     "Jupiter"
+    ]
+   ],
+   "note": "boundary: CPS == theta survives"
+  },
+  {
+   "id": "S11-2",
+   "assertion": "A13",
+   "function": "S11",
+   "contract_ref": "§10",
+   "group": "explicit",
+   "inputs": {
+    "regime": "OPEN",
+    "mode": "PRECISION",
+    "cps": {
+     "Sun": 0.55,
+     "Mars": 0.5499,
+     "Jupiter": 0.75
+    }
+   },
+   "expected": [
+    0.55,
+    [
+     "Sun",
+     "Jupiter"
+    ]
+   ],
+   "note": "boundary: CPS == theta survives"
+  },
+  {
+   "id": "S11-3",
+   "assertion": "A13",
+   "function": "S11",
+   "contract_ref": "§10",
+   "group": "explicit",
+   "inputs": {
+    "regime": "OPEN",
+    "mode": "OBSERVATION",
+    "cps": {
+     "Sun": 0.35,
+     "Mars": 0.3499,
+     "Jupiter": 0.55
+    }
+   },
+   "expected": [
+    0.35,
+    [
+     "Sun",
+     "Jupiter"
+    ]
+   ],
+   "note": "boundary: CPS == theta survives"
+  },
+  {
+   "id": "S11-4",
+   "assertion": "A13",
+   "function": "S11",
+   "contract_ref": "§10",
+   "group": "explicit",
+   "inputs": {
+    "regime": "DAMPED",
+    "mode": "ACCUMULATION",
+    "cps": {
+     "Sun": 0.55,
+     "Mars": 0.5499,
+     "Jupiter": 0.75
+    }
+   },
+   "expected": [
+    0.55,
+    [
+     "Sun",
+     "Jupiter"
+    ]
+   ],
+   "note": "boundary: CPS == theta survives"
+  },
+  {
+   "id": "S11-5",
+   "assertion": "A13",
+   "function": "S11",
+   "contract_ref": "§10",
+   "group": "explicit",
+   "inputs": {
+    "regime": "DAMPED",
+    "mode": "PRECISION",
+    "cps": {
+     "Sun": 0.6,
+     "Mars": 0.5999,
+     "Jupiter": 0.8
+    }
+   },
+   "expected": [
+    0.6,
+    [
+     "Sun",
+     "Jupiter"
+    ]
+   ],
+   "note": "boundary: CPS == theta survives"
+  },
+  {
+   "id": "S11-6",
+   "assertion": "A13",
+   "function": "S11",
+   "contract_ref": "§10",
+   "group": "explicit",
+   "inputs": {
+    "regime": "DAMPED",
+    "mode": "OBSERVATION",
+    "cps": {
+     "Sun": 0.45,
+     "Mars": 0.4499,
+     "Jupiter": 0.65
+    }
+   },
+   "expected": [
+    0.45,
+    [
+     "Sun",
+     "Jupiter"
+    ]
+   ],
+   "note": "boundary: CPS == theta survives"
+  },
+  {
+   "id": "MOON-01",
+   "assertion": "A11",
+   "function": "STEPK_contributors",
+   "contract_ref": "§12 K.5, §13",
+   "group": "explicit",
+   "inputs": {
+    "survivors": [
+     "Moon"
+    ]
+   },
+   "expected": {
+    "digit_contributors": [],
+    "all_zero_vector": true
+   },
+   "note": "Moon-only -> all-zero digit vector -> S=0 abort"
+  },
+  {
+   "id": "MOON-02",
+   "assertion": "A11",
+   "function": "STEPK_contributors",
+   "contract_ref": "§12 K.5",
+   "group": "explicit",
+   "inputs": {
+    "survivors": [
+     "Moon",
+     "Jupiter",
+     "Venus"
+    ]
+   },
+   "expected": {
+    "digit_contributors": [
+     "Jupiter",
+     "Venus"
+    ],
+    "all_zero_vector": false
+   },
+   "note": ""
+  },
+  {
+   "id": "S12-01",
+   "assertion": "A12",
+   "function": "S12",
+   "contract_ref": "§11",
+   "group": "explicit",
+   "inputs": {
+    "survivors": [
+     "Sun",
+     "Moon",
+     "Mars",
+     "Mercury",
+     "Jupiter"
+    ],
+    "cps": {
+     "Sun": 0.9,
+     "Moon": 0.8,
+     "Mars": 0.7,
+     "Mercury": 0.6,
+     "Jupiter": 0.5
+    },
+    "t_v3": {
+     "Sun": 0.9,
+     "Moon": 0.9,
+     "Mars": 0.9,
+     "Mercury": 0.9,
+     "Jupiter": 0.9
+    }
+   },
+   "expected": {
+    "P_digit": [
+     "Sun",
+     "Mars",
+     "Mercury",
+     "Jupiter"
+    ],
+    "n": 4,
+    "D": 0.3333333333333333,
+    "field_type": "STRIKE"
+   },
+   "note": "Moon counted would give n=5, D=0.257 -> FRAGMENTED (T uniform, so independent of the T-bar population decision)"
+  },
+  {
+   "id": "S12-02",
+   "assertion": "A12",
+   "function": "S12",
+   "contract_ref": "§11",
+   "group": "explicit",
+   "inputs": {
+    "survivors": [
+     "Sun",
+     "Moon",
+     "Mars",
+     "Mercury",
+     "Jupiter",
+     "Venus"
+    ],
+    "cps": {
+     "Sun": 0.62,
+     "Moon": 0.6,
+     "Mars": 0.6,
+     "Mercury": 0.6,
+     "Jupiter": 0.6,
+     "Venus": 0.58
+    },
+    "t_v3": {
+     "Sun": 0.9,
+     "Moon": 0.9,
+     "Mars": 0.9,
+     "Mercury": 0.9,
+     "Jupiter": 0.9,
+     "Venus": 0.9
+    }
+   },
+   "expected": {
+    "P_digit": [
+     "Sun",
+     "Mars",
+     "Mercury",
+     "Jupiter",
+     "Venus"
+    ],
+    "n": 5,
+    "D": 0.20666666666666667,
+    "field_type": "FRAGMENTED"
+   },
+   "note": "Moon counted would give n=6, D=0.172 -> STABLE (T uniform, so independent of the T-bar population decision)"
+  },
+  {
+   "id": "S12-03",
+   "assertion": "A12",
+   "function": "S12",
+   "contract_ref": "§11",
+   "group": "explicit",
+   "inputs": {
+    "survivors": [
+     "Sun",
+     "Mars",
+     "Mercury",
+     "Jupiter",
+     "Venus",
+     "Saturn"
+    ],
+    "cps": {
+     "Sun": 0.6,
+     "Mars": 0.6,
+     "Mercury": 0.6,
+     "Jupiter": 0.6,
+     "Venus": 0.6,
+     "Saturn": 0.6
+    },
+    "t_v3": {
+     "Sun": 0.9,
+     "Mars": 0.9,
+     "Mercury": 0.9,
+     "Jupiter": 0.9,
+     "Venus": 0.9,
+     "Saturn": 0.9
+    }
+   },
+   "expected": {
+    "P_digit": [
+     "Sun",
+     "Mars",
+     "Mercury",
+     "Jupiter",
+     "Venus",
+     "Saturn"
+    ],
+    "n": 6,
+    "D": 0.16666666666666669,
+    "field_type": "STABLE"
+   },
+   "note": "no Moon: unchanged (T uniform, so independent of the T-bar population decision)"
+  },
+  {
+   "id": "S12-04",
+   "assertion": "A12",
+   "function": "S12",
+   "contract_ref": "§11",
+   "group": "explicit",
+   "inputs": {
+    "survivors": [
+     "Moon"
+    ],
+    "cps": {
+     "Moon": 0.8
+    },
+    "t_v3": {
+     "Moon": 0.9
+    }
+   },
+   "expected": {
+    "P_digit": [],
+    "n": 0,
+    "D": null,
+    "field_type": "COMPRESSED"
+   },
+   "note": "Moon-only: n=0, D undefined (T uniform, so independent of the T-bar population decision)"
+  },
+  {
+   "id": "S12-05",
+   "assertion": "A12",
+   "function": "S12",
+   "contract_ref": "§11",
+   "group": "explicit",
+   "inputs": {
+    "survivors": [
+     "Sun",
+     "Mars",
+     "Moon"
+    ],
+    "cps": {
+     "Sun": 0.9,
+     "Mars": 0.8,
+     "Moon": 0.7
+    },
+    "t_v3": {
+     "Sun": 0.9,
+     "Mars": 0.9,
+     "Moon": 0.9
+    }
+   },
+   "expected": {
+    "P_digit": [
+     "Sun",
+     "Mars"
+    ],
+    "n": 2,
+    "D": 0.5294117647058824,
+    "field_type": "COMPRESSED"
+   },
+   "note": "Moon counted would give n=3, D=0.375 -> STRIKE (T uniform, so independent of the T-bar population decision)"
+  },
+  {
+   "id": "S12-06",
+   "assertion": "A12",
+   "function": "S12",
+   "contract_ref": "§11",
+   "group": "explicit",
+   "inputs": {
+    "survivors": [
+     "Sun",
+     "Mars",
+     "Mercury",
+     "Jupiter"
+    ],
+    "cps": {
+     "Sun": 0.5,
+     "Mars": 0.5,
+     "Mercury": 0.5,
+     "Jupiter": 0.5
+    },
+    "t_v3": {
+     "Sun": 0.9,
+     "Mars": 0.9,
+     "Mercury": 0.9,
+     "Jupiter": 0.9
+    }
+   },
+   "expected": {
+    "P_digit": [
+     "Sun",
+     "Mars",
+     "Mercury",
+     "Jupiter"
+    ],
+    "n": 4,
+    "D": 0.25,
+    "field_type": "FRAGMENTED"
+   },
+   "note": "n=4, D=0.25 -> FRAGMENTED (T uniform, so independent of the T-bar population decision)"
+  },
+  {
+   "id": "S12-07",
+   "assertion": "A12",
+   "function": "S12",
+   "contract_ref": "§11",
+   "group": "explicit",
+   "inputs": {
+    "survivors": [
+     "Sun",
+     "Mars",
+     "Mercury",
+     "Jupiter"
+    ],
+    "cps": {
+     "Sun": 0.5,
+     "Mars": 0.5,
+     "Mercury": 0.5,
+     "Jupiter": 0.5
+    },
+    "t_v3": {
+     "Sun": 0.65,
+     "Mars": 0.65,
+     "Mercury": 0.65,
+     "Jupiter": 0.65
+    }
+   },
+   "expected": {
+    "P_digit": [
+     "Sun",
+     "Mars",
+     "Mercury",
+     "Jupiter"
+    ],
+    "n": 4,
+    "D": 0.25,
+    "field_type": "VOLATILE"
+   },
+   "note": "T-bar 0.65 < 0.70 -> VOLATILE (T uniform, so independent of the T-bar population decision)"
+  },
+  {
+   "id": "L2D-01",
+   "assertion": "A13",
+   "function": "STEPL_2D",
+   "contract_ref": "§13.1",
+   "group": "explicit",
+   "inputs": {
+    "dv": [
+     0,
+     0,
+     0,
+     2,
+     0,
+     1,
+     0,
+     0,
+     0,
+     0
+    ]
+   },
+   "expected": {
+    "top": [
+     [
+      "33",
+      0.4444444444444444
+     ],
+     [
+      "35",
+      0.2222222222222222
+     ],
+     [
+      "53",
+      0.2222222222222222
+     ],
+     [
+      "55",
+      0.1111111111111111
+     ],
+     [
+      "00",
+      0.0
+     ],
+     [
+      "01",
+      0.0
+     ]
+    ],
+    "checksum": 1.0
+   },
+   "note": ""
+  },
+  {
+   "id": "L3D-01",
+   "assertion": "A13",
+   "function": "STEPL_3D",
+   "contract_ref": "§13.2",
+   "group": "explicit",
+   "inputs": {
+    "dv": [
+     0,
+     0,
+     0,
+     2,
+     0,
+     1,
+     0,
+     0,
+     0,
+     0
+    ]
+   },
+   "expected": {
+    "top": [
+     [
+      "333",
+      0.2962962962962963
+     ],
+     [
+      "335",
+      0.14814814814814814
+     ],
+     [
+      "353",
+      0.14814814814814814
+     ],
+     [
+      "533",
+      0.14814814814814814
+     ],
+     [
+      "355",
+      0.07407407407407407
+     ],
+     [
+      "535",
+      0.07407407407407407
+     ],
+     [
+      "553",
+      0.07407407407407407
+     ],
+     [
+      "555",
+      0.037037037037037035
+     ]
+    ],
+    "checksum": 1.0
+   },
+   "note": ""
+  },
+  {
+   "id": "KMAX-2-PRE",
+   "assertion": "A13",
+   "function": "K_MAX_DEFAULT",
+   "contract_ref": "§7 Step B",
+   "group": "explicit",
+   "inputs": {
+    "geometry": "ordered_2_digit",
+    "mode": "PRECISION"
+   },
+   "expected": 5,
+   "note": ""
+  },
+  {
+   "id": "KMAX-2-ACC",
+   "assertion": "A13",
+   "function": "K_MAX_DEFAULT",
+   "contract_ref": "§7 Step B",
+   "group": "explicit",
+   "inputs": {
+    "geometry": "ordered_2_digit",
+    "mode": "ACCUMULATION"
+   },
+   "expected": 10,
+   "note": ""
+  },
+  {
+   "id": "KMAX-2-OBS",
+   "assertion": "A13",
+   "function": "K_MAX_DEFAULT",
+   "contract_ref": "§7 Step B",
+   "group": "explicit",
+   "inputs": {
+    "geometry": "ordered_2_digit",
+    "mode": "OBSERVATION"
+   },
+   "expected": 20,
+   "note": ""
+  },
+  {
+   "id": "KMAX-3-PRE",
+   "assertion": "A13",
+   "function": "K_MAX_DEFAULT",
+   "contract_ref": "§7 Step B",
+   "group": "explicit",
+   "inputs": {
+    "geometry": "ordered_3_digit",
+    "mode": "PRECISION"
+   },
+   "expected": 4,
+   "note": ""
+  },
+  {
+   "id": "KMAX-3-ACC",
+   "assertion": "A13",
+   "function": "K_MAX_DEFAULT",
+   "contract_ref": "§7 Step B",
+   "group": "explicit",
+   "inputs": {
+    "geometry": "ordered_3_digit",
+    "mode": "ACCUMULATION"
+   },
+   "expected": 8,
+   "note": ""
+  },
+  {
+   "id": "KMAX-3-OBS",
+   "assertion": "A13",
+   "function": "K_MAX_DEFAULT",
+   "contract_ref": "§7 Step B",
+   "group": "explicit",
+   "inputs": {
+    "geometry": "ordered_3_digit",
+    "mode": "OBSERVATION"
+   },
+   "expected": 15,
+   "note": ""
+  }
+ ]
+}

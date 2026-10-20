@@ -20,11 +20,15 @@ import {
   Database,
   Sparkles,
 } from "lucide-react";
-import { CanonicalChart, DssmeCalculationInput } from "./types/dssme-canonical-types.ts";
+import { CanonicalChart, DssmeCalculationInput, Dssme16BlockResult } from "./types/dssme-canonical-types.ts";
 import { generateCanonicalChart } from "./engine/canonical/canonicalChart.ts";
 import { formatDms } from "./engine/astronomy/ayanamsa.ts";
 import { TimezoneSelect } from "./components/TimezoneSelect.tsx";
 import { PanchangaSummary } from "./components/PanchangaSummary.tsx";
+import { ShadbalaTable } from "./components/ShadbalaTable.tsx";
+import { CpsFactorsTable } from "./components/CpsFactorsTable.tsx";
+import { ChartblocksInspector } from "./components/ChartblocksInspector.tsx";
+import { fromCanonicalChart, computePanchanga, createSunriseProvider } from "./engine/panchanga/index.ts";
 import {
   deriveTimezoneOffset,
   isValidIanaTimezone,
@@ -67,6 +71,10 @@ export default function App() {
   const [dssmeError, setDssmeError] = useState<string | null>(null);
   const [showDssmeJson, setShowDssmeJson] = useState<boolean>(false);
   const [dssmeTimeMs, setDssmeTimeMs] = useState<number | null>(null);
+
+  // 16-Block Intermediate Representation state
+  const [blockResult, setBlockResult] = useState<Dssme16BlockResult | null>(null);
+  const [panchangaResult, setPanchangaResult] = useState<any | null>(null);
 
   // Auto-run initial chart on mount
   useEffect(() => {
@@ -190,9 +198,10 @@ export default function App() {
         body: JSON.stringify(finalInputData),
       });
 
+      let resolvedChart: CanonicalChart | null = null;
       if (response.ok) {
         const json = await response.json();
-        setChart(json.data);
+        resolvedChart = json.data;
       } else {
         const errJson = await response.json().catch(() => null);
         if (errJson && Array.isArray(errJson.errors) && errJson.errors.length > 0) {
@@ -200,8 +209,21 @@ export default function App() {
           return;
         }
         // Fallback to client-side deterministic engine if network / 5xx error
-        const fallbackChart = await generateCanonicalChart(finalInputData);
-        setChart(fallbackChart);
+        resolvedChart = await generateCanonicalChart(finalInputData);
+      }
+      setChart(resolvedChart);
+
+      // Auto-compute Panchanga and 16 Blocks from chart
+      if (resolvedChart) {
+        try {
+          const pSrc = fromCanonicalChart(resolvedChart);
+          const pResult = computePanchanga(pSrc, { sunrise: createSunriseProvider() }, { includeBoundaries: false, varaMode: "sunrise" });
+          setPanchangaResult(pResult);
+          const blocks = await buildDssme16BlockResult(resolvedChart, pResult);
+          setBlockResult(blocks);
+        } catch (bErr) {
+          console.warn("Intermediate block computation warning:", bErr);
+        }
       }
       setCalcTimeMs(Math.round((performance.now() - t0) * 10) / 10);
     } catch (err: unknown) {
@@ -209,6 +231,17 @@ export default function App() {
       try {
         const clientChart = await generateCanonicalChart(finalInputData);
         setChart(clientChart);
+        if (clientChart) {
+          try {
+            const pSrc = fromCanonicalChart(clientChart);
+            const pResult = computePanchanga(pSrc, { sunrise: createSunriseProvider() }, { includeBoundaries: false, varaMode: "sunrise" });
+            setPanchangaResult(pResult);
+            const blocks = await buildDssme16BlockResult(clientChart, pResult);
+            setBlockResult(blocks);
+          } catch (bErr) {
+            console.warn("Intermediate block computation warning:", bErr);
+          }
+        }
         setCalcTimeMs(Math.round((performance.now() - t0) * 10) / 10);
       } catch (clientErr: unknown) {
         setError(clientErr instanceof Error ? clientErr.message : String(clientErr));
@@ -235,11 +268,15 @@ export default function App() {
     setDssmeResult(null);
     const t0 = performance.now();
     try {
-      // Build 16-block result from canonical chart (panchanga not available here → undefined)
-      const blockResult = await buildDssme16BlockResult(chart, undefined);
+      // Build or reuse 16-block result from canonical chart
+      let currentBlocks = blockResult;
+      if (!currentBlocks) {
+        currentBlocks = await buildDssme16BlockResult(chart, panchangaResult ?? undefined);
+        setBlockResult(currentBlocks);
+      }
       // Run DSSME engine
       const result = runDssmeEngine({
-        chart: blockResult,
+        chart: currentBlocks,
         bodyMode: dssmeBodyMode,
         objective: "short-cycle speculative extraction",
         risk: dssmeRisk,
@@ -781,6 +818,16 @@ export default function App() {
               </div>
             </div>
 
+            {/* Shadbala Table (BPHS Canonical Breakdown) */}
+            {blockResult?.SHADBALA && (
+              <ShadbalaTable shadbala={blockResult.SHADBALA} />
+            )}
+
+            {/* 16-Block Intermediate Representation Inspector */}
+            {blockResult && (
+              <ChartblocksInspector blocks={blockResult} />
+            )}
+
             {/* ── DSSME Engine Section ────────────────────────────────── */}
             <div className="bg-slate-900/80 border border-amber-500/20 rounded-xl p-5 shadow-xl">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-800">
@@ -1064,6 +1111,11 @@ export default function App() {
                           </div>
                         )}
                       </div>
+                    )}
+
+                    {/* Planetary CPS Decomposition Table */}
+                    {out.cps_audit && out.cps_audit.length > 0 && (
+                      <CpsFactorsTable cpsAudit={out.cps_audit} threshold={out.threshold} />
                     )}
 
                     {/* Warnings */}

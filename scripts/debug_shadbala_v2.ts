@@ -36,6 +36,9 @@ async function debugShadbala() {
     weekday: 3,        // Wednesday
     hora: "Mercury" as const,
     isNight: true,
+    chartJd: chart.time.julianDayUt,
+    longitude: chart.location.longitude,
+    ayanamsaDeg: chart.ayanamsa.value,
   };
 
   const shadbalaResult = buildShadbalaBlock(ctx, shadbalaInput);

@@ -30,6 +30,10 @@ async function debugShadbala() {
     weekday: 3,         // Wednesday
     hora: "Mercury",    // approx hora lord at 18:50 Wed
     isNight: true,
+    // PL9 Phase A: actual chart values
+    chartJd: chart.time.julianDayUt,
+    longitude: chart.location.longitude,
+    ayanamsaDeg: chart.ayanamsa.value,
   });
 
   if (shadbalaResult.status !== "OK") {

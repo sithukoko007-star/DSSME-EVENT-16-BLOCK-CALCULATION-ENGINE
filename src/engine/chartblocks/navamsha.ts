@@ -57,11 +57,12 @@ function isPushkara(sign: ZodiacSign, signDegree: number): boolean {
   return zones.some(([start, end]) => signDegree >= start && signDegree < end);
 }
 
-/** Compute D-9 sign from D-1 sidereal longitude. */
-function navamshaSign(siderealLon: number): ZodiacSign {
+/** Compute D-9 sign and degree-within-sign from D-1 sidereal longitude. */
+function navamshaSignAndDegree(siderealLon: number): { sign: ZodiacSign; degree: number } {
   const d9Lon = (siderealLon * 9) % 360;
   const signIdx = Math.floor(d9Lon / 30);
-  return ZODIAC_SIGNS_ARIES_FIRST[signIdx]!;
+  const degree = d9Lon % 30;
+  return { sign: ZODIAC_SIGNS_ARIES_FIRST[signIdx]!, degree };
 }
 
 function navamshaEntryForPlanet(
@@ -70,13 +71,14 @@ function navamshaEntryForPlanet(
   rashiSign: ZodiacSign,
   signDegree: number
 ): NavamshaEntry {
-  const d9Sign = navamshaSign(siderealLon);
+  const { sign: d9Sign, degree: d9Degree } = navamshaSignAndDegree(siderealLon);
   const isVargottama = rashiSign === d9Sign;
   const pushkara = isPushkara(rashiSign, signDegree);
 
   let dignity: Dignity = "—";
   if (planet !== "Rahu" && planet !== "Ketu") {
-    dignity = getClassicalDignity(planet as ClassicalPlanet, d9Sign);
+    // Pass actual D-9 sign-degree so Moolatrikona range check is accurate
+    dignity = getClassicalDignity(planet as ClassicalPlanet, d9Sign, d9Degree);
   }
 
   return {

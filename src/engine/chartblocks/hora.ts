@@ -63,10 +63,13 @@ export function buildHoraBlock(
   const chartJd = chart.time.julianDayUt;
   const issues = [];
 
-  // Determine weekday from local ISO string
+  // Determine weekday from localIso date string directly (timezone-safe).
+  // new Date(localIso).getDay() would use machine timezone; instead parse the
+  // date components from the already-localized localIso string.
   const localIso = chart.time.localIso;
-  const localDate = new Date(localIso);
-  const weekday = localDate.getDay(); // 0=Sun..6=Sat
+  const datePart = localIso.split("T")[0] ?? "1970-01-01";
+  const [yr, mo, dy] = datePart.split("-").map(Number) as [number, number, number];
+  const weekday = new Date(Date.UTC(yr, mo - 1, dy)).getUTCDay(); // 0=Sun..6=Sat
 
   const sequence = HORA_SEQUENCES[weekday] ?? HORA_SEQUENCES[0]!;
 

@@ -57,19 +57,21 @@ function computeCombust(
 
   const sep = angularSeparation(planetLon, sunLon);
 
-  if (sep >= threshold) {
-    return { combust: false, sep_deg: parseFloat(sep.toFixed(4)), severity: null };
+  // S-02c: sep > threshold → not combust; sep === threshold → Mild boundary
+  // sep_deg: raw (not rounded) per decision
+  if (sep > threshold) {
+    return { combust: false, sep_deg: sep, severity: null };
   }
 
   // Combust — determine severity
-  // Mild = outer 50% = sep in (threshold/2, threshold)
+  // Mild = outer 50% of threshold = sep in (threshold/2, threshold] (inclusive at threshold = Mild)
   // Severe = inner 50% = sep in [0, threshold/2]
   const midpoint = threshold / 2;
   const severity: CombustSeverity = sep <= midpoint ? "Severe" : "Mild";
 
   return {
     combust: true,
-    sep_deg: parseFloat(sep.toFixed(4)),
+    sep_deg: sep,
     severity,
   };
 }

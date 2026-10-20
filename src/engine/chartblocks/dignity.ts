@@ -8,7 +8,7 @@
  *   - Moon in Cancer = Own (NOT Exalted); Exalted = Taurus only
  *   - Mercury in Gemini = Own (NOT Exalted); Exalted = Virgo only
  *   - Jupiter in Cancer = Exalted
- *   - Saturn in Pisces = Enemy (Parashara compound-friendship)
+ *   - Saturn in Pisces = Neutral (Parashara compound-friendship, NOT Enemy)
  */
 
 import type {

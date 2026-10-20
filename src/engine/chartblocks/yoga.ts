@@ -147,8 +147,8 @@ function detectYogas(ctx: BlockContext): YogaEntry[] {
         if (kl === tl) continue;
         const klHouse = chart.planets[kl].house;
         const tlHouse = chart.planets[tl].house;
-        // Conjunction or 7th from each other
-        if (klHouse === tlHouse || Math.abs(klHouse - tlHouse) === 6 || Math.abs(klHouse - tlHouse) === 6) {
+        // Conjunction or 7th from each other (mutual opposition)
+        if (klHouse === tlHouse || Math.abs(klHouse - tlHouse) === 6) {
           if (!rajaYogaPlanets.includes(kl)) rajaYogaPlanets.push(kl);
           if (!rajaYogaPlanets.includes(tl)) rajaYogaPlanets.push(tl);
         }
@@ -237,12 +237,14 @@ function detectYogas(ctx: BlockContext): YogaEntry[] {
     }
   }
 
-  // 8. Shakata Yoga: Jupiter and Moon on 6-8 axis
+  // 8. Shakata Yoga: Jupiter and Moon on 6-8 axis (Moon in 6th or 8th FROM Jupiter)
+  // Moon in 6th from Jupiter → diff = 5 (0-indexed houses: 6-1=5)
+  // Moon in 8th from Jupiter → diff = 7
   {
     const jupHouse = chart.planets.Jupiter.house;
     const moonHouse = chart.planets.Moon.house;
     const diff = ((moonHouse - jupHouse + 12) % 12);
-    if (diff === 6 || diff === 8) {
+    if (diff === 5 || diff === 7) {
       yogas.push({
         name: "Shakata Yoga",
         type: "spec_negative",

@@ -67,15 +67,19 @@ export function buildIdentityBlock(
     issues.push(errorIssue("lagna.sign", "Lagna sign is missing"));
   }
 
-  // Derive weekday from local ISO string
+  // Derive weekday from localIso date component without involving new Date().getDay()
+  // (which would interpret in machine timezone, not chart timezone).
+  // localIso is already in the chart's local timezone by construction from Phase 1.
   const localIso = chart.time.localIso;
   const dateStr = localIso.split("T")[0] ?? "";
-  const dateObj = new Date(localIso);
+  const [yr, mo, dy] = dateStr.split("-").map(Number) as [number, number, number];
+  // Use UTC date to get day-of-week from the local date components (no DST shift).
   const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const dayName = weekdays[dateObj.getDay()] ?? "Unknown";
+  const dayName = weekdays[new Date(Date.UTC(yr, mo - 1, dy)).getUTCDay()] ?? "Unknown";
 
   const ayanamsaValue = chart.ayanamsa.value;
-  const ayanamsaStr = `${ayanamsaValue >= 0 ? "+" : ""}${ayanamsaValue.toFixed(4)}°`;
+  // S-08: format as "24.2300" (no sign prefix, no degree symbol)
+  const ayanamsaStr = `${ayanamsaValue.toFixed(4)}`;
 
   const lagnaType = lagnaSign ? getLagnaType(lagnaSign) : "Movable";
   const lagnaDegStr = `${lagnaSign ?? "?"} ${formatDegree(chart.lagna.signDegree)}`;

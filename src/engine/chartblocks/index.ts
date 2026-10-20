@@ -177,20 +177,37 @@ export async function buildDssme16BlockResult(
   // --- Shadbala input (needs panchanga) ---
   const tithiIndex = panchanga?.tithi.index ?? 1;
   const paksha = (panchanga?.tithi.paksha === "krishna" ? "krishna" : "shukla") as "shukla" | "krishna";
-  const weekday = panchanga?.vara.weekday ?? new Date(chart.time.localIso).getDay();
 
-  // Estimate if night: if no panchanga, use 18:00–06:00 local as night
-  let isNight = false;
-  if (panchanga) {
-    // sunsetJdUt vs chartJd
-    if (options.sunsetJdUt !== undefined) {
-      isNight = chart.time.julianDayUt >= options.sunsetJdUt ||
-                chart.time.julianDayUt < (options.sunriseJdUt ?? 0);
+  // Weekday: always derive from localIso date string directly (timezone-safe).
+  // localIso is already in the chart's local timezone by construction from Phase 1.
+  // Using new Date(localIso).getDay() would interpret in the *machine* timezone,
+  // which is wrong for e.g. a 05:00 JST chart running on a UTC server.
+  // The panchanga vara weekday is computed sunrise-based and is authoritative when available.
+  const weekday: number = (() => {
+    if (panchanga?.vara.weekday !== undefined) return panchanga.vara.weekday;
+    // Fallback: parse date component from localIso string without involving Date.getDay()
+    const datePart = chart.time.localIso.split("T")[0] ?? "1970-01-01";
+    const [yr, mo, dy] = datePart.split("-").map(Number) as [number, number, number];
+    // Zeller / deterministic UTC date → weekday (no machine-TZ involvement)
+    return new Date(Date.UTC(yr, mo - 1, dy)).getUTCDay();
+  })();
+
+  // Estimate if night using JD comparison when sunriseJdUt/sunsetJdUt are available,
+  // or by parsing the hour from the localIso string (not new Date().getHours() which
+  // is machine-timezone dependent).
+  const isNight = (() => {
+    if (options.sunriseJdUt !== undefined && options.sunsetJdUt !== undefined) {
+      return chart.time.julianDayUt >= options.sunsetJdUt ||
+             chart.time.julianDayUt < options.sunriseJdUt;
     }
-  } else {
-    const localHour = new Date(chart.time.localIso).getHours();
-    isNight = localHour >= 18 || localHour < 6;
-  }
+    if (options.sunsetJdUt !== undefined) {
+      return chart.time.julianDayUt >= options.sunsetJdUt;
+    }
+    // Fallback: parse hour from localIso directly (timezone-safe)
+    const timePart = chart.time.localIso.split("T")[1] ?? "12:00:00";
+    const localHour = parseInt(timePart.substring(0, 2), 10);
+    return localHour >= 18 || localHour < 6;
+  })();
 
   // Step 1: Shadbala (needed for BhavaBala and PLANETS block)
   const horaResult = buildHoraBlock(ctx, options.sunriseJdUt, options.sunsetJdUt);
@@ -202,6 +219,10 @@ export async function buildDssme16BlockResult(
     weekday,
     hora: horaLord,
     isNight,
+    // PL9 Phase A — required for accurate Kaala Bala
+    chartJd: chart.time.julianDayUt,
+    longitude: chart.location.longitude,
+    ayanamsaDeg: chart.ayanamsa.value,
   };
   const shadbalaResult = buildShadbalaBlock(ctx, shadbalaInput);
   const shadbalaTotals = shadbalaResult.value?.total_virupas ?? new Array(7).fill(300);
@@ -287,7 +308,7 @@ export async function buildDssme16BlockResult(
       eclipse_proximity: false,
       gandanta_active: isGandanta(chart),
       ingress_stacking: (phaseStressResult.value?.ingress_within_24h.length ?? 0) >= 2,
-      amavasya_zone: tithiIndex === 30 || tithiIndex === 1,
+      amavasya_zone: tithiIndex === 29 || tithiIndex === 30 || tithiIndex === 1,
       purnima_zone: tithiIndex === 15 || tithiIndex === 14 || tithiIndex === 16,
     },
     DASHA: dashaResult.value!,
