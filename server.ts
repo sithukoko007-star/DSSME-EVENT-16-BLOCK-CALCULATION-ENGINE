@@ -9,8 +9,23 @@ import { generateCanonicalChart } from "./src/engine/canonical/canonicalChart.ts
 import { getSwissEphemeris } from "./src/engine/astronomy/ephemeris.ts";
 import { DssmeCalculationInput } from "./src/types/dssme-canonical-types.ts";
 
+function resolvePort(): number {
+  const portIdx = process.argv.indexOf("--port");
+  if (portIdx !== -1 && process.argv[portIdx + 1]) {
+    const parsed = parseInt(process.argv[portIdx + 1], 10);
+    if (!isNaN(parsed) && parsed > 0) return parsed;
+  }
+  // In AI Studio preview environment, dev server must always run on port 3000
+  // (PORT=8080 in environment belongs to external reverse-proxy)
+  if (process.env.APP_PORT) {
+    const parsed = parseInt(process.env.APP_PORT, 10);
+    if (!isNaN(parsed) && parsed > 0) return parsed;
+  }
+  return 3000;
+}
+
+const PORT = resolvePort();
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json());
 
@@ -170,7 +185,11 @@ async function startServer() {
     // In dev: mount Vite dev server middlewares
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      root: process.cwd(),
+      server: {
+        middlewareMode: true,
+        hmr: false,
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);
@@ -178,7 +197,7 @@ async function startServer() {
     // In production: serve static build
     const distPath = path.resolve(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (_req, res) => {
+    app.get("*", (_req: Request, res: Response) => {
       res.sendFile(path.resolve(distPath, "index.html"));
     });
   }
