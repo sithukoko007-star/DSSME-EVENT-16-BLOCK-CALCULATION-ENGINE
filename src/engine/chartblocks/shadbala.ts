@@ -29,6 +29,10 @@ import { ZODIAC_SIGNS_ARIES_FIRST } from "../../types/dssme-canonical-types.ts";
 import type { BlockContext, BlockResult } from "../blocks/blockTypes.ts";
 import { finalizeBlock, warningIssue } from "../blocks/blockResult.ts";
 import { SIGN_LORDS } from "../astronomy/planetaryPositions.ts";
+import {
+  calculateChestaBalaAll,
+  calculateOuterPlanetChestaBala,
+} from "../strength/chestaBala.ts";
 
 export const CLASSICAL_PLANETS_ORDER: ClassicalPlanet[] = [
   "Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn",
@@ -560,40 +564,25 @@ function kaalaBalaForPlanet(planet: ClassicalPlanet, input: KaalaInput): KaalaRe
  * Mean speeds (deg/day): Sun 0.9833, Moon 13.1833, Mars 0.5241,
  *   Mercury 1.3833, Jupiter 0.0831, Venus 1.2, Saturn 0.0334
  */
-const MEAN_SPEED: Record<ClassicalPlanet, number> = {
-  Sun: 0.9833,
-  Moon: 13.1833,
-  Mars: 0.5241,
-  Mercury: 1.3833,
-  Jupiter: 0.0831,
-  Venus: 1.2,
-  Saturn: 0.0334,
-};
-
+/**
+ * Chesta Bala — motional strength (Method 2: Speed & Retrograde BPHS Classical).
+ *
+ * Sun  → Sun Chesta Bala = Ayana Bala (BPHS Ch.27)
+ * Moon → Moon Chesta Bala = Paksha Bala (BPHS Ch.27)
+ * Mars, Mercury, Jupiter, Venus, Saturn → Delegated to calculateOuterPlanetChestaBala:
+ *   - Retrograde (speed < 0) → 60 virupas (full max)
+ *   - Stationary (|speed| < mean * 0.05) → 0 virupas
+ *   - Direct (speed > 0) → min(round(|speed| / mean * 60, 2), 60)
+ */
 function chestaBala(
   planet: ClassicalPlanet,
   speedLon: number,
   sunAyanaBala: number,   // pre-computed Sun Ayana Bala (for Sun's Chesta slot)
   moonPakshaBala: number, // pre-computed Moon Paksha Bala (for Moon's Chesta slot)
 ): number {
-  // PL9 dviguṇa rule: Sun/Moon Chesta filled by Ayana/Paksha respectively
   if (planet === "Sun")  return sunAyanaBala;
   if (planet === "Moon") return moonPakshaBala;
-
-  const mean = MEAN_SPEED[planet];
-  const speed = speedLon; // deg/day (negative = retrograde)
-
-  if (speed < 0) {
-    // Retrograde (Vakra): BPHS Ch.27 — geocentric proximity → max Chesta Bala
-    return 60;
-  }
-  if (Math.abs(speed) < mean * 0.05) {
-    // Stationary (Vikala): near-zero speed = minimum
-    return 0;
-  }
-  // Direct: scale vs mean speed. At mean → 30 virupas; at 2× mean → 60 virupas.
-  const ratio = Math.abs(speed) / mean;
-  return Math.min(60, Math.max(0, ratio * 30));
+  return calculateOuterPlanetChestaBala(planet, speedLon);
 }
 
 /**
