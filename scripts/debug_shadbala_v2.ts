@@ -8,7 +8,6 @@ import {
   buildShadbalaBlock,
   CLASSICAL_PLANETS_ORDER,
   MINIMUM_REQUIRED_VIRUPAS,
-  type KaalaInput,
 } from "../src/engine/chartblocks/shadbala.ts";
 import { createBlockContext } from "../src/engine/blocks/index.ts";
 import { ZODIAC_SIGNS_ARIES_FIRST } from "../src/types/dssme-canonical-types.ts";

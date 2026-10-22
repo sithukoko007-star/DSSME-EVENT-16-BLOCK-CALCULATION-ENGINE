@@ -23,6 +23,7 @@ import { runPyjhoraSourceAlignmentTests } from "./blocks/pyjhoraSourceAlignment.
 import { runLevel1IntegrationTests } from "./blocks/level1Integration.test.ts";
 import { runDssmeAcceptanceTests } from "./dssme/acceptance.test.ts";
 import { runConformanceVectorTests } from "./dssme/conformance_vectors.test.ts";
+import { runShadbalaAndBhavaBalaTests } from "./blocks/shadbalaBhavaBala.test.ts";
 
 interface TestSuiteEntry {
   name: string;
@@ -49,6 +50,7 @@ const REGISTERED_SUITES: TestSuiteEntry[] = [
   { name: "Phase 3 PyJHora Source-Level Alignment (Level 1)", run: runPyjhoraSourceAlignmentTests },
   { name: "Phase 3 Level 1 Integration (CanonicalChart -> blocks)", run: runLevel1IntegrationTests },
   { name: "DSSME Engine Acceptance Tests (A1–A13)", run: runDssmeAcceptanceTests },
+  { name: "Phase 3 BPHS Ch. 27 Shadbala & Bhava Bala", run: runShadbalaAndBhavaBalaTests },
   { name: "DSSME v1.6 Conformance Vectors (244 vectors)", run: runConformanceVectorTests },
 ];
 

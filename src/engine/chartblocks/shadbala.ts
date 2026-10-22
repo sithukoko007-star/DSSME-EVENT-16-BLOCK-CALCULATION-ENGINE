@@ -1,659 +1,2293 @@
 /**
- * BLOCK_6 — SHADBALA
- * Computes the six Shadbala components for each of the 7 classical planets.
+ * BLOCK_6 - SHADBALA (BPHS Chapter 27 Canonical Implementation)
+ * Module: src/engine/chartblocks/shadbala.ts
  *
- * Six components (all in Virupas = 1/60 Rupa):
- *   1. Sthana Bala  — Positional strength
- *   2. Dig Bala     — Directional strength
- *   3. Kaala Bala   — Temporal strength (9 sub-components)
- *   4. Chesta Bala  — Motional strength
- *   5. Naisargika Bala — Natural/constant strength
- *   6. Drig Bala    — Aspectual strength (can be negative)
+ * Computes the six Shadbala components for each of the 7 classical planets:
+ *   1. Sthana Bala     - Positional strength (Uchcha + 7-Varga Panchadha Saptavargaja + D1/D9 Ojha-Yugma + Kendradi + Drekkana)
+ *   2. Dig Bala        - Directional strength (Degree-based Placidus/Equal cusp arc / 3, with whole-house fallback)
+ *   3. Kaala Bala      - Temporal strength (Nathonnatha, Paksha, Tribhaga with permanent Jupiter +60, Abda, Masa, Vaara, Hora, Ayana, Yuddha)
+ *   4. Chesta Bala     - Motional strength (Geocentric Speed & Ashta Gati 8-state machine; Sun=Ayana, Moon=Paksha)
+ *   5. Naisargika Bala - Natural constant luminosity strength
+ *   6. Drig Bala       - Aspectual strength (BPHS Ch.27 30-300 deg piecewise Drishti Kona & Whole-House with /4 divisor)
  *
- * Minimum required virupas: Sun 390, Moon 360, Mars 300,
- *   Mercury 420, Jupiter 390, Venus 330, Saturn 300.
- *
- * NOTE: Bhava Bala NEVER enters RS(p) — Hard Rule 10 / §3.1 Rule 11.
- *
- * Implementation uses classical Parashari formulas. Several sub-components
- * require chart instant data (hora, weekday, paksha) which are passed in.
+ * Also provides BPHS Ch.27 Ishta Phala & Kashta Phala radiation tendencies.
+ * NOTE: Bhava Bala NEVER enters RS(p) - Hard Rule 10 / Section 3.1 Rule 11.
  */
 
 import type {
   ClassicalPlanet,
-  KaalaBalaComponents,
   ShadbalaBlock,
-  ZodiacSign,
 } from "../../types/dssme-canonical-types.ts";
-import { ZODIAC_SIGNS_ARIES_FIRST } from "../../types/dssme-canonical-types.ts";
 import type { BlockContext, BlockResult } from "../blocks/blockTypes.ts";
 import { finalizeBlock, warningIssue } from "../blocks/blockResult.ts";
-import { SIGN_LORDS } from "../astronomy/planetaryPositions.ts";
-import {
-  calculateChestaBalaAll,
-  calculateOuterPlanetChestaBala,
-} from "../strength/chestaBala.ts";
 
-export const CLASSICAL_PLANETS_ORDER: ClassicalPlanet[] = [
-  "Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn",
+// ============================================================================
+// CORE TYPES & CONSTANTS (BPHS CHAPTER 3 & CHAPTER 27)
+// ============================================================================
+
+export type PlanetId = ClassicalPlanet;
+export type RasiIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
+export type VargaKey = "D1" | "D2" | "D3" | "D7" | "D9" | "D12" | "D30";
+export type CardinalHouse = 1 | 4 | 7 | 10;
+export type TaraGrahaId = Exclude<PlanetId, "Sun" | "Moon">;
+
+export const PLANET_ORDER: readonly PlanetId[] = [
+  "Sun",
+  "Moon",
+  "Mars",
+  "Mercury",
+  "Jupiter",
+  "Venus",
+  "Saturn",
 ];
 
-// §2.2 BLOCK_6: minimum required virupas per planet
-export const MINIMUM_REQUIRED_VIRUPAS: number[] = [390, 360, 300, 420, 390, 330, 300];
+export const CLASSICAL_PLANETS_ORDER: ClassicalPlanet[] = [...PLANET_ORDER];
 
-// Naisargika Bala — natural constant strength (virupas)
-const NAISARGIKA_BALA: Record<ClassicalPlanet, number> = {
+export const TARA_GRAHAS: readonly TaraGrahaId[] = [
+  "Mars",
+  "Mercury",
+  "Jupiter",
+  "Venus",
+  "Saturn",
+];
+
+// Section 2.2 BLOCK_6: minimum required virupas per planet
+export const MINIMUM_REQUIRED_VIRUPAS: number[] = [
+  390, 360, 300, 420, 390, 330, 300,
+];
+
+export const MIN_REQUIRED_VIRUPAS: Record<PlanetId, number> = {
+  Sun: 390,
+  Moon: 360,
+  Mars: 300,
+  Mercury: 420,
+  Jupiter: 390,
+  Venus: 330,
+  Saturn: 300,
+};
+
+// Component 5: Naisargika Bala - BPHS Ch.27 Sloka 14 natural constant strength (virupas)
+export const NAISARGIKA_BALA: Record<PlanetId, number> = {
   Sun: 60.0,
   Moon: 51.43,
-  Mars: 17.14,
-  Mercury: 25.71,
-  Jupiter: 34.29,
   Venus: 42.86,
+  Jupiter: 34.29,
+  Mercury: 25.71,
+  Mars: 17.14,
   Saturn: 8.57,
 };
 
-// Exaltation degrees (exact degrees for Uchcha Bala)
-const EXALTATION_DEG: Record<ClassicalPlanet, number> = {
-  Sun: 10,        // 10° Aries
-  Moon: 33,       // 3° Taurus = 30+3
-  Mars: 298,      // 28° Capricorn = 270+28
-  Mercury: 165,   // 15° Virgo = 150+15
-  Jupiter: 95,    // 5° Cancer = 90+5
-  Venus: 357,     // 27° Pisces = 330+27
-  Saturn: 200,    // 20° Libra = 180+20
+// Deep Exaltation degrees (Paramochcha - BPHS Ch.3)
+export const EXALTATION_DEG: Record<PlanetId, number> = {
+  Sun: 10,      // 10 deg Aries
+  Moon: 33,     // 3 deg Taurus
+  Mars: 298,    // 28 deg Capricorn
+  Mercury: 165, // 15 deg Virgo
+  Jupiter: 95,  // 5 deg Cancer
+  Venus: 357,   // 27 deg Pisces
+  Saturn: 200,  // 20 deg Libra
 };
 
-// Debilitation degrees (opposite)
-const DEBILITATION_DEG: Record<ClassicalPlanet, number> = {
-  Sun: 190,
-  Moon: 213,
-  Mars: 118,
-  Mercury: 345,
-  Jupiter: 275,
-  Venus: 177,
-  Saturn: 20,
+// Geocentric mean daily motion (degrees/day) - corrects heliocentric Mercury/Venus bug
+export const GEOCENTRIC_MEAN_SPEED: Record<TaraGrahaId, number> = {
+  Mars: 0.5240,
+  Mercury: 0.9856,
+  Jupiter: 0.0831,
+  Venus: 0.9856,
+  Saturn: 0.0335,
 };
 
-// Dig Bala: which house gives maximum directional strength
-const DIG_BALA_MAX_HOUSE: Record<ClassicalPlanet, number> = {
-  Sun: 10,
-  Moon: 4,
-  Mars: 10,
-  Mercury: 1,
-  Jupiter: 1,
-  Venus: 4,
-  Saturn: 7,
+// Sign rulers (0 = Aries ... 11 = Pisces)
+export const SIGN_LORDS: Record<RasiIndex, PlanetId> = {
+  0: "Mars",     // Aries
+  1: "Venus",    // Taurus
+  2: "Mercury",  // Gemini
+  3: "Moon",     // Cancer
+  4: "Sun",      // Leo
+  5: "Mercury",  // Virgo
+  6: "Venus",    // Libra
+  7: "Mars",     // Scorpio
+  8: "Jupiter",  // Sagittarius
+  9: "Saturn",   // Capricorn
+  10: "Saturn",  // Aquarius
+  11: "Jupiter", // Pisces
 };
 
-/**
- * Uchcha Bala (exaltation component of Sthana Bala).
- * = 60 - |longitude - exaltation_longitude| / 3 (virupas, 0–60)
- */
-function uchhaBala(planet: ClassicalPlanet, siderealLon: number): number {
-  const exaltLon = EXALTATION_DEG[planet];
-  const debitLon = DEBILITATION_DEG[planet];
-  // Use shorter arc distance to exaltation
-  let diff = Math.abs(siderealLon - exaltLon) % 360;
-  if (diff > 180) diff = 360 - diff;
-  return Math.max(0, 60 - diff / 3);
-}
-
-/**
- * Kendradi Bala: Angular = 60, Succedent = 30, Cadent = 15 virupas
- */
-function kendradiBala(house: number): number {
-  const angular = [1, 4, 7, 10];
-  const succedent = [2, 5, 8, 11];
-  if (angular.includes(house)) return 60;
-  if (succedent.includes(house)) return 30;
-  return 15; // Cadent
-}
-
-/**
- * Drekkana Bala: 15 virupas for planets in odd positions of odd signs,
- * or even positions of even signs (classical formula).
- */
-function drekkana(planet: ClassicalPlanet, signDegree: number, sign: ZodiacSign): number {
-  const signIdx = ZODIAC_SIGNS_ARIES_FIRST.indexOf(sign);
-  const isOddSign = signIdx % 2 === 0; // 0-indexed Aries, Gemini etc.
-  const drekkanaPos = Math.floor(signDegree / 10) + 1; // 1, 2, or 3
-  const isOddDrekkana = drekkanaPos % 2 === 1;
-
-  if ((isOddSign && isOddDrekkana) || (!isOddSign && !isOddDrekkana)) return 15;
-  return 0;
-}
-
-/**
- * Ojha Yugma Rasyamsha Bala (BPHS Ch.27):
- *   Male planets (Sun, Mars, Jupiter, Saturn) → 15 virupas in odd signs
- *   Female planets (Moon, Venus)              → 15 virupas in even signs
- *   Mercury is NAPUMSAKA (hermaphrodite)      → 15 virupas in ALL signs
- *
- * BPHS: "Mercury being a eunuch (napumsaka) has strength in both kinds of signs."
- */
-function ojhaYugmaBala(planet: ClassicalPlanet, sign: ZodiacSign): number {
-  // Mercury is hermaphrodite — always 15 (BPHS explicit rule)
-  if (planet === "Mercury") return 15;
-
-  const signIdx = ZODIAC_SIGNS_ARIES_FIRST.indexOf(sign);
-  const isOddSign = signIdx % 2 === 0; // 0-indexed: Aries=0(odd), Taurus=1(even), etc.
-  const malePlanets: ClassicalPlanet[] = ["Sun", "Mars", "Jupiter", "Saturn"];
-  const femalePlanets: ClassicalPlanet[] = ["Moon", "Venus"];
-
-  if (isOddSign && malePlanets.includes(planet)) return 15;
-  if (!isOddSign && femalePlanets.includes(planet)) return 15;
-  return 0;
-}
-
-/**
- * Dig Bala — directional strength.
- * Max at specific house (60 virupas); drops linearly to 0 at opposite house.
- */
-function digBala(planet: ClassicalPlanet, house: number): number {
-  const maxHouse = DIG_BALA_MAX_HOUSE[planet];
-  let diff = Math.abs(house - maxHouse);
-  if (diff > 6) diff = 12 - diff;
-  // Scale: at 0 diff → 60; at 6 diff → 0
-  return Math.max(0, 60 - (diff * 10));
-}
-
-/**
- * Dignity score mapping for Saptavargaja Bala computation.
- * Full Saptavargaja uses 7 vargas (D1,D2,D3,D7,D9,D12,D30).
- * This partial implementation uses D1+D9 (2 of 7 vargas available).
- *
- * Per-varga score (Parashari):
- *   Exalted/Moolatrikona → 20; Own → 15; Grt.Friend → 12; Friend → 10;
- *   Neutral → 7; Enemy → 5; Grt.Enemy → 3; Debilitated → 2
- * Maximum per varga (Exalted) = 20 → max 2 vargas = 40.
- * We scale D1+D9 score to fit within the partial range:
- *   Full Saptavargaja range: 15 (all debilitated) → 150 (all exalted).
- *   D1+D9 partial contribution (2/7): scaled proportionally.
- */
-function dignityScore(dignity: string): number {
-  switch (dignity) {
-    case "Exalted":      return 20;
-    case "Moolatrikona": return 20;
-    case "Own":          return 15;
-    case "Grt.Friend":   return 12;
-    case "Friend":       return 10;
-    case "Neutral":      return 7;
-    case "Enemy":        return 5;
-    case "Grt.Enemy":    return 3;
-    case "Debilitated":  return 2;
-    default:             return 7; // neutral fallback
-  }
-}
-
-function saptavargajaBalaPartial(
-  planet: ClassicalPlanet,
-  d1Sign: ZodiacSign,
-  d1Degree: number,
-  d9Sign: ZodiacSign
-): number {
-  // D1 dignity
-  const d1Dignity = getClassicalDignityForSapta(planet, d1Sign, d1Degree);
-  const d1Score = dignityScore(d1Dignity);
-
-  // D9 dignity
-  const d9Dignity = getClassicalDignityForSapta(planet, d9Sign, undefined);
-  const d9Score = dignityScore(d9Dignity);
-
-  // Sum of D1+D9 (max=40 if both exalted, min=4 if both debilitated)
-  const rawScore = d1Score + d9Score;
-
-  // Scale to Saptavargaja partial range.
-  // We approximate: treating D1+D9 as 2 of 7 vargas, each max=20.
-  // Full range (7 vargas): min=7*2=14, max=7*20=140.
-  // D1+D9 range: min=4, max=40.
-  // Scale linearly into [14, 140] proportional to 2/7:
-  // partial = 14 + (rawScore - 4) / (40 - 4) * (140 - 14)
-  const scaled = 14 + ((rawScore - 4) / 36) * 126;
-  return parseFloat(Math.min(140, Math.max(14, scaled)).toFixed(2));
-}
-
-// Inline dignity helper for Saptavargaja (avoids circular import)
-const _SAPTA_EXALT: Record<ClassicalPlanet, ZodiacSign> = {
-  Sun: "Aries", Moon: "Taurus", Mars: "Capricorn", Mercury: "Virgo",
-  Jupiter: "Cancer", Venus: "Pisces", Saturn: "Libra",
-};
-const _SAPTA_DEBIT: Record<ClassicalPlanet, ZodiacSign> = {
-  Sun: "Libra", Moon: "Scorpio", Mars: "Cancer", Mercury: "Pisces",
-  Jupiter: "Capricorn", Venus: "Virgo", Saturn: "Aries",
-};
-const _SAPTA_OWN: Record<ClassicalPlanet, ZodiacSign[]> = {
-  Sun: ["Leo"], Moon: ["Cancer"], Mars: ["Aries", "Scorpio"],
-  Mercury: ["Gemini", "Virgo"], Jupiter: ["Sagittarius", "Pisces"],
-  Venus: ["Taurus", "Libra"], Saturn: ["Capricorn", "Aquarius"],
-};
-const _SAPTA_MULA_SIGN: Record<ClassicalPlanet, ZodiacSign> = {
-  Sun: "Leo", Moon: "Taurus", Mars: "Aries", Mercury: "Virgo",
-  Jupiter: "Sagittarius", Venus: "Libra", Saturn: "Aquarius",
-};
-const _SAPTA_MULA_RANGE: Record<ClassicalPlanet, [number, number]> = {
-  Sun: [0, 20], Moon: [4, 20], Mars: [0, 12], Mercury: [15, 20],
-  Jupiter: [0, 10], Venus: [0, 15], Saturn: [0, 20],
-};
-const _SAPTA_FRIEND: Record<ClassicalPlanet, Partial<Record<ClassicalPlanet, string>>> = {
-  Sun:     { Moon: "Friend", Mars: "Friend", Jupiter: "Friend", Mercury: "Neutral", Venus: "Enemy", Saturn: "Enemy" },
-  Moon:    { Sun: "Friend", Mercury: "Friend", Mars: "Neutral", Jupiter: "Neutral", Venus: "Neutral", Saturn: "Neutral" },
-  Mars:    { Sun: "Friend", Moon: "Friend", Jupiter: "Friend", Venus: "Neutral", Saturn: "Neutral", Mercury: "Enemy" },
-  Mercury: { Sun: "Friend", Venus: "Friend", Mars: "Neutral", Jupiter: "Neutral", Saturn: "Neutral", Moon: "Enemy" },
-  Jupiter: { Sun: "Friend", Moon: "Friend", Mars: "Friend", Saturn: "Neutral", Mercury: "Enemy", Venus: "Enemy" },
-  Venus:   { Mercury: "Friend", Saturn: "Friend", Mars: "Neutral", Jupiter: "Neutral", Sun: "Enemy", Moon: "Enemy" },
-  Saturn:  { Mercury: "Friend", Venus: "Friend", Jupiter: "Neutral", Sun: "Enemy", Moon: "Enemy", Mars: "Enemy" },
-};
-const _SAPTA_SIGN_LORDS: Record<ZodiacSign, ClassicalPlanet> = {
-  Aries: "Mars", Taurus: "Venus", Gemini: "Mercury", Cancer: "Moon",
-  Leo: "Sun", Virgo: "Mercury", Libra: "Venus", Scorpio: "Mars",
-  Sagittarius: "Jupiter", Capricorn: "Saturn", Aquarius: "Saturn", Pisces: "Jupiter",
+export const DIG_MAX_HOUSE: Record<PlanetId, CardinalHouse> = {
+  Mercury: 1, // East (Ascendant / H1 Cusp)
+  Jupiter: 1, // East (Ascendant / H1 Cusp)
+  Moon: 4,    // North (Nadir / IC / H4 Cusp)
+  Venus: 4,   // North (Nadir / IC / H4 Cusp)
+  Saturn: 7,  // West (Descendant / H7 Cusp)
+  Sun: 10,    // South (Zenith / MC / H10 Cusp)
+  Mars: 10,   // South (Zenith / MC / H10 Cusp)
 };
 
-function getClassicalDignityForSapta(
-  planet: ClassicalPlanet,
-  sign: ZodiacSign,
-  signDegree?: number
-): string {
-  if (_SAPTA_EXALT[planet] === sign) return "Exalted";
-  if (_SAPTA_DEBIT[planet] === sign) return "Debilitated";
-  const mooSign = _SAPTA_MULA_SIGN[planet];
-  const mooRange = _SAPTA_MULA_RANGE[planet];
-  if (mooSign === sign && mooRange) {
-    const deg = signDegree ?? 0;
-    if (deg >= mooRange[0] && deg < mooRange[1]) return "Moolatrikona";
-  }
-  if ((_SAPTA_OWN[planet] ?? []).includes(sign)) return "Own";
-  const signLord = _SAPTA_SIGN_LORDS[sign];
-  if (signLord === planet) return "Own";
-  const friendLevel = _SAPTA_FRIEND[planet]?.[signLord];
-  return friendLevel ?? "Neutral";
-}
+export const VAARA_LORDS: readonly PlanetId[] = [
+  "Sun",     // 0: Sunday
+  "Moon",    // 1: Monday
+  "Mars",    // 2: Tuesday
+  "Mercury", // 3: Wednesday
+  "Jupiter", // 4: Thursday
+  "Venus",   // 5: Friday
+  "Saturn",  // 6: Saturday
+];
 
-/**
- * Sthana Bala (positional strength) = sum of sub-components.
- * Sub-components: Uchcha, Saptavargaja (D1+D9 partial), Ojha-Yugma, Kendradi, Drekkana
- */
-function sthanaBala(
-  planet: ClassicalPlanet,
-  siderealLon: number,
-  sign: ZodiacSign,
-  signDegree: number,
-  house: number
-): number {
-  const uchcha = uchhaBala(planet, siderealLon);
+// Chaldean planetary hour sequence
+const CHALDEAN_ORDER: readonly PlanetId[] = [
+  "Sun",
+  "Venus",
+  "Mercury",
+  "Moon",
+  "Saturn",
+  "Jupiter",
+  "Mars",
+];
 
-  // Saptavargaja Bala — D1+D9 partial computation (2 of 7 vargas)
-  const d9Sign = navamshaSignForSapta(siderealLon);
-  const saptavargaja = saptavargajaBalaPartial(planet, sign, signDegree, d9Sign);
-
-  const ojhaYugma = ojhaYugmaBala(planet, sign);
-  const kendradi = kendradiBala(house);
-  const drekkanaB = drekkana(planet, signDegree, sign);
-
-  return uchcha + saptavargaja + ojhaYugma + kendradi + drekkanaB;
-}
-
-/** D-9 sign from D-1 sidereal longitude (for Saptavargaja). */
-function navamshaSignForSapta(siderealLon: number): ZodiacSign {
-  const d9Lon = (siderealLon * 9) % 360;
-  const signIdx = Math.floor(d9Lon / 30);
-  return ZODIAC_SIGNS_ARIES_FIRST[signIdx]!;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PL9 STANDARD — PHASE A (Checkpoint 3)
-// Implements Parashara's Light 9 standard for Kaala Bala sub-components:
-//   • Paksha Bala  — true Moon-Sun elongation formula (not tithi-index proxy)
-//   • Ayana Bala   — true planetary declination formula (PL9 kranti method)
-//   • Nathonnatha  — JD-based True Apparent Midnight (Equation of Time corrected)
-//   • Sun/Moon Chesta Bala → filled by Ayana/Paksha Bala respectively (BPHS dviguṇa rule)
-// ─────────────────────────────────────────────────────────────────────────────
-
-// Mean obliquity of ecliptic (J2000 epoch; good to ±0.01° for 2020–2030)
+// Mean obliquity of ecliptic (J2000)
 const OBLIQUITY_DEG = 23.4393;
-const OBLIQUITY_RAD = OBLIQUITY_DEG * (Math.PI / 180);
+const OBLIQUITY_RAD = (OBLIQUITY_DEG * Math.PI) / 180;
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ============================================================================
+// MATHEMATICAL HELPERS
+// ============================================================================
 
-/** Degrees → Radians */
-function toRad(d: number): number { return d * (Math.PI / 180); }
-/** Radians → Degrees */
-function toDeg(r: number): number { return r * (180 / Math.PI); }
+export function norm360(lon: number): number {
+  return ((lon % 360) + 360) % 360;
+}
+
+export function shortestArc(lonA: number, lonB: number): number {
+  const diff = Math.abs(norm360(lonA - lonB));
+  return diff > 180 ? 360 - diff : diff;
+}
+
+function round1(val: number): number {
+  return Math.round((val + Number.EPSILON) * 10) / 10;
+}
+
+function round2(val: number): number {
+  return Math.round((val + Number.EPSILON) * 100) / 100;
+}
+
+function round4(val: number): number {
+  return Math.round((val + Number.EPSILON) * 10000) / 10000;
+}
+
+// ============================================================================
+// INPUT & OUTPUT INTERFACES
+// ============================================================================
+
+export interface PlanetPositionInput {
+  planet: PlanetId;
+  lon: number;
+  speed: number;
+  retro?: boolean;
+  house: number;
+  lat?: number;
+}
+
+export type MasaConvention = "AMANTA_LUNAR" | "SAURA_SANKRANTI";
+export type DrigCalculationMode =
+  | "DEGREE_RAMAN_BAND"
+  | "DEGREE_CONTINUOUS_KNOT"
+  | "WHOLE_HOUSE";
+
+export interface ShadbalaChartInput {
+  planets: readonly PlanetPositionInput[];
+  jdUt: number;
+  tzOffsetHours: number;
+  geoLonDeg: number;
+  localSunriseHour?: number;
+  localSunsetHour?: number;
+  ayanamsaDeg: number;
+  houseCusps?: readonly number[] | Record<number, number>;
+  masaConvention?: MasaConvention;
+  usePanchadhaSaptavargaja?: boolean;
+  drigMode?: DrigCalculationMode;
+}
+
+// ============================================================================
+// 1. STHANA BALA & 7-VARGA SAPTAVARGAJA (P2, P3, & PANCHADHA MAITRI)
+// ============================================================================
+
+export type DignityTier =
+  | "Exalted"
+  | "Moolatrikona"
+  | "Own"
+  | "Friend"
+  | "Neutral"
+  | "Enemy"
+  | "Debilitated";
+
+export const DIGNITY_VIRUPAS: Record<DignityTier, number> = {
+  Exalted: 20,
+  Moolatrikona: 20,
+  Own: 15,
+  Friend: 10,
+  Neutral: 7,
+  Enemy: 5,
+  Debilitated: 2,
+};
+
+const EXALTATION_SIGN: Record<PlanetId, RasiIndex> = {
+  Sun: 0,      // Aries
+  Moon: 1,     // Taurus
+  Mars: 9,     // Capricorn
+  Mercury: 5,  // Virgo
+  Jupiter: 3,  // Cancer
+  Venus: 11,  // Pisces
+  Saturn: 6,   // Libra
+};
+
+const DEBILITATION_SIGN: Record<PlanetId, RasiIndex> = {
+  Sun: 6,      // Libra
+  Moon: 7,     // Scorpio
+  Mars: 3,     // Cancer
+  Mercury: 11, // Pisces
+  Jupiter: 9,  // Capricorn
+  Venus: 5,    // Virgo
+  Saturn: 0,   // Aries
+};
+
+const MOOLATRIKONA_RULES: Record<
+  PlanetId,
+  { sign: RasiIndex; startDeg: number; endDeg: number }
+> = {
+  Sun: { sign: 4, startDeg: 0, endDeg: 20 },      // Leo 0-20 deg
+  Moon: { sign: 1, startDeg: 3, endDeg: 30 },     // Taurus 3-30 deg
+  Mars: { sign: 0, startDeg: 0, endDeg: 12 },     // Aries 0-12 deg
+  Mercury: { sign: 5, startDeg: 15, endDeg: 20 }, // Virgo 15-20 deg
+  Jupiter: { sign: 8, startDeg: 0, endDeg: 10 },  // Sagittarius 0-10 deg
+  Venus: { sign: 6, startDeg: 0, endDeg: 15 },    // Libra 0-15 deg
+  Saturn: { sign: 10, startDeg: 0, endDeg: 20 },  // Aquarius 0-20 deg
+};
+
+const NATURAL_FRIENDS: Record<PlanetId, ReadonlySet<PlanetId>> = {
+  Sun: new Set(["Moon", "Mars", "Jupiter"]),
+  Moon: new Set(["Sun", "Mercury"]),
+  Mars: new Set(["Sun", "Moon", "Jupiter"]),
+  Mercury: new Set(["Sun", "Venus"]),
+  Jupiter: new Set(["Sun", "Moon", "Mars"]),
+  Venus: new Set(["Mercury", "Saturn"]),
+  Saturn: new Set(["Mercury", "Venus"]),
+};
+
+const NATURAL_ENEMIES: Record<PlanetId, ReadonlySet<PlanetId>> = {
+  Sun: new Set(["Venus", "Saturn"]),
+  Moon: new Set([]),
+  Mars: new Set(["Mercury"]),
+  Mercury: new Set(["Moon"]),
+  Jupiter: new Set(["Mercury", "Venus"]),
+  Venus: new Set(["Sun", "Moon"]),
+  Saturn: new Set(["Sun", "Moon", "Mars"]),
+};
 
 /**
- * PL9 Paksha Bala (B.V. Raman, Graha & Bhava Balas Ch.II)
- *
- * Uses ACTUAL Moon-Sun elongation (degrees), not the tithi-index proxy.
- * "dviguṇa" rule: Moon's Paksha Bala fills BOTH the Paksha Bala slot AND
- * the Chesta Bala slot (Moon never retrogrades, so no separate Chesta Bala).
- *
- * beneficPB = |elongation - 180°| / 3  gives:
- *   0° (Amavasya) → 60 virupas for MALEFICS, 0 for BENEFICS
- *   180° (Purnima) → 60 virupas for BENEFICS, 0 for MALEFICS
- *   (continuous linear gradient between)
- *
- * Formula: elongation = (moonLon − sunLon + 360) mod 360
- *          beneficPB  = 60 − |elongation − 180| / 3   [0–60 virupas]
- *          maleficPB  = 60 − beneficPB               [0–60 virupas]
- *
- * @param moonLon sidereal Moon longitude (degrees)
- * @param sunLon  sidereal Sun longitude (degrees)
- * @param isBenefic true for Moon/Mercury/Jupiter/Venus
+ * Compute resolved RasiIndex (0..11) for all 7 Saptavarga divisions (D1, D2, D3, D7, D9, D12, D30)
+ * per BPHS Ch. 6 (Shodashavarga Adhyaya).
  */
-function pakshaBalaValue(moonLon: number, sunLon: number, isBenefic: boolean): number {
-  const elongation = (moonLon - sunLon + 360) % 360; // 0°=Amavasya, 180°=Purnima
-  const beneficPB = Math.max(0, 60 - Math.abs(elongation - 180) / 3);
-  return parseFloat((isBenefic ? beneficPB : 60 - beneficPB).toFixed(4));
+export function computeSevenVargaSigns(lon: number): Record<VargaKey, RasiIndex> {
+  const normalized = norm360(lon);
+  const rasi = Math.floor(normalized / 30) as RasiIndex;
+  const degInSign = normalized - rasi * 30;
+  const isOddSign = rasi % 2 === 0;
+
+  // 1. D1 - Rasi
+  const D1: RasiIndex = rasi;
+
+  // 2. D2 - Parashari Hora (Odd: 0-15 deg Leo(4), 15-30 deg Cancer(3); Even: 0-15 deg Cancer(3), 15-30 deg Leo(4))
+  const D2: RasiIndex = isOddSign
+    ? ((degInSign < 15 ? 4 : 3) as RasiIndex)
+    : ((degInSign < 15 ? 3 : 4) as RasiIndex);
+
+  // 3. D3 - Parashari Drekkana (each 10 deg: 1st, 5th, 9th from sign)
+  const drekIndex = Math.min(Math.floor(degInSign / 10), 2);
+  const D3 = ((rasi + drekIndex * 4) % 12) as RasiIndex;
+
+  // 4. D7 - Saptamsha (Odd starts from same sign; Even starts from 7th sign)
+  const saptIndex = Math.min(Math.floor((degInSign * 7) / 30), 6);
+  const saptBase = isOddSign ? rasi : (rasi + 6) % 12;
+  const D7 = ((saptBase + saptIndex) % 12) as RasiIndex;
+
+  // 5. D9 - Navamsha (continuous 3 deg 20 min zodiacal wheel)
+  const totalNavamshas = Math.floor((normalized * 9) / 30);
+  const D9 = (totalNavamshas % 12) as RasiIndex;
+
+  // 6. D12 - Dwadashamsha (each 2.5 deg from same sign)
+  const dwadIndex = Math.min(Math.floor((degInSign * 12) / 30), 11);
+  const D12 = ((rasi + dwadIndex) % 12) as RasiIndex;
+
+  // 7. D30 - Parashari Trimsamsha
+  let D30: RasiIndex;
+  if (isOddSign) {
+    if (degInSign < 5) D30 = 0;        // Aries (Mars)
+    else if (degInSign < 10) D30 = 10; // Aquarius (Saturn)
+    else if (degInSign < 18) D30 = 8;  // Sagittarius (Jupiter)
+    else if (degInSign < 25) D30 = 2;  // Gemini (Mercury)
+    else D30 = 1;                      // Taurus (Venus)
+  } else {
+    if (degInSign < 5) D30 = 1;        // Taurus (Venus)
+    else if (degInSign < 12) D30 = 5;  // Virgo (Mercury)
+    else if (degInSign < 20) D30 = 11; // Pisces (Jupiter)
+    else if (degInSign < 25) D30 = 9;  // Capricorn (Saturn)
+    else D30 = 7;                      // Scorpio (Mars)
+  }
+
+  return { D1, D2, D3, D7, D9, D12, D30 };
+}
+
+export function evaluateVargaDignity(
+  planet: PlanetId,
+  varga: VargaKey,
+  vargaSign: RasiIndex,
+  d1Longitude: number
+): DignityTier {
+  const degInD1Sign = norm360(d1Longitude) % 30;
+  const moola = MOOLATRIKONA_RULES[planet];
+
+  if (varga === "D1") {
+    if (planet === "Moon" && vargaSign === 1) {
+      return degInD1Sign < 3 ? "Exalted" : "Moolatrikona";
+    }
+    if (planet === "Mercury" && vargaSign === 5) {
+      if (degInD1Sign < 15) return "Exalted";
+      if (degInD1Sign < 20) return "Moolatrikona";
+      return "Own";
+    }
+    if (
+      vargaSign === moola.sign &&
+      degInD1Sign >= moola.startDeg &&
+      degInD1Sign < moola.endDeg
+    ) {
+      return "Moolatrikona";
+    }
+  } else {
+    if (vargaSign === moola.sign && planet !== "Moon" && planet !== "Mercury") {
+      return "Moolatrikona";
+    }
+  }
+
+  if (vargaSign === EXALTATION_SIGN[planet]) return "Exalted";
+  if (vargaSign === DEBILITATION_SIGN[planet]) return "Debilitated";
+
+  const signLord = SIGN_LORDS[vargaSign];
+  if (signLord === planet) return "Own";
+
+  if (NATURAL_FRIENDS[planet].has(signLord)) return "Friend";
+  if (NATURAL_ENEMIES[planet].has(signLord)) return "Enemy";
+  return "Neutral";
+}
+
+export interface SaptavargajaBreakdown {
+  totalVirupas: number;
+  byVarga: Record<
+    VargaKey,
+    { sign: RasiIndex; dignity: DignityTier; virupas: number }
+  >;
+}
+
+export function calculateSaptavargajaBala(
+  planet: PlanetId,
+  siderealLon: number
+): SaptavargajaBreakdown {
+  const vargaSigns = computeSevenVargaSigns(siderealLon);
+  const vargaKeys: VargaKey[] = ["D1", "D2", "D3", "D7", "D9", "D12", "D30"];
+
+  let totalVirupas = 0;
+  const byVarga = {} as SaptavargajaBreakdown["byVarga"];
+
+  for (const key of vargaKeys) {
+    const sign = vargaSigns[key];
+    const dignity = evaluateVargaDignity(planet, key, sign, siderealLon);
+    const virupas = DIGNITY_VIRUPAS[dignity];
+    byVarga[key] = { sign, dignity, virupas };
+    totalVirupas += virupas;
+  }
+
+  return { totalVirupas, byVarga };
+}
+
+// -- Panchadha Maitri (5-Fold Compound Friendship - BPHS Ch. 3 Slokas 55-58 & Ch. 27 Slokas 2-3) --
+
+export type NaisargikaTier = "Friend" | "Neutral" | "Enemy";
+export type TatkalikaTier = "TemporalFriend" | "TemporalEnemy";
+export type PanchadhaTier =
+  | "AdhiMitra"
+  | "Mitra"
+  | "Sama"
+  | "Shatru"
+  | "AdhiShatru";
+export type SaptavargajaDignity = "Moolatrikona" | "Swakshetra" | PanchadhaTier;
+export type VirupaScalePreset = "BPHS_EXACT_45_TO_1_875" | "ROUNDED_45_TO_2";
+
+export const SAPTAVARGAJA_SCALE_BPHS_EXACT: Record<SaptavargajaDignity, number> = {
+  Moolatrikona: 45.0,
+  Swakshetra: 30.0,
+  AdhiMitra: 22.5,
+  Mitra: 15.0,
+  Sama: 7.5,
+  Shatru: 3.75,
+  AdhiShatru: 1.875,
+};
+
+export const SAPTAVARGAJA_SCALE_45_TO_2: Record<SaptavargajaDignity, number> = {
+  Moolatrikona: 45.0,
+  Swakshetra: 30.0,
+  AdhiMitra: 22.5,
+  Mitra: 15.0,
+  Sama: 7.5,
+  Shatru: 3.75,
+  AdhiShatru: 2.0,
+};
+
+export interface PairwiseMaitriDetail {
+  planet: PlanetId;
+  otherPlanet: PlanetId;
+  planetRasi: RasiIndex;
+  otherRasi: RasiIndex;
+  inclusiveHouseSpan: number;
+  naisargika: NaisargikaTier;
+  naisargikaScore: -1 | 0 | 1;
+  tatkalika: TatkalikaTier;
+  tatkalikaScore: -1 | 1;
+  compoundScore: -2 | -1 | 0 | 1 | 2;
+  panchadha: PanchadhaTier;
+}
+
+export type PanchadhaMaitriMatrix = Record<
+  PlanetId,
+  Record<PlanetId, PairwiseMaitriDetail | null>
+>;
+
+export function getNaisargikaMaitri(
+  planet: PlanetId,
+  otherPlanet: PlanetId
+): { tier: NaisargikaTier; score: -1 | 0 | 1 } {
+  if (NATURAL_FRIENDS[planet].has(otherPlanet)) {
+    return { tier: "Friend", score: 1 };
+  }
+  if (NATURAL_ENEMIES[planet].has(otherPlanet)) {
+    return { tier: "Enemy", score: -1 };
+  }
+  return { tier: "Neutral", score: 0 };
+}
+
+export function getTatkalikaMaitri(
+  planetRasi: RasiIndex,
+  otherRasi: RasiIndex
+): { tier: TatkalikaTier; score: -1 | 1; inclusiveHouseSpan: number } {
+  const inclusiveHouseSpan = (((otherRasi - planetRasi) % 12) + 12) % 12 + 1;
+  const isTemporalFriend =
+    inclusiveHouseSpan === 2 ||
+    inclusiveHouseSpan === 3 ||
+    inclusiveHouseSpan === 4 ||
+    inclusiveHouseSpan === 10 ||
+    inclusiveHouseSpan === 11 ||
+    inclusiveHouseSpan === 12;
+
+  return {
+    tier: isTemporalFriend ? "TemporalFriend" : "TemporalEnemy",
+    score: isTemporalFriend ? 1 : -1,
+    inclusiveHouseSpan,
+  };
+}
+
+export function scoreToPanchadhaTier(
+  compoundScore: -2 | -1 | 0 | 1 | 2
+): PanchadhaTier {
+  switch (compoundScore) {
+    case 2:
+      return "AdhiMitra";
+    case 1:
+      return "Mitra";
+    case 0:
+      return "Sama";
+    case -1:
+      return "Shatru";
+    case -2:
+      return "AdhiShatru";
+  }
+}
+
+export function buildPanchadhaMaitriMatrix(
+  rasiByPlanet: Record<PlanetId, RasiIndex>
+): PanchadhaMaitriMatrix {
+  const matrix = {} as PanchadhaMaitriMatrix;
+  for (const pA of PLANET_ORDER) {
+    matrix[pA] = {} as Record<PlanetId, PairwiseMaitriDetail | null>;
+    for (const pB of PLANET_ORDER) {
+      if (pA === pB) {
+        matrix[pA][pB] = null;
+        continue;
+      }
+      const rasiA = rasiByPlanet[pA];
+      const rasiB = rasiByPlanet[pB];
+      const naisargika = getNaisargikaMaitri(pA, pB);
+      const tatkalika = getTatkalikaMaitri(rasiA, rasiB);
+      const compoundScore = (naisargika.score + tatkalika.score) as
+        | -2
+        | -1
+        | 0
+        | 1
+        | 2;
+
+      matrix[pA][pB] = {
+        planet: pA,
+        otherPlanet: pB,
+        planetRasi: rasiA,
+        otherRasi: rasiB,
+        inclusiveHouseSpan: tatkalika.inclusiveHouseSpan,
+        naisargika: naisargika.tier,
+        naisargikaScore: naisargika.score,
+        tatkalika: tatkalika.tier,
+        tatkalikaScore: tatkalika.score,
+        compoundScore,
+        panchadha: scoreToPanchadhaTier(compoundScore),
+      };
+    }
+  }
+  return matrix;
+}
+
+export function evaluatePanchadhaVargaDignity(
+  planet: PlanetId,
+  varga: VargaKey,
+  vargaSign: RasiIndex,
+  d1Longitude: number,
+  maitriMatrix: PanchadhaMaitriMatrix,
+  moolatrikonaScope: "D1_ONLY" | "ALL_VARGAS" = "D1_ONLY"
+): SaptavargajaDignity {
+  const signLord = SIGN_LORDS[vargaSign];
+  const moola = MOOLATRIKONA_RULES[planet];
+  const degInD1Sign = norm360(d1Longitude) % 30;
+
+  if (varga === "D1") {
+    if (
+      vargaSign === moola.sign &&
+      degInD1Sign >= moola.startDeg &&
+      degInD1Sign < moola.endDeg
+    ) {
+      return "Moolatrikona";
+    }
+  } else if (moolatrikonaScope === "ALL_VARGAS" && vargaSign === moola.sign) {
+    return "Moolatrikona";
+  }
+
+  if (signLord === planet) {
+    return "Swakshetra";
+  }
+
+  const relation = maitriMatrix[planet][signLord];
+  if (!relation) return "Swakshetra";
+  return relation.panchadha;
+}
+
+export interface VargaSaptavargajaDetail {
+  varga: VargaKey;
+  sign: RasiIndex;
+  signLord: PlanetId;
+  dignity: SaptavargajaDignity;
+  virupas: number;
+}
+
+export interface PlanetSaptavargajaResult {
+  planet: PlanetId;
+  rawTotalVirupas: number;
+  totalVirupas: number;
+  byVarga: Record<VargaKey, VargaSaptavargajaDetail>;
+}
+
+export interface PanchadhaSaptavargajaOptions {
+  scalePreset?: VirupaScalePreset;
+  moolatrikonaScope?: "D1_ONLY" | "ALL_VARGAS";
+  tatkalikaScope?: "D1_RASI" | "PER_VARGA";
+}
+
+export function calculatePanchadhaSaptavargaja(
+  planets: readonly PlanetPositionInput[],
+  options: PanchadhaSaptavargajaOptions = {}
+): {
+  byPlanet: Record<PlanetId, PlanetSaptavargajaResult>;
+  d1MaitriMatrix: PanchadhaMaitriMatrix;
+} {
+  const {
+    scalePreset = "BPHS_EXACT_45_TO_1_875",
+    moolatrikonaScope = "D1_ONLY",
+    tatkalikaScope = "D1_RASI",
+  } = options;
+
+  const scaleTable =
+    scalePreset === "ROUNDED_45_TO_2"
+      ? SAPTAVARGAJA_SCALE_45_TO_2
+      : SAPTAVARGAJA_SCALE_BPHS_EXACT;
+
+  const vargaKeys: readonly VargaKey[] = [
+    "D1",
+    "D2",
+    "D3",
+    "D7",
+    "D9",
+    "D12",
+    "D30",
+  ];
+
+  const vargaSignsByPlanet = {} as Record<PlanetId, Record<VargaKey, RasiIndex>>;
+  const d1RasiByPlanet = {} as Record<PlanetId, RasiIndex>;
+
+  for (const pos of planets) {
+    const signs = computeSevenVargaSigns(pos.lon);
+    vargaSignsByPlanet[pos.planet] = signs;
+    d1RasiByPlanet[pos.planet] = signs.D1;
+  }
+
+  const d1MaitriMatrix = buildPanchadhaMaitriMatrix(d1RasiByPlanet);
+  const maitriByVarga = {} as Record<VargaKey, PanchadhaMaitriMatrix>;
+
+  for (const vKey of vargaKeys) {
+    if (tatkalikaScope === "D1_RASI" || vKey === "D1") {
+      maitriByVarga[vKey] = d1MaitriMatrix;
+    } else {
+      const rasiMap = {} as Record<PlanetId, RasiIndex>;
+      for (const p of PLANET_ORDER) {
+        rasiMap[p] = vargaSignsByPlanet[p][vKey];
+      }
+      maitriByVarga[vKey] = buildPanchadhaMaitriMatrix(rasiMap);
+    }
+  }
+
+  const byPlanet = {} as Record<PlanetId, PlanetSaptavargajaResult>;
+
+  for (const pos of planets) {
+    const { planet, lon } = pos;
+    let rawTotalVirupas = 0;
+    const byVarga = {} as Record<VargaKey, VargaSaptavargajaDetail>;
+
+    for (const vKey of vargaKeys) {
+      const sign = vargaSignsByPlanet[planet][vKey];
+      const signLord = SIGN_LORDS[sign];
+      const dignity = evaluatePanchadhaVargaDignity(
+        planet,
+        vKey,
+        sign,
+        lon,
+        maitriByVarga[vKey],
+        moolatrikonaScope
+      );
+      const virupas = scaleTable[dignity];
+      byVarga[vKey] = { varga: vKey, sign, signLord, dignity, virupas };
+      rawTotalVirupas += virupas;
+    }
+
+    byPlanet[planet] = {
+      planet,
+      rawTotalVirupas,
+      totalVirupas: round2(rawTotalVirupas),
+      byVarga,
+    };
+  }
+
+  return { byPlanet, d1MaitriMatrix };
+}
+
+export interface SthanaBalaBreakdown {
+  uchcha: number;
+  saptavargaja: number;
+  ojhaYugma: number;
+  kendradi: number;
+  drekkana: number;
+  total: number;
 }
 
 /**
- * Planet declination from sidereal longitude + ayanamsa.
- * Converts sidereal → tropical longitude, then applies spherical formula.
- *
- * sin(δ) = sin(ε) × sin(λ_tropical)
- *
- * @param siderealLon sidereal longitude (degrees)
- * @param ayanamsaDeg Lahiri ayanamsa (degrees)
+ * Component 1: Sthana Bala (BPHS Ch. 27 Slokas 1-6)
  */
-function planetDeclination(siderealLon: number, ayanamsaDeg: number): number {
-  const tropicalLon = (siderealLon + ayanamsaDeg) % 360;
-  const sinDec = Math.sin(OBLIQUITY_RAD) * Math.sin(toRad(tropicalLon));
-  return toDeg(Math.asin(Math.max(-1, Math.min(1, sinDec)))); // degrees, −23.44 to +23.44
+export function calculateSthanaBala(
+  pos: PlanetPositionInput,
+  saptavargajaOverride?: number
+): SthanaBalaBreakdown {
+  const { planet, lon, house } = pos;
+  const normLon = norm360(lon);
+  const degInSign = normLon % 30;
+
+  // 1. Uchcha Bala [0, 60]
+  const uchcha = round2(60 - shortestArc(normLon, EXALTATION_DEG[planet]) / 3);
+
+  // 2. 7-Varga Saptavargaja Bala
+  const vargaSigns = computeSevenVargaSigns(normLon);
+  let saptavargaja = saptavargajaOverride ?? 0;
+  if (saptavargajaOverride === undefined) {
+    const vargaKeys: VargaKey[] = ["D1", "D2", "D3", "D7", "D9", "D12", "D30"];
+    for (const k of vargaKeys) {
+      const dignity = evaluateVargaDignity(planet, k, vargaSigns[k], normLon);
+      saptavargaja += DIGNITY_VIRUPAS[dignity];
+    }
+  }
+  saptavargaja = round2(saptavargaja);
+
+  // 3. Ojha-Yugma Rasyamsha Bala (BPHS Ch. 27 Sloka 4: D1 + D9, range 0, 15, 30)
+  const isEvenBeneficiary = planet === "Moon" || planet === "Venus";
+  const d1IsOdd = vargaSigns.D1 % 2 === 0;
+  const d9IsOdd = vargaSigns.D9 % 2 === 0;
+  let ojhaYugma = 0;
+  if (isEvenBeneficiary) {
+    if (!d1IsOdd) ojhaYugma += 15;
+    if (!d9IsOdd) ojhaYugma += 15;
+  } else {
+    if (d1IsOdd) ojhaYugma += 15;
+    if (d9IsOdd) ojhaYugma += 15;
+  }
+
+  // 4. Kendradi Bala (BPHS Ch. 27 Sloka 5)
+  let kendradi = 15;
+  if (house === 1 || house === 4 || house === 7 || house === 10) {
+    kendradi = 60;
+  } else if (house === 2 || house === 5 || house === 8 || house === 11) {
+    kendradi = 30;
+  }
+
+  // 5. Drekkana Bala (BPHS Ch. 27 Sloka 6)
+  const decanate = Math.min(Math.floor(degInSign / 10), 2);
+  let drekkana = 0;
+  if (
+    decanate === 0 &&
+    (planet === "Sun" || planet === "Mars" || planet === "Jupiter")
+  ) {
+    drekkana = 15;
+  } else if (
+    decanate === 1 &&
+    (planet === "Mercury" || planet === "Saturn")
+  ) {
+    drekkana = 15;
+  } else if (
+    decanate === 2 &&
+    (planet === "Moon" || planet === "Venus")
+  ) {
+    drekkana = 15;
+  }
+
+  const total = round2(uchcha + saptavargaja + ojhaYugma + kendradi + drekkana);
+  return { uchcha, saptavargaja, ojhaYugma, kendradi, drekkana, total };
 }
 
-/**
- * PL9 Ayana Bala — per-planet declination strength (B.V. Raman Ch.II §Ayana Bala).
- *
- * Formula: (kranti + ε) / (2ε) × 60
- *   ε = obliquity (23.4393°)
- *   kranti = planet's declination (north = +, south = −)
- *   At max north (+23.44°): 60 virupas
- *   At equator (0°):         30 virupas
- *   At max south (−23.44°):  0  virupas
- *
- * "ayanāt tu raver dvighnam" (BPHS Ch.27): Sun's Ayana Bala fills BOTH the
- * Ayana Bala slot AND the Chesta Bala slot (Sun never retrogrades).
- *
- * @param declinationDeg planet's declination in degrees
- */
-function ayanaBalaFromDeclination(declinationDeg: number): number {
-  const val = ((declinationDeg + OBLIQUITY_DEG) / (2 * OBLIQUITY_DEG)) * 60;
-  return parseFloat(Math.min(60, Math.max(0, val)).toFixed(4));
+// ============================================================================
+// 2. DIG BALA (P4 DEGREE-BASED & WHOLE-HOUSE FALLBACK)
+// ============================================================================
+
+export interface HouseCuspsInput {
+  cusps: readonly number[] | Record<number, number>;
 }
 
+export function getCardinalCuspLongitude(
+  houseNumber: CardinalHouse,
+  input: HouseCuspsInput
+): number {
+  const { cusps } = input;
+  let rawLon: number | undefined;
+
+  if (Array.isArray(cusps)) {
+    rawLon = cusps.length === 13 ? cusps[houseNumber] : cusps[houseNumber - 1];
+  } else {
+    rawLon = (cusps as Record<number, number>)[houseNumber];
+  }
+
+  if (typeof rawLon !== "number" || Number.isNaN(rawLon)) {
+    throw new Error(
+      `Missing or invalid sidereal cusp longitude for House ${houseNumber}`
+    );
+  }
+
+  return norm360(rawLon);
+}
+
+export function calculateDegreeDigBala(
+  planet: PlanetId,
+  planetSiderealLon: number,
+  cuspsInput: HouseCuspsInput
+): {
+  digBalaVirupas: number;
+  maxHouse: CardinalHouse;
+  maxCuspLon: number;
+  arcDistanceDeg: number;
+} {
+  const maxHouse = DIG_MAX_HOUSE[planet];
+  const maxCuspLon = getCardinalCuspLongitude(maxHouse, cuspsInput);
+  const arcDistanceDeg = shortestArc(planetSiderealLon, maxCuspLon);
+  const digBalaVirupas = Math.max(0, Math.min(60, 60 - arcDistanceDeg / 3));
+
+  return {
+    digBalaVirupas: round2(digBalaVirupas),
+    maxHouse,
+    maxCuspLon,
+    arcDistanceDeg: round4(arcDistanceDeg),
+  };
+}
+
+export function calculateDigBala(
+  pos: PlanetPositionInput,
+  houseCusps?: readonly number[] | Record<number, number>
+): number {
+  const maxHouse = DIG_MAX_HOUSE[pos.planet];
+
+  if (houseCusps !== undefined) {
+    let cuspLon: number | undefined;
+    if (Array.isArray(houseCusps)) {
+      cuspLon =
+        houseCusps.length === 13
+          ? houseCusps[maxHouse]
+          : houseCusps[maxHouse - 1];
+    } else {
+      cuspLon = (houseCusps as Record<number, number>)[maxHouse];
+    }
+
+    if (typeof cuspLon === "number" && !Number.isNaN(cuspLon)) {
+      const dist = shortestArc(pos.lon, cuspLon);
+      return round2(Math.max(0, Math.min(60, 60 - dist / 3)));
+    }
+  }
+
+  // Whole-house modulo-12 fallback
+  const rawDiff = Math.abs(pos.house - maxHouse) % 12;
+  const distHouses = Math.min(rawDiff, 12 - rawDiff);
+  return round2(Math.max(0, 60 - distHouses * 10));
+}
+
+// ============================================================================
+// 3. KAALA BALA (P0, P5, & P6 YUDDHA BALA)
+// ============================================================================
+
 /**
- * Equation of Time approximation (Spencer 1971, accurate to ±30 s).
- * Returns EoT in minutes (positive = apparent faster than mean).
- *
- * B = 2π × (N − 81) / 364  [radians, N = day-of-year 1..365]
- * EoT_min = 9.87 sin(2B) − 7.53 cos(B) − 1.5 sin(B)
- *
- * @param julianDayUt Julian Day UT
+ * Determine the Vedic Savana weekday (0=Sun..6=Sat) for any Julian Day (UT).
  */
+export function getVedicWeekdayAtJd(
+  jdUt: number,
+  tzOffsetHours: number,
+  localSunriseHour = 6.0
+): number {
+  const localJdFromSunrise =
+    jdUt + 0.5 + (tzOffsetHours - localSunriseHour) / 24.0;
+  const dayNumber = Math.floor(localJdFromSunrise);
+  return (((dayNumber + 1) % 7) + 7) % 7;
+}
+
+export interface MasaCalculationInput {
+  birthJdUt: number;
+  tzOffsetHours: number;
+  localSunriseHour?: number;
+  sunLon: number;
+  sunSpeed: number;
+  moonLon: number;
+  moonSpeed?: number;
+  convention?: MasaConvention;
+}
+
+export function calculateMasaBala(input: MasaCalculationInput): {
+  masaLord: PlanetId;
+  monthStartJdUt: number;
+  weekdayIndex: number;
+  virupasByPlanet: Record<PlanetId, number>;
+} {
+  const {
+    birthJdUt,
+    tzOffsetHours,
+    localSunriseHour = 6.0,
+    sunLon,
+    sunSpeed,
+    moonLon,
+    convention = "AMANTA_LUNAR",
+  } = input;
+
+  let daysElapsedSinceMonthStart: number;
+
+  if (convention === "AMANTA_LUNAR") {
+    const elongation = norm360(moonLon - sunLon);
+    const meanSynodicSpeed = 12.190749;
+    const instantSynodicSpeed =
+      input.moonSpeed !== undefined
+        ? Math.max(10.5, Math.min(14.5, input.moonSpeed - sunSpeed))
+        : meanSynodicSpeed;
+    const effectiveSynodicSpeed =
+      0.65 * meanSynodicSpeed + 0.35 * instantSynodicSpeed;
+
+    daysElapsedSinceMonthStart = elongation / effectiveSynodicSpeed;
+  } else {
+    const degInSign = norm360(sunLon) % 30;
+    const effectiveSunSpeed = sunSpeed > 0.9 ? sunSpeed : 0.9856;
+    daysElapsedSinceMonthStart = degInSign / effectiveSunSpeed;
+  }
+
+  const monthStartJdUt = birthJdUt - daysElapsedSinceMonthStart;
+  const weekdayIndex = getVedicWeekdayAtJd(
+    monthStartJdUt,
+    tzOffsetHours,
+    localSunriseHour
+  );
+  const masaLord = VAARA_LORDS[weekdayIndex]!;
+
+  const virupasByPlanet: Record<PlanetId, number> = {
+    Sun: 0,
+    Moon: 0,
+    Mars: 0,
+    Mercury: 0,
+    Jupiter: 0,
+    Venus: 0,
+    Saturn: 0,
+  };
+  virupasByPlanet[masaLord] = 30;
+
+  return {
+    masaLord,
+    monthStartJdUt,
+    weekdayIndex,
+    virupasByPlanet,
+  };
+}
+
 function equationOfTimeMinutes(julianDayUt: number): number {
-  // Day of year from JD
-  const jd0 = Math.floor(julianDayUt - 0.5) + 0.5; // JD at UT noon of that day
-  // Approximate Julian Day of Jan 1 of that year
+  const jd0 = Math.floor(julianDayUt - 0.5) + 0.5;
   const year = new Date((julianDayUt - 2440587.5) * 86400000).getUTCFullYear();
   const jan1Jd = 2440587.5 + Date.UTC(year, 0, 1) / 86400000;
-  const N = Math.round(jd0 - jan1Jd) + 1; // day of year (1..366)
-  const B = 2 * Math.PI * (N - 81) / 364;
+  const N = Math.round(jd0 - jan1Jd) + 1;
+  const B = (2 * Math.PI * (N - 81)) / 364;
   return 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);
 }
 
-/**
- * True Apparent Midnight JD UT (PL9 method).
- * This is when the Sun crosses the Nadir (IC / lower culmination) at the chart location.
- *
- * True Solar Noon UT = 12h − longitude/15 − EoT_hours
- * True Apparent Midnight = nearest True Solar Noon ± 12h to chartJd
- *
- * @param chartJd      Julian Day UT of birth
- * @param longitudeDeg geographic east longitude (degrees)
- */
 function trueApparentMidnightJd(chartJd: number, longitudeDeg: number): number {
   const eotHours = equationOfTimeMinutes(chartJd) / 60;
-  // True Solar Noon UT on the chart date (hours)
   const trueSolarNoonHours = 12 - longitudeDeg / 15 - eotHours;
-  // Convert to JD: floor of chartJd gives integer JD at UT noon; offset to date
-  const jdDate = Math.floor(chartJd - 0.5) + 0.5; // JD of UT noon on chart day
+  const jdDate = Math.floor(chartJd - 0.5) + 0.5;
   const trueSolarNoonJd = jdDate + (trueSolarNoonHours - 12) / 24;
-  // Two candidate midnights: previous (−12h) and next (+12h)
-  const prevMidnightJd = trueSolarNoonJd - 0.5; // 12h before noon
-  const nextMidnightJd = trueSolarNoonJd + 0.5; // 12h after noon
-  // Return whichever is closest to chartJd
+  const prevMidnightJd = trueSolarNoonJd - 0.5;
+  const nextMidnightJd = trueSolarNoonJd + 0.5;
   return Math.abs(chartJd - prevMidnightJd) <= Math.abs(chartJd - nextMidnightJd)
     ? prevMidnightJd
     : nextMidnightJd;
 }
 
 /**
- * Nathonnatha Bala (PL9 method) — time-distance from True Apparent Midnight.
- *
- * Classical rules (B.V. Raman Ch.II, BPHS Ch.27):
- *   Nata ghatis  = time from True Apparent Midnight → birth  (0–30 ghatis, max at noon)
- *   Unnata ghatis = 30 − Nata ghatis                          (0–30 ghatis, max at midnight)
- *   (60 ghatis = 24 hours; 1 ghati = 24 min)
- *
- *   Diurnal (Sun, Jupiter, Saturn): Natonnata = Unnata ghatis [stronger by day]
- *   Nocturnal (Moon, Mars, Venus):  Natonnata = Nata ghatis   [stronger at midnight]
- *   Mercury:                        Natonnata = max(Nata, Unnata) [always ≥ 15]
- *
- * Returns virupas (= ghatis directly, max 30).
+ * BPHS Ch. 27 Sloka 8-9: Nathonnatha Bala [0, 60]
+ *   - Diurnal (Sun, Jupiter, Saturn): 60 at Local Apparent Noon, 0 at Midnight
+ *   - Nocturnal (Moon, Mars, Venus): 60 at Local Apparent Midnight, 0 at Noon
+ *   - Mercury: Always 60.0 Virupas
  */
-function natonnathaBala(
-  planet: ClassicalPlanet,
-  chartJd: number,
-  longitudeDeg: number,
+export function calculateNathonnathaBala(
+  planet: PlanetId,
+  jdUt: number,
+  geoLonDeg: number
 ): number {
-  const midnightJd = trueApparentMidnightJd(chartJd, longitudeDeg);
-  const distHours = Math.abs(chartJd - midnightJd) * 24; // 0 at midnight, 12 at noon
-  // Nata ghatis (0 at midnight, 30 at noon)
-  const nataGhatis = Math.min(30, (distHours / 24) * 60);
-  const unnataGhatis = 30 - nataGhatis;
+  if (planet === "Mercury") return 60.0;
 
-  const diurnal: ClassicalPlanet[] = ["Sun", "Jupiter", "Saturn"];
-  const nocturnal: ClassicalPlanet[] = ["Moon", "Mars", "Venus"];
+  const midnightJd = trueApparentMidnightJd(jdUt, geoLonDeg);
+  const distHoursFromMidnight = Math.min(12, Math.abs(jdUt - midnightJd) * 24);
+  const unnataVirupas = (distHoursFromMidnight / 12.0) * 60.0;
+  const nataVirupas = 60.0 - unnataVirupas;
 
-  let ghatis: number;
-  if (diurnal.includes(planet)) {
-    ghatis = unnataGhatis; // max at noon (12h from midnight)
-  } else if (nocturnal.includes(planet)) {
-    ghatis = nataGhatis;   // max at midnight (0h from midnight)
+  if (planet === "Sun" || planet === "Jupiter" || planet === "Saturn") {
+    return round2(unnataVirupas);
+  }
+  return round2(nataVirupas);
+}
+
+/**
+ * BPHS Ch. 27 Sloka 18-19: Ayana Bala [0, 60]
+ */
+export function calculateAyanaBala(
+  planet: PlanetId,
+  siderealLon: number,
+  ayanamsaDeg: number
+): number {
+  const tropicalLonRad = (norm360(siderealLon + ayanamsaDeg) * Math.PI) / 180;
+  const sinDec = Math.sin(OBLIQUITY_RAD) * Math.sin(tropicalLonRad);
+  const declDeg =
+    (Math.asin(Math.max(-1, Math.min(1, sinDec))) * 180) / Math.PI;
+
+  let signedDecl: number;
+  if (planet === "Mercury") {
+    signedDecl = Math.abs(declDeg);
+  } else if (planet === "Moon" || planet === "Saturn") {
+    signedDecl = -declDeg;
   } else {
-    ghatis = Math.max(nataGhatis, unnataGhatis); // Mercury: always ≥ 15
+    signedDecl = declDeg;
   }
 
-  return parseFloat(ghatis.toFixed(4)); // virupas (= ghatis, max 30)
+  const val = 30.0 * (1.0 + signedDecl / OBLIQUITY_DEG);
+  return round2(Math.max(0, Math.min(60, val)));
 }
 
-// ── Kaala Bala ───────────────────────────────────────────────────────────────
+// -- BPHS Ch. 27 Sloka 20: Yuddha Bala (Planetary War) --
 
-/**
- * Kaala Bala — temporal strength (9 sub-components).
- *
- * PL9 Phase A improvements:
- *   ① Paksha Bala  — elongation-based (not tithi-index proxy)
- *   ② Ayana Bala   — per-planet declination (kranti) formula
- *   ③ Nathonnatha  — True Apparent Midnight via Equation of Time
- *
- * Remaining (open-gate, unchanged):
- *   Abda Bala  — fixed at 15 (requires multi-year ephemeris)
- *   Masa Bala  — weekday+tithi approximation
- *   Yuddha Bala — 0 (requires full position comparison pass)
- */
-export interface KaalaInput {
-  paksha: "shukla" | "krishna";
-  tithiIndex: number;       // 1..30
-  weekday: number;          // 0=Sun..6=Sat
-  hora: ClassicalPlanet;    // current hora lord
-  isNight: boolean;         // chart time is after sunset
-  moonLon: number;          // sidereal Moon longitude
-  sunLon: number;           // sidereal Sun longitude
-  // PL9 Phase A additions:
-  chartJd: number;          // Julian Day UT of birth (for Nathonnatha)
-  longitude: number;        // geographic east longitude (for Nathonnatha)
-  ayanamsaDeg: number;      // Lahiri ayanamsa (for Ayana Bala declination)
-  /** Per-planet pre-computed Ayana Bala (passed by buildShadbalaBlock) */
-  planetAyana?: number;
+export const BIMBA_PARIMANA_ARCSEC: Record<TaraGrahaId, number> = {
+  Mars: 9.4,
+  Mercury: 6.6,
+  Jupiter: 190.4,
+  Venus: 16.6,
+  Saturn: 158.0,
+};
+
+export type YuddhaStrengthBasis =
+  | "KAALA_BALA_PRE_YUDDHA"
+  | "STHANA_DIG_KAALA";
+
+export type YuddhaVictorRule =
+  | "NORTHERN_LATITUDE"
+  | "VENUS_ALWAYS_WINS_NORTH"
+  | "HIGHER_PRE_WAR_BALA";
+
+export interface WarringPlanetInput extends PlanetPositionInput {
+  lat?: number;
 }
 
-/**
- * Internal result carrying individual sub-bala values for reuse in Chesta Bala.
- */
-interface KaalaResult {
+export interface YuddhaBalaOptions {
+  warOrbDeg?: number;
+  strengthBasis?: YuddhaStrengthBasis;
+  victorRule?: YuddhaVictorRule;
+  discDiametersArcsec?: Partial<Record<TaraGrahaId, number>>;
+}
+
+export function isTaraGraha(planet: PlanetId): planet is TaraGrahaId {
+  return planet !== "Sun" && planet !== "Moon";
+}
+
+export interface PlanetaryWarEncounter {
+  planetA: TaraGrahaId;
+  planetB: TaraGrahaId;
+  victor: TaraGrahaId;
+  vanquished: TaraGrahaId;
+  angularSeparationDeg: number;
+  preWarBalaA: number;
+  preWarBalaB: number;
+  strengthDiffVirupas: number;
+  discDiameterA: number;
+  discDiameterB: number;
+  discDiameterDiffArcsec: number;
+  yuddhaTransferVirupas: number;
+  victoryReason:
+    | "NORTHERN_LATITUDE"
+    | "VENUS_EXEMPTION"
+    | "LONGITUDE_FALLBACK"
+    | "STRENGTH_FALLBACK";
+}
+
+export interface YuddhaBalaOutput {
+  yuddhaVirupasByPlanet: Record<PlanetId, number>;
+  adjustedKaalaBalaByPlanet: Record<PlanetId, number>;
+  encounters: PlanetaryWarEncounter[];
+  hasPlanetaryWar: boolean;
+}
+
+export function resolvePlanetaryWarVictor(
+  posA: WarringPlanetInput & { planet: TaraGrahaId },
+  posB: WarringPlanetInput & { planet: TaraGrahaId },
+  preWarBalaA: number,
+  preWarBalaB: number,
+  victorRule: YuddhaVictorRule = "NORTHERN_LATITUDE"
+): {
+  victor: TaraGrahaId;
+  vanquished: TaraGrahaId;
+  reason: PlanetaryWarEncounter["victoryReason"];
+} {
+  if (victorRule === "VENUS_ALWAYS_WINS_NORTH") {
+    if (posA.planet === "Venus") {
+      return {
+        victor: "Venus",
+        vanquished: posB.planet,
+        reason: "VENUS_EXEMPTION",
+      };
+    }
+    if (posB.planet === "Venus") {
+      return {
+        victor: "Venus",
+        vanquished: posA.planet,
+        reason: "VENUS_EXEMPTION",
+      };
+    }
+  }
+
+  if (
+    victorRule !== "HIGHER_PRE_WAR_BALA" &&
+    typeof posA.lat === "number" &&
+    typeof posB.lat === "number" &&
+    Math.abs(posA.lat - posB.lat) > 1e-6
+  ) {
+    if (posA.lat > posB.lat) {
+      return {
+        victor: posA.planet,
+        vanquished: posB.planet,
+        reason: "NORTHERN_LATITUDE",
+      };
+    }
+    return {
+      victor: posB.planet,
+      vanquished: posA.planet,
+      reason: "NORTHERN_LATITUDE",
+    };
+  }
+
+  if (
+    victorRule === "HIGHER_PRE_WAR_BALA" &&
+    Math.abs(preWarBalaA - preWarBalaB) > 1e-6
+  ) {
+    if (preWarBalaA >= preWarBalaB) {
+      return {
+        victor: posA.planet,
+        vanquished: posB.planet,
+        reason: "STRENGTH_FALLBACK",
+      };
+    }
+    return {
+      victor: posB.planet,
+      vanquished: posA.planet,
+      reason: "STRENGTH_FALLBACK",
+    };
+  }
+
+  const signedDelta = norm360(posB.lon - posA.lon);
+  if (signedDelta <= 180 && signedDelta > 1e-6) {
+    return {
+      victor: posA.planet,
+      vanquished: posB.planet,
+      reason: "LONGITUDE_FALLBACK",
+    };
+  }
+  return {
+    victor: posB.planet,
+    vanquished: posA.planet,
+    reason: "LONGITUDE_FALLBACK",
+  };
+}
+
+export function calculateYuddhaBala(
+  planets: readonly WarringPlanetInput[],
+  preYuddhaKaalaBala: Record<PlanetId, number>,
+  sthanaAndDigBala?: Record<PlanetId, number>,
+  options: YuddhaBalaOptions = {}
+): YuddhaBalaOutput {
+  const {
+    warOrbDeg = 1.0,
+    strengthBasis = "KAALA_BALA_PRE_YUDDHA",
+    victorRule = "NORTHERN_LATITUDE",
+    discDiametersArcsec,
+  } = options;
+
+  const diameters: Record<TaraGrahaId, number> = {
+    ...BIMBA_PARIMANA_ARCSEC,
+    ...discDiametersArcsec,
+  };
+
+  const yuddhaVirupasByPlanet: Record<PlanetId, number> = {
+    Sun: 0,
+    Moon: 0,
+    Mars: 0,
+    Mercury: 0,
+    Jupiter: 0,
+    Venus: 0,
+    Saturn: 0,
+  };
+
+  const preWarStrength: Record<TaraGrahaId, number> = {
+    Mars: 0,
+    Mercury: 0,
+    Jupiter: 0,
+    Venus: 0,
+    Saturn: 0,
+  };
+
+  for (const tg of TARA_GRAHAS) {
+    const kaala = preYuddhaKaalaBala[tg] ?? 0;
+    const sthanaDig =
+      strengthBasis === "STHANA_DIG_KAALA" && sthanaAndDigBala
+        ? (sthanaAndDigBala[tg] ?? 0)
+        : 0;
+    preWarStrength[tg] = round2(kaala + sthanaDig);
+  }
+
+  const taraPositions = TARA_GRAHAS.map((id) =>
+    planets.find((p) => p.planet === id)
+  ).filter(
+    (p): p is WarringPlanetInput & { planet: TaraGrahaId } => p !== undefined
+  );
+
+  const encounters: PlanetaryWarEncounter[] = [];
+
+  for (let i = 0; i < taraPositions.length; i++) {
+    for (let j = i + 1; j < taraPositions.length; j++) {
+      const posA = taraPositions[i]!;
+      const posB = taraPositions[j]!;
+      const sep = shortestArc(posA.lon, posB.lon);
+      if (sep >= warOrbDeg) continue;
+
+      const preA = preWarStrength[posA.planet];
+      const preB = preWarStrength[posB.planet];
+      const strengthDiff = Math.abs(preA - preB);
+      const discA = diameters[posA.planet];
+      const discB = diameters[posB.planet];
+      const discDiff = Math.abs(discA - discB);
+      if (discDiff < 1e-6) continue;
+
+      const transfer = round2(strengthDiff / discDiff);
+      const { victor, vanquished, reason } = resolvePlanetaryWarVictor(
+        posA,
+        posB,
+        preA,
+        preB,
+        victorRule
+      );
+
+      yuddhaVirupasByPlanet[victor] = round2(
+        yuddhaVirupasByPlanet[victor] + transfer
+      );
+      yuddhaVirupasByPlanet[vanquished] = round2(
+        yuddhaVirupasByPlanet[vanquished] - transfer
+      );
+
+      encounters.push({
+        planetA: posA.planet,
+        planetB: posB.planet,
+        victor,
+        vanquished,
+        angularSeparationDeg: round2(sep),
+        preWarBalaA: preA,
+        preWarBalaB: preB,
+        strengthDiffVirupas: round2(strengthDiff),
+        discDiameterA: discA,
+        discDiameterB: discB,
+        discDiameterDiffArcsec: round2(discDiff),
+        yuddhaTransferVirupas: transfer,
+        victoryReason: reason,
+      });
+    }
+  }
+
+  const adjustedKaalaBalaByPlanet = {} as Record<PlanetId, number>;
+  for (const p of PLANET_ORDER) {
+    adjustedKaalaBalaByPlanet[p] = round2(
+      (preYuddhaKaalaBala[p] ?? 0) + yuddhaVirupasByPlanet[p]
+    );
+  }
+
+  return {
+    yuddhaVirupasByPlanet,
+    adjustedKaalaBalaByPlanet,
+    encounters,
+    hasPlanetaryWar: encounters.length > 0,
+  };
+}
+
+export interface PlanetKaalaBreakdown {
+  nathonnatha: number;
+  paksha: number;
+  tribhaga: number;
+  abda: number;
+  masa: number;
+  vaara: number;
+  hora: number;
+  ayana: number;
+  yuddha: number;
   total: number;
-  paksha: number;   // exported so Moon's Chesta Bala = paksha
-  ayana: number;    // exported so Sun's Chesta Bala = ayana
 }
 
-function kaalaBalaForPlanet(planet: ClassicalPlanet, input: KaalaInput): KaalaResult {
-  const benefics: ClassicalPlanet[] = ["Moon", "Mercury", "Jupiter", "Venus"];
-  const isBenefic = benefics.includes(planet);
+export interface KaalaBalaOutput {
+  byPlanet: Record<PlanetId, PlanetKaalaBreakdown>;
+  lords: {
+    abdaLord: PlanetId;
+    masaLord: PlanetId;
+    vaaraLord: PlanetId;
+    horaLord: PlanetId;
+    tribhagaRuler: PlanetId;
+  };
+  unDoubledMoonPaksha: number;
+  sunAyana: number;
+}
 
-  // ① Nathonnatha Bala — PL9: JD-based True Apparent Midnight (max 30 virupas)
-  const nathonnatha = natonnathaBala(planet, input.chartJd, input.longitude);
+/**
+ * Component 3: Kaala Bala (BPHS Ch. 27 Slokas 8-20)
+ */
+export function calculateKaalaBala(chart: ShadbalaChartInput): KaalaBalaOutput {
+  const {
+    planets,
+    jdUt,
+    tzOffsetHours,
+    geoLonDeg,
+    localSunriseHour = 6.0,
+    localSunsetHour = 18.0,
+    ayanamsaDeg,
+    masaConvention = "AMANTA_LUNAR",
+  } = chart;
 
-  // ② Paksha Bala — PL9: elongation-based formula (max 60 virupas)
-  //    B.V. Raman: beneficPB = elongation/3 (0 at Amavasya, 60 at Purnima)
-  //                maleficPB = 60 − beneficPB (inverse)
-  const paksha = pakshaBalaValue(input.moonLon, input.sunLon, isBenefic);
+  const sunPos = planets.find((p) => p.planet === "Sun");
+  const moonPos = planets.find((p) => p.planet === "Moon");
+  if (!sunPos || !moonPos) {
+    throw new Error("Missing Sun or Moon position for Kaala Bala");
+  }
 
-  // ③ Tribhaga Bala — unchanged (day/night thirds)
-  let tribhaga = 0;
-  if (!input.isNight) {
-    if (["Saturn", "Mercury", "Moon"].includes(planet)) tribhaga = 60;
+  // 1. Vaara Lord (Savana sunrise weekday)
+  const vaaraIdx = getVedicWeekdayAtJd(jdUt, tzOffsetHours, localSunriseHour);
+  const vaaraLord = VAARA_LORDS[vaaraIdx]!;
+
+  // 2. Masa Lord (Amanta Lunar New Moon or Saura Sankranti)
+  const masaOut = calculateMasaBala({
+    birthJdUt: jdUt,
+    tzOffsetHours,
+    localSunriseHour,
+    sunLon: sunPos.lon,
+    sunSpeed: sunPos.speed,
+    moonLon: moonPos.lon,
+    moonSpeed: moonPos.speed,
+    convention: masaConvention,
+  });
+  const masaLord = masaOut.masaLord;
+
+  // 3. Abda Lord (Mesha Sankranti - Sun entry into 0 deg Aries)
+  const daysSinceMesha = norm360(sunPos.lon) / 0.9856;
+  const meshaStartJd = jdUt - daysSinceMesha;
+  const abdaLord =
+    VAARA_LORDS[
+      getVedicWeekdayAtJd(meshaStartJd, tzOffsetHours, localSunriseHour)
+    ]!;
+
+  // 4. Local solar time since sunrise -> Tribhaga Ruler & Hora Lord
+  const localHours = (((jdUt + 0.5) * 24 + tzOffsetHours) % 24 + 24) % 24;
+  const hoursSinceSunrise = ((localHours - localSunriseHour) % 24 + 24) % 24;
+  const dayDuration = localSunsetHour - localSunriseHour;
+  const nightDuration = 24.0 - dayDuration;
+
+  let tribhagaRuler: PlanetId;
+  if (hoursSinceSunrise < dayDuration) {
+    const third = Math.min(2, Math.floor((hoursSinceSunrise / dayDuration) * 3));
+    const dayRulers: readonly PlanetId[] = ["Mercury", "Sun", "Saturn"];
+    tribhagaRuler = dayRulers[third]!;
   } else {
-    if (["Moon", "Mercury", "Mars"].includes(planet)) tribhaga = 60;
+    const nightElapsed = hoursSinceSunrise - dayDuration;
+    const third = Math.min(2, Math.floor((nightElapsed / nightDuration) * 3));
+    const nightRulers: readonly PlanetId[] = ["Moon", "Venus", "Mars"];
+    tribhagaRuler = nightRulers[third]!;
   }
 
-  // ④ Abda Bala — open gate; fixed at 15 (requires multi-year ephemeris for solar year lord)
-  const abda = 15;
+  let horaIndex: number;
+  if (hoursSinceSunrise < dayDuration) {
+    horaIndex = Math.min(11, Math.floor((hoursSinceSunrise / dayDuration) * 12));
+  } else {
+    const nightElapsed = hoursSinceSunrise - dayDuration;
+    horaIndex =
+      12 + Math.min(11, Math.floor((nightElapsed / nightDuration) * 12));
+  }
+  const startChaldeanIdx = CHALDEAN_ORDER.indexOf(vaaraLord);
+  const horaLord = CHALDEAN_ORDER[(startChaldeanIdx + horaIndex) % 7]!;
 
-  // ⑤ Masa Bala — open gate; approximate lunar month lord
-  const masaLords: ClassicalPlanet[] = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
-  const masaLord = masaLords[(input.weekday + input.tithiIndex) % 7]!;
-  const masa = masaLord === planet ? 60 : 0;
+  // 5. Paksha Bala base [0, 60]
+  const elongation = norm360(moonPos.lon - sunPos.lon);
+  const synodicArc = elongation > 180 ? 360 - elongation : elongation;
+  const beneficPaksha = round2(synodicArc / 3.0);
+  const maleficPaksha = round2(60.0 - beneficPaksha);
 
-  // ⑥ Vaara Bala — weekday lord
-  const vaaraLords: ClassicalPlanet[] = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
-  const vaara = vaaraLords[input.weekday] === planet ? 45 : 0;
+  const byPlanet = {} as Record<PlanetId, PlanetKaalaBreakdown>;
+  const preYuddhaTotals = {} as Record<PlanetId, number>;
 
-  // ⑦ Hora Bala
-  const hora = input.hora === planet ? 60 : 0;
+  for (const p of PLANET_ORDER) {
+    const pos = planets.find((item) => item.planet === p);
+    if (!pos) {
+      throw new Error(`Missing planet position for ${p}`);
+    }
 
-  // ⑧ Ayana Bala — PL9: uses pre-computed per-planet declination (passed as input.ayana)
-  //    This field is set per-planet in buildShadbalaBlock before calling this function.
-  const ayana = input.planetAyana ?? 30; // fallback 30 (neutral) if not supplied
+    const nathonnatha = calculateNathonnathaBala(p, jdUt, geoLonDeg);
 
-  // ⑨ Yuddha Bala — open gate; 0 (requires full planetary-war comparison pass)
-  const yuddha = 0;
+    // BPHS Ch. 27 Sloka 10: Moon's Paksha Bala is doubled (Chandra Paksha Bala Dvigunam)
+    const isBenefic =
+      p === "Moon" || p === "Mercury" || p === "Jupiter" || p === "Venus";
+    const paksha =
+      p === "Moon"
+        ? round2(beneficPaksha * 2.0)
+        : isBenefic
+        ? beneficPaksha
+        : maleficPaksha;
 
-  const total = nathonnatha + paksha + tribhaga + abda + masa + vaara + hora + ayana + yuddha;
-  return { total: parseFloat(total.toFixed(4)), paksha, ayana };
+    // BPHS Ch. 27 Sloka 12: Jupiter ALWAYS gets 60 in Tribhaga Bala (Sarvada Gurur-balavan)
+    const tribhaga = p === "Jupiter" || p === tribhagaRuler ? 60 : 0;
+
+    // BPHS Ch. 27 Sloka 13: Abda (15), Masa (30), Vaara (45), Hora (60)
+    const abda = p === abdaLord ? 15 : 0;
+    const masa = p === masaLord ? 30 : 0;
+    const vaara = p === vaaraLord ? 45 : 0;
+    const hora = p === horaLord ? 60 : 0;
+
+    const ayana = calculateAyanaBala(p, pos.lon, ayanamsaDeg);
+
+    const preTotal = round2(
+      nathonnatha + paksha + tribhaga + abda + masa + vaara + hora + ayana
+    );
+    preYuddhaTotals[p] = preTotal;
+
+    byPlanet[p] = {
+      nathonnatha,
+      paksha,
+      tribhaga,
+      abda,
+      masa,
+      vaara,
+      hora,
+      ayana,
+      yuddha: 0,
+      total: preTotal,
+    };
+  }
+
+  // 6. Apply Yuddha Bala (BPHS Ch. 27 Sloka 20)
+  const yuddhaOut = calculateYuddhaBala(planets, preYuddhaTotals);
+  for (const p of PLANET_ORDER) {
+    byPlanet[p].yuddha = yuddhaOut.yuddhaVirupasByPlanet[p];
+    byPlanet[p].total = yuddhaOut.adjustedKaalaBalaByPlanet[p];
+  }
+
+  return {
+    byPlanet,
+    lords: { abdaLord, masaLord, vaaraLord, horaLord, tribhagaRuler },
+    unDoubledMoonPaksha: beneficPaksha,
+    sunAyana: byPlanet.Sun.ayana,
+  };
+}
+
+// ============================================================================
+// 4. CHESTA BALA (P1 GEOCENTRIC SPEEDS & BPHS ASHTA GATI 8-STATE MACHINE)
+// ============================================================================
+
+export type AshtaGatiState =
+  | "Vakra"
+  | "Anuvakra"
+  | "Vikala"
+  | "Mandatara"
+  | "Manda"
+  | "Sama"
+  | "Chara"
+  | "Atichara";
+
+export type LuminaryChestaState = "AyanaProxy" | "PakshaProxy";
+export type PlanetGatiClassification = AshtaGatiState | LuminaryChestaState;
+
+export type AshtaGatiScalePreset =
+  | "BPHS_SLOKA_17"
+  | "SIDDHANTIC_MONOTONIC"
+  | "CONTINUOUS_HYBRID";
+
+export interface AshtaGatiThresholds {
+  vikalaMaxRatio: number;
+  mandataraMaxRatio: number;
+  mandaMaxRatio: number;
+  samaMaxRatio: number;
+  charaMaxRatio: number;
+}
+
+export interface AshtaGatiPlanetInput extends PlanetPositionInput {
+  stationRetrogradeLon?: number;
+  isAnuvakra?: boolean;
+  isAtichara?: boolean;
+}
+
+export interface AshtaGatiOptions {
+  scalePreset?: AshtaGatiScalePreset;
+  thresholds?: Partial<AshtaGatiThresholds>;
+}
+
+export interface PlanetAshtaGatiResult {
+  planet: PlanetId;
+  gatiState: PlanetGatiClassification;
+  dailySpeedDeg: number;
+  meanSpeedDeg: number;
+  speedRatio: number;
+  isRetrograde: boolean;
+  currentRasi: RasiIndex;
+  stationRasi?: RasiIndex;
+  chestaBalaVirupas: number;
+}
+
+export interface AshtaGatiEngineOutput {
+  scalePreset: AshtaGatiScalePreset;
+  byPlanet: Record<PlanetId, PlanetAshtaGatiResult>;
+  ordered: PlanetAshtaGatiResult[];
+}
+
+export const DEFAULT_ASHTA_GATI_THRESHOLDS: Readonly<AshtaGatiThresholds> = {
+  vikalaMaxRatio: 0.05,
+  mandataraMaxRatio: 0.50,
+  mandaMaxRatio: 0.90,
+  samaMaxRatio: 1.10,
+  charaMaxRatio: 1.50,
+};
+
+export const ASHTA_GATI_VIRUPAS_BPHS_SLOKA_17: Record<AshtaGatiState, number> = {
+  Vakra: 60.0,
+  Anuvakra: 30.0,
+  Vikala: 15.0,
+  Manda: 30.0,
+  Mandatara: 7.5,
+  Sama: 15.0,
+  Chara: 45.0,
+  Atichara: 30.0,
+};
+
+export const ASHTA_GATI_VIRUPAS_SIDDHANTIC: Record<AshtaGatiState, number> = {
+  Vakra: 60.0,
+  Anuvakra: 30.0,
+  Vikala: 15.0,
+  Mandatara: 7.5,
+  Manda: 15.0,
+  Sama: 30.0,
+  Chara: 45.0,
+  Atichara: 30.0,
+};
+
+export function classifyTaraGrahaGati(
+  input: AshtaGatiPlanetInput & { planet: TaraGrahaId },
+  thresholds: AshtaGatiThresholds = DEFAULT_ASHTA_GATI_THRESHOLDS
+): {
+  gatiState: AshtaGatiState;
+  meanSpeedDeg: number;
+  speedRatio: number;
+  isRetrograde: boolean;
+  currentRasi: RasiIndex;
+  stationRasi?: RasiIndex;
+} {
+  const {
+    planet,
+    lon,
+    speed,
+    retro,
+    stationRetrogradeLon,
+    isAnuvakra,
+    isAtichara,
+  } = input;
+
+  const meanSpeedDeg = GEOCENTRIC_MEAN_SPEED[planet];
+  const speedRatio = speed / meanSpeedDeg;
+  const absRatio = Math.abs(speedRatio);
+  const isRetrograde = Boolean(retro) || speed < 0;
+
+  const currentRasi = Math.floor(norm360(lon) / 30) as RasiIndex;
+  const stationRasi =
+    typeof stationRetrogradeLon === "number" &&
+    !Number.isNaN(stationRetrogradeLon)
+      ? (Math.floor(norm360(stationRetrogradeLon) / 30) as RasiIndex)
+      : undefined;
+
+  if (absRatio < thresholds.vikalaMaxRatio) {
+    return {
+      gatiState: "Vikala",
+      meanSpeedDeg,
+      speedRatio: round4(speedRatio),
+      isRetrograde,
+      currentRasi,
+      stationRasi,
+    };
+  }
+
+  if (isRetrograde) {
+    const crossedIntoPrevSign =
+      isAnuvakra === true ||
+      (stationRasi !== undefined && stationRasi !== currentRasi);
+
+    return {
+      gatiState: crossedIntoPrevSign ? "Anuvakra" : "Vakra",
+      meanSpeedDeg,
+      speedRatio: round4(speedRatio),
+      isRetrograde: true,
+      currentRasi,
+      stationRasi,
+    };
+  }
+
+  if (isAtichara === true || speedRatio > thresholds.charaMaxRatio) {
+    return {
+      gatiState: "Atichara",
+      meanSpeedDeg,
+      speedRatio: round4(speedRatio),
+      isRetrograde: false,
+      currentRasi,
+      stationRasi,
+    };
+  }
+
+  if (speedRatio > thresholds.samaMaxRatio) {
+    return {
+      gatiState: "Chara",
+      meanSpeedDeg,
+      speedRatio: round4(speedRatio),
+      isRetrograde: false,
+      currentRasi,
+      stationRasi,
+    };
+  }
+
+  if (speedRatio >= thresholds.mandaMaxRatio) {
+    return {
+      gatiState: "Sama",
+      meanSpeedDeg,
+      speedRatio: round4(speedRatio),
+      isRetrograde: false,
+      currentRasi,
+      stationRasi,
+    };
+  }
+
+  if (speedRatio >= thresholds.mandataraMaxRatio) {
+    return {
+      gatiState: "Manda",
+      meanSpeedDeg,
+      speedRatio: round4(speedRatio),
+      isRetrograde: false,
+      currentRasi,
+      stationRasi,
+    };
+  }
+
+  return {
+    gatiState: "Mandatara",
+    meanSpeedDeg,
+    speedRatio: round4(speedRatio),
+    isRetrograde: false,
+    currentRasi,
+    stationRasi,
+  };
+}
+
+export function evaluateSinglePlanetAshtaGati(
+  input: AshtaGatiPlanetInput,
+  sunAyanaVirupas: number,
+  unDoubledMoonPakshaVirupas: number,
+  options: AshtaGatiOptions = {}
+): PlanetAshtaGatiResult {
+  const { scalePreset = "BPHS_SLOKA_17", thresholds: customThresholds } =
+    options;
+  const thresholds: AshtaGatiThresholds = {
+    ...DEFAULT_ASHTA_GATI_THRESHOLDS,
+    ...customThresholds,
+  };
+
+  const currentRasi = Math.floor(norm360(input.lon) / 30) as RasiIndex;
+
+  if (input.planet === "Sun") {
+    const sunMeanSpeed = 0.9856;
+    return {
+      planet: "Sun",
+      gatiState: "AyanaProxy",
+      dailySpeedDeg: input.speed,
+      meanSpeedDeg: sunMeanSpeed,
+      speedRatio: round4(input.speed / sunMeanSpeed),
+      isRetrograde: false,
+      currentRasi,
+      chestaBalaVirupas: round2(Math.max(0, Math.min(60, sunAyanaVirupas))),
+    };
+  }
+
+  if (input.planet === "Moon") {
+    const moonMeanSpeed = 13.1764;
+    return {
+      planet: "Moon",
+      gatiState: "PakshaProxy",
+      dailySpeedDeg: input.speed,
+      meanSpeedDeg: moonMeanSpeed,
+      speedRatio: round4(input.speed / moonMeanSpeed),
+      isRetrograde: false,
+      currentRasi,
+      chestaBalaVirupas: round2(
+        Math.max(0, Math.min(60, unDoubledMoonPakshaVirupas))
+      ),
+    };
+  }
+
+  const taraInput = input as AshtaGatiPlanetInput & { planet: TaraGrahaId };
+  const classified = classifyTaraGrahaGati(taraInput, thresholds);
+
+  let chestaBalaVirupas: number;
+  if (scalePreset === "SIDDHANTIC_MONOTONIC") {
+    chestaBalaVirupas = ASHTA_GATI_VIRUPAS_SIDDHANTIC[classified.gatiState];
+  } else if (scalePreset === "CONTINUOUS_HYBRID") {
+    if (
+      classified.gatiState === "Vakra" ||
+      classified.gatiState === "Anuvakra" ||
+      classified.gatiState === "Vikala"
+    ) {
+      chestaBalaVirupas =
+        ASHTA_GATI_VIRUPAS_BPHS_SLOKA_17[classified.gatiState];
+    } else {
+      chestaBalaVirupas = round2(
+        Math.min(45.0, Math.abs(classified.speedRatio) * 30.0)
+      );
+    }
+  } else {
+    chestaBalaVirupas = ASHTA_GATI_VIRUPAS_BPHS_SLOKA_17[classified.gatiState];
+  }
+
+  return {
+    planet: input.planet,
+    gatiState: classified.gatiState,
+    dailySpeedDeg: input.speed,
+    meanSpeedDeg: classified.meanSpeedDeg,
+    speedRatio: classified.speedRatio,
+    isRetrograde: classified.isRetrograde,
+    currentRasi: classified.currentRasi,
+    stationRasi: classified.stationRasi,
+    chestaBalaVirupas,
+  };
+}
+
+export function calculateAshtaGatiChestaBala(
+  planets: readonly AshtaGatiPlanetInput[],
+  sunAyanaVirupas: number,
+  unDoubledMoonPakshaVirupas: number,
+  options: AshtaGatiOptions = {}
+): AshtaGatiEngineOutput {
+  const scalePreset = options.scalePreset ?? "BPHS_SLOKA_17";
+  const byPlanet = {} as Record<PlanetId, PlanetAshtaGatiResult>;
+  const ordered: PlanetAshtaGatiResult[] = [];
+
+  for (const planetId of PLANET_ORDER) {
+    const pos = planets.find((p) => p.planet === planetId);
+    if (!pos) {
+      throw new Error(`Missing planet position for ${planetId}`);
+    }
+
+    const res = evaluateSinglePlanetAshtaGati(
+      pos,
+      sunAyanaVirupas,
+      unDoubledMoonPakshaVirupas,
+      options
+    );
+    byPlanet[planetId] = res;
+    ordered.push(res);
+  }
+
+  return {
+    scalePreset,
+    byPlanet,
+    ordered,
+  };
 }
 
 /**
- * Chesta Bala — motional strength.
- *
- * PL9 dviguṇa rules (BPHS Ch.27):
- *   Sun  → Chesta Bala = Ayana Bala  (Sun never retrogrades; Ayana Bala fills both slots)
- *   Moon → Chesta Bala = Paksha Bala (Moon never retrogrades; Paksha Bala fills both slots)
- *   Others → speed-based (retrograde = max 60; stationary = 0; proportional otherwise)
- *
- * Mean speeds (deg/day): Sun 0.9833, Moon 13.1833, Mars 0.5241,
- *   Mercury 1.3833, Jupiter 0.0831, Venus 1.2, Saturn 0.0334
+ * Component 4: Chesta Bala
+ *   - Sun: Ayana Bala [0, 60]
+ *   - Moon: Un-doubled Paksha Bala [0, 60]
+ *   - Tara Grahas: Geocentric speed ratio with Vakra=60, Vikala=15, Sama=30 at mean, Chara=45 cap
  */
-/**
- * Chesta Bala — motional strength (Method 2: Speed & Retrograde BPHS Classical).
- *
- * Sun  → Sun Chesta Bala = Ayana Bala (BPHS Ch.27)
- * Moon → Moon Chesta Bala = Paksha Bala (BPHS Ch.27)
- * Mars, Mercury, Jupiter, Venus, Saturn → Delegated to calculateOuterPlanetChestaBala:
- *   - Retrograde (speed < 0) → 60 virupas (full max)
- *   - Stationary (|speed| < mean * 0.05) → 0 virupas
- *   - Direct (speed > 0) → min(round(|speed| / mean * 60, 2), 60)
- */
-function chestaBala(
-  planet: ClassicalPlanet,
-  speedLon: number,
-  sunAyanaBala: number,   // pre-computed Sun Ayana Bala (for Sun's Chesta slot)
-  moonPakshaBala: number, // pre-computed Moon Paksha Bala (for Moon's Chesta slot)
+export function calculateChestaBala(
+  pos: PlanetPositionInput,
+  sunAyanaBala: number,
+  unDoubledMoonPakshaBala: number
 ): number {
-  if (planet === "Sun")  return sunAyanaBala;
-  if (planet === "Moon") return moonPakshaBala;
-  return calculateOuterPlanetChestaBala(planet, speedLon);
+  if (pos.planet === "Sun") return round2(sunAyanaBala);
+  if (pos.planet === "Moon") return round2(unDoubledMoonPakshaBala);
+
+  const meanSpeed = GEOCENTRIC_MEAN_SPEED[pos.planet];
+  const absSpeed = Math.abs(pos.speed);
+
+  if (absSpeed < meanSpeed * 0.05) {
+    return 15.0; // Vikala (Stationary)
+  }
+  if (pos.retro || pos.speed < 0) {
+    return 60.0; // Vakra (Retrograde)
+  }
+
+  return round2(Math.min(45.0, (absSpeed / meanSpeed) * 30.0));
 }
 
-/**
- * Drig Bala — aspectual strength received from other planets (BPHS Ch.27).
- *
- * BPHS Aspect Fractions (virupas = fraction × 60):
- *   ALL planets: 7th house = FULL (60 virupas)
- *   Mars special:    4th = 1/4 (15), 8th = 3/4 (45)
- *   Jupiter special: 5th = 1/2 (30), 9th = FULL (60)
- *   Saturn special:  3rd = 1/4 (15), 10th = 3/4 (45)
- *
- * Malefic aspects reduce Drig Bala (negative contribution).
- * Benefic aspects increase Drig Bala (positive contribution).
- * Result can be negative (net malefic influence).
- *
- * Note: "diff" = houses counted forward FROM aspecting planet TO target.
- * diff=7 means target is 7 houses ahead of aspecting planet.
- */
-function drigBala(
-  planet: ClassicalPlanet,
-  allPlanets: Record<ClassicalPlanet, { house: number; sign: ZodiacSign; isRetrograde: boolean }>
+// ============================================================================
+// 6. DRIG BALA (P0 DIVISOR & BPHS CH. 27 PIECEWISE EQUATIONS)
+// ============================================================================
+
+export function computeDrishtiKona(
+  aspectorLon: number,
+  targetLon: number
 ): number {
-  let total = 0;
-  const beneficPlanets: ClassicalPlanet[] = ["Jupiter", "Venus", "Moon", "Mercury"];
-  const maleficPlanets: ClassicalPlanet[] = ["Sun", "Mars", "Saturn"];
+  return norm360(targetLon - aspectorLon);
+}
 
-  const targetHouse = allPlanets[planet].house;
+export function computeBaseDrishti(thetaDeg: number): number {
+  const theta = norm360(thetaDeg);
+  if (theta <= 30 || theta >= 300) return 0;
+  if (theta <= 60) return (theta - 30) / 2;
+  if (theta <= 90) return theta - 60 + 15;
+  if (theta <= 120) return 45 - (theta - 90) / 2;
+  if (theta <= 150) return 150 - theta;
+  if (theta <= 180) return (theta - 150) * 2;
+  return (300 - theta) / 2;
+}
 
-  for (const other of CLASSICAL_PLANETS_ORDER) {
-    if (other === planet) continue;
-    const otherHouse = allPlanets[other].house;
+export function computeRamanSpecialBonus(
+  aspector: PlanetId,
+  thetaDeg: number
+): number {
+  const theta = norm360(thetaDeg);
+  if (aspector === "Mars") {
+    if ((theta >= 90 && theta < 120) || (theta >= 210 && theta < 240)) return 15;
+  } else if (aspector === "Jupiter") {
+    if ((theta >= 120 && theta < 150) || (theta >= 240 && theta < 270)) return 30;
+  } else if (aspector === "Saturn") {
+    if ((theta >= 60 && theta < 90) || (theta >= 270 && theta < 300)) return 45;
+  }
+  return 0;
+}
 
-    // Forward count FROM aspecting planet (other) TO target planet.
-    // diff=7 → "other" aspects "target" via 7th house (full aspect for all planets).
-    const diff = ((targetHouse - otherHouse + 12) % 12) + 1;
+const BASE_KNOTS: readonly number[] = [
+  0, 0, 15, 45, 30, 0, 60, 45, 30, 15, 0, 0,
+];
 
-    // BPHS exact aspect fractions
-    let fraction = 0;
+export function computeContinuousKnotDrishti(
+  aspector: PlanetId,
+  thetaDeg: number
+): { baseVirupas: number; specialBonusVirupas: number; totalRawVirupas: number } {
+  const theta = norm360(thetaDeg);
+  const baseVirupas = computeBaseDrishti(theta);
+  if (theta <= 30 || theta >= 300) {
+    return { baseVirupas: 0, specialBonusVirupas: 0, totalRawVirupas: 0 };
+  }
 
-    // Universal 7th aspect (all planets, full strength)
-    if (diff === 7) {
-      fraction = 1.0; // 60 virupas
+  const knots = [...BASE_KNOTS];
+  if (aspector === "Mars") {
+    knots[3] = 60;
+    knots[7] = 60;
+  } else if (aspector === "Jupiter") {
+    knots[4] = 60;
+    knots[8] = 60;
+  } else if (aspector === "Saturn") {
+    knots[2] = 60;
+    knots[9] = 60;
+  }
+
+  const segIndex = Math.floor(theta / 30);
+  const segFrac = (theta - segIndex * 30) / 30;
+  const y0 = knots[segIndex]!;
+  const y1 = knots[(segIndex + 1) % 12]!;
+  const totalRawVirupas = y0 + segFrac * (y1 - y0);
+  const specialBonusVirupas = Math.max(0, totalRawVirupas - baseVirupas);
+
+  return { baseVirupas, specialBonusVirupas, totalRawVirupas };
+}
+
+export interface PairwiseAspectDetail {
+  aspector: PlanetId;
+  target: PlanetId;
+  drishtiKonaDeg: number;
+  baseVirupas: number;
+  specialBonusVirupas: number;
+  totalRawVirupas: number;
+  polarity: 1 | -1;
+  netContributionVirupas: number;
+}
+
+export interface PlanetDrigBreakdown {
+  planet: PlanetId;
+  rawSignedSum: number;
+  drigBalaVirupas: number;
+  receivedAspects: PairwiseAspectDetail[];
+}
+
+export interface DrigBalaOptions {
+  mode?: DrigCalculationMode;
+  dynamicMoonBenefic?: boolean;
+}
+
+export function evaluatePairwiseDrishti(
+  aspector: PlanetPositionInput,
+  target: PlanetPositionInput,
+  polarity: 1 | -1,
+  mode: DrigCalculationMode = "DEGREE_RAMAN_BAND"
+): PairwiseAspectDetail {
+  const drishtiKonaDeg = computeDrishtiKona(aspector.lon, target.lon);
+
+  if (mode === "WHOLE_HOUSE") {
+    const houseSpan = (((target.house - aspector.house) % 12) + 12) % 12 + 1;
+    let isFullAspect = houseSpan === 7;
+    let isSpecial = false;
+
+    if (aspector.planet === "Mars" && (houseSpan === 4 || houseSpan === 8)) {
+      isFullAspect = true;
+      isSpecial = true;
+    } else if (
+      aspector.planet === "Jupiter" &&
+      (houseSpan === 5 || houseSpan === 9)
+    ) {
+      isFullAspect = true;
+      isSpecial = true;
+    } else if (
+      aspector.planet === "Saturn" &&
+      (houseSpan === 3 || houseSpan === 10)
+    ) {
+      isFullAspect = true;
+      isSpecial = true;
     }
-    // Mars special aspects (BPHS Ch.27: 4th=quarter, 8th=three-quarters)
-    else if (other === "Mars") {
-      if (diff === 4) fraction = 0.25; // 15 virupas
-      else if (diff === 8) fraction = 0.75; // 45 virupas
-    }
-    // Jupiter special aspects (BPHS Ch.27: 5th=half, 9th=full)
-    else if (other === "Jupiter") {
-      if (diff === 5) fraction = 0.5;  // 30 virupas
-      else if (diff === 9) fraction = 1.0; // 60 virupas
-    }
-    // Saturn special aspects (BPHS Ch.27: 3rd=quarter, 10th=three-quarters)
-    else if (other === "Saturn") {
-      if (diff === 3) fraction = 0.25;  // 15 virupas
-      else if (diff === 10) fraction = 0.75; // 45 virupas
+
+    const totalRawVirupas = isFullAspect ? 60 : 0;
+    const baseVirupas = houseSpan === 7 ? 60 : 0;
+    const specialBonusVirupas = isSpecial ? 60 : 0;
+
+    return {
+      aspector: aspector.planet,
+      target: target.planet,
+      drishtiKonaDeg: round2(drishtiKonaDeg),
+      baseVirupas,
+      specialBonusVirupas,
+      totalRawVirupas,
+      polarity,
+      netContributionVirupas: round2((polarity * totalRawVirupas) / 4),
+    };
+  }
+
+  if (mode === "DEGREE_CONTINUOUS_KNOT") {
+    const { baseVirupas, specialBonusVirupas, totalRawVirupas } =
+      computeContinuousKnotDrishti(aspector.planet, drishtiKonaDeg);
+
+    return {
+      aspector: aspector.planet,
+      target: target.planet,
+      drishtiKonaDeg: round2(drishtiKonaDeg),
+      baseVirupas: round2(baseVirupas),
+      specialBonusVirupas: round2(specialBonusVirupas),
+      totalRawVirupas: round2(totalRawVirupas),
+      polarity,
+      netContributionVirupas: round2((polarity * totalRawVirupas) / 4),
+    };
+  }
+
+  const baseVirupas = computeBaseDrishti(drishtiKonaDeg);
+  const specialBonusVirupas = computeRamanSpecialBonus(
+    aspector.planet,
+    drishtiKonaDeg
+  );
+  const totalRawVirupas = Math.min(60, baseVirupas + specialBonusVirupas);
+
+  return {
+    aspector: aspector.planet,
+    target: target.planet,
+    drishtiKonaDeg: round2(drishtiKonaDeg),
+    baseVirupas: round2(baseVirupas),
+    specialBonusVirupas: round2(specialBonusVirupas),
+    totalRawVirupas: round2(totalRawVirupas),
+    polarity,
+    netContributionVirupas: round2((polarity * totalRawVirupas) / 4),
+  };
+}
+
+export function calculateDetailedDrigBala(
+  planets: readonly PlanetPositionInput[],
+  options: DrigBalaOptions = {}
+): {
+  virupasByPlanet: Record<PlanetId, number>;
+  breakdowns: Record<PlanetId, PlanetDrigBreakdown>;
+} {
+  const { mode = "DEGREE_RAMAN_BAND", dynamicMoonBenefic = false } = options;
+
+  const sunPos = planets.find((p) => p.planet === "Sun");
+  const moonPos = planets.find((p) => p.planet === "Moon");
+
+  let isMoonBenefic = true;
+  if (dynamicMoonBenefic && sunPos && moonPos) {
+    const elongation = norm360(moonPos.lon - sunPos.lon);
+    isMoonBenefic = elongation < 180;
+  }
+
+  const benefics = new Set<PlanetId>(["Mercury", "Jupiter", "Venus"]);
+  if (isMoonBenefic) {
+    benefics.add("Moon");
+  }
+
+  const virupasByPlanet = {} as Record<PlanetId, number>;
+  const breakdowns = {} as Record<PlanetId, PlanetDrigBreakdown>;
+
+  for (const target of planets) {
+    let rawSignedSum = 0;
+    const receivedAspects: PairwiseAspectDetail[] = [];
+
+    for (const aspector of planets) {
+      if (aspector.planet === target.planet) continue;
+
+      const polarity: 1 | -1 = benefics.has(aspector.planet) ? 1 : -1;
+      const detail = evaluatePairwiseDrishti(aspector, target, polarity, mode);
+      receivedAspects.push(detail);
+      rawSignedSum += polarity * detail.totalRawVirupas;
     }
 
-    if (fraction === 0) continue;
+    const drigBalaVirupas = round2(rawSignedSum / 4.0);
 
-    const strength = fraction * 60;
-    if (maleficPlanets.includes(other)) {
-      total -= strength;
-    } else if (beneficPlanets.includes(other)) {
-      total += strength;
+    virupasByPlanet[target.planet] = drigBalaVirupas;
+    breakdowns[target.planet] = {
+      planet: target.planet,
+      rawSignedSum: round2(rawSignedSum),
+      drigBalaVirupas,
+      receivedAspects,
+    };
+  }
+
+  return { virupasByPlanet, breakdowns };
+}
+
+export function calculateDrigBala(
+  planets: readonly PlanetPositionInput[],
+  mode: DrigCalculationMode = "WHOLE_HOUSE"
+): Record<PlanetId, number> {
+  return calculateDetailedDrigBala(planets, { mode }).virupasByPlanet;
+}
+
+// ============================================================================
+// 7. ISHTA PHALA & KASHTA PHALA (BPHS CH. 27 SLOKAS 34-38)
+// ============================================================================
+
+export type IshtaKashtaMode =
+  | "RAMAN_COMPLEMENT_60"
+  | "BPHS_GEOMETRIC_DUAL"
+  | "SRIPATI_ARITHMETIC";
+
+export interface PlanetIshtaKashtaInput {
+  planet: PlanetId;
+  uchchaBala: number;
+  chestaBala: number;
+}
+
+export interface PlanetIshtaKashtaResult {
+  planet: PlanetId;
+  uchchaBala: number;
+  chestaBala: number;
+  uchchaFraction: number;
+  chestaFraction: number;
+  ishtaVirupas: number;
+  kashtaVirupas: number;
+  ishtaRupas: number;
+  kashtaRupas: number;
+  netBalanceVirupas: number;
+  subhaRatio: number;
+  isPredominantlyBenefic: boolean;
+}
+
+export interface IshtaKashtaEngineOutput {
+  mode: IshtaKashtaMode;
+  byPlanet: Record<PlanetId, PlanetIshtaKashtaResult>;
+  ordered: PlanetIshtaKashtaResult[];
+}
+
+export function clampVirupas60(val: number): number {
+  if (Number.isNaN(val)) return 0;
+  return Math.max(0, Math.min(60, val));
+}
+
+export function evaluatePlanetIshtaKashta(
+  input: PlanetIshtaKashtaInput,
+  mode: IshtaKashtaMode = "RAMAN_COMPLEMENT_60"
+): PlanetIshtaKashtaResult {
+  const { planet } = input;
+  const U = clampVirupas60(input.uchchaBala);
+  const C = clampVirupas60(input.chestaBala);
+
+  const uchchaFraction = U / 60.0;
+  const chestaFraction = C / 60.0;
+
+  let rawIshta: number;
+  let rawKashta: number;
+
+  switch (mode) {
+    case "SRIPATI_ARITHMETIC": {
+      rawIshta = (U + C) / 2.0;
+      rawKashta = 60.0 - rawIshta;
+      break;
+    }
+    case "BPHS_GEOMETRIC_DUAL": {
+      rawIshta = Math.sqrt(U * C);
+      rawKashta = Math.sqrt((60.0 - U) * (60.0 - C));
+      break;
+    }
+    case "RAMAN_COMPLEMENT_60":
+    default: {
+      rawIshta = Math.sqrt(U * C);
+      rawKashta = 60.0 - rawIshta;
+      break;
     }
   }
 
-  return parseFloat(total.toFixed(2));
+  const ishtaVirupas = round2(rawIshta);
+  const kashtaVirupas = round2(rawKashta);
+  const netBalanceVirupas = round2(rawIshta - rawKashta);
+  const denom = rawIshta + rawKashta;
+  const subhaRatio = denom > 1e-9 ? round4(rawIshta / denom) : 0.5;
+
+  return {
+    planet,
+    uchchaBala: round2(U),
+    chestaBala: round2(C),
+    uchchaFraction: round4(uchchaFraction),
+    chestaFraction: round4(chestaFraction),
+    ishtaVirupas,
+    kashtaVirupas,
+    ishtaRupas: round4(rawIshta / 60.0),
+    kashtaRupas: round4(rawKashta / 60.0),
+    netBalanceVirupas,
+    subhaRatio,
+    isPredominantlyBenefic: rawIshta >= rawKashta,
+  };
 }
+
+export function calculateIshtaKashta(
+  uchchaBalaByPlanet: Record<PlanetId, number>,
+  chestaBalaByPlanet: Record<PlanetId, number>,
+  mode: IshtaKashtaMode = "RAMAN_COMPLEMENT_60"
+): IshtaKashtaEngineOutput {
+  const byPlanet = {} as Record<PlanetId, PlanetIshtaKashtaResult>;
+  const ordered: PlanetIshtaKashtaResult[] = [];
+
+  for (const planet of PLANET_ORDER) {
+    const uchchaBala = uchchaBalaByPlanet[planet];
+    const chestaBala = chestaBalaByPlanet[planet];
+
+    if (typeof uchchaBala !== "number" || typeof chestaBala !== "number") {
+      throw new Error(
+        `Missing Uchcha or Chesta Bala input for planet ${planet}`
+      );
+    }
+
+    const res = evaluatePlanetIshtaKashta(
+      { planet, uchchaBala, chestaBala },
+      mode
+    );
+    byPlanet[planet] = res;
+    ordered.push(res);
+  }
+
+  return {
+    mode,
+    byPlanet,
+    ordered,
+  };
+}
+
+export function calculateIshtaKashtaFromShadbala(
+  shadbalaResults: Record<PlanetId, PlanetShadbalaResult>,
+  mode: IshtaKashtaMode = "RAMAN_COMPLEMENT_60"
+): IshtaKashtaEngineOutput {
+  const uchchaMap = {} as Record<PlanetId, number>;
+  const chestaMap = {} as Record<PlanetId, number>;
+
+  for (const planet of PLANET_ORDER) {
+    const item = shadbalaResults[planet];
+    if (!item) {
+      throw new Error(`Missing Shadbala result for planet ${planet}`);
+    }
+    uchchaMap[planet] = item.sthanaBreakdown.uchcha;
+    chestaMap[planet] = item.chesta;
+  }
+
+  return calculateIshtaKashta(uchchaMap, chestaMap, mode);
+}
+
+// ============================================================================
+// MASTER SHADBALA CALCULATOR (STANDALONE + DSSME BLOCK BUILDER)
+// ============================================================================
+
+export interface PlanetShadbalaResult {
+  planet: PlanetId;
+  sthana: number;
+  sthanaBreakdown: SthanaBalaBreakdown;
+  dig: number;
+  kaala: number;
+  kaalaBreakdown: PlanetKaalaBreakdown;
+  chesta: number;
+  naisargika: number;
+  drig: number;
+  totalVirupas: number;
+  totalRupas: number;
+  minRequired: number;
+  percentRequired: number;
+  meetsMinimum: boolean;
+  rank: number;
+}
+
+export interface ShadbalaEngineOutput {
+  results: Record<PlanetId, PlanetShadbalaResult>;
+  ordered: PlanetShadbalaResult[];
+}
+
+export function calculateShadbala(
+  chart: ShadbalaChartInput
+): ShadbalaEngineOutput {
+  for (const p of PLANET_ORDER) {
+    if (!chart.planets.some((item) => item.planet === p)) {
+      throw new Error(`Missing planet position for ${p}`);
+    }
+  }
+
+  const kaalaOut = calculateKaalaBala(chart);
+  const drigMap = calculateDrigBala(
+    chart.planets,
+    chart.drigMode ?? "WHOLE_HOUSE"
+  );
+
+  const panchadhaSapta = chart.usePanchadhaSaptavargaja
+    ? calculatePanchadhaSaptavargaja(chart.planets).byPlanet
+    : undefined;
+
+  const results = {} as Record<PlanetId, PlanetShadbalaResult>;
+  const ordered: PlanetShadbalaResult[] = [];
+
+  for (const p of PLANET_ORDER) {
+    const pos = chart.planets.find((item) => item.planet === p)!;
+    const saptaOverride = panchadhaSapta
+      ? panchadhaSapta[p].totalVirupas
+      : undefined;
+    const sthanaBreakdown = calculateSthanaBala(pos, saptaOverride);
+    const digVal = calculateDigBala(pos, chart.houseCusps);
+    const kaalaBreakdown = kaalaOut.byPlanet[p];
+    const chestaVal = calculateChestaBala(
+      pos,
+      kaalaOut.sunAyana,
+      kaalaOut.unDoubledMoonPaksha
+    );
+    const naisargikaVal = NAISARGIKA_BALA[p];
+    const drigVal = drigMap[p];
+
+    const sthana = round1(sthanaBreakdown.total);
+    const dig = round1(digVal);
+    const kaala = round1(kaalaBreakdown.total);
+    const chesta = round1(chestaVal);
+    const naisargika = round1(naisargikaVal);
+    const drig = round1(drigVal);
+
+    const totalVirupas = round1(
+      sthana + dig + kaala + chesta + naisargika + drig
+    );
+    const totalRupas = round2(totalVirupas / 60.0);
+    const minRequired = MIN_REQUIRED_VIRUPAS[p];
+    const percentRequired = round1((totalVirupas / minRequired) * 100);
+
+    const item: PlanetShadbalaResult = {
+      planet: p,
+      sthana,
+      sthanaBreakdown,
+      dig,
+      kaala,
+      kaalaBreakdown,
+      chesta,
+      naisargika: naisargikaVal,
+      drig,
+      totalVirupas,
+      totalRupas,
+      minRequired,
+      percentRequired,
+      meetsMinimum: totalVirupas >= minRequired,
+      rank: 0,
+    };
+
+    results[p] = item;
+    ordered.push(item);
+  }
+
+  const sortedByTotal = [...ordered].sort(
+    (a, b) => b.totalVirupas - a.totalVirupas
+  );
+  for (const item of ordered) {
+    item.rank =
+      sortedByTotal.findIndex((s) => s.planet === item.planet) + 1;
+  }
+
+  return { results, ordered };
+}
+
+// ============================================================================
+// DSSME BLOCK_6 ADAPTER (`buildShadbalaBlock`)
+// ============================================================================
 
 export interface ShadbalaInput {
   paksha: "shukla" | "krishna";
@@ -661,10 +2295,13 @@ export interface ShadbalaInput {
   weekday: number;
   hora: ClassicalPlanet;
   isNight: boolean;
-  // PL9 Phase A additions — required for accurate Kaala Bala computation
-  chartJd: number;          // Julian Day UT (for Nathonnatha True Apparent Midnight)
-  longitude: number;        // geographic east longitude (for Nathonnatha)
-  ayanamsaDeg: number;      // Lahiri ayanamsa (for per-planet Ayana Bala declination)
+  chartJd: number;
+  longitude: number;
+  ayanamsaDeg: number;
+  /** Optional Saptavargaja mode (defaults to true = BPHS Panchadha 45-point scale) */
+  usePanchadhaSaptavargaja?: boolean;
+  /** Optional Drig Bala calculation mode (defaults to 'DEGREE_RAMAN_BAND') */
+  drigMode?: DrigCalculationMode;
 }
 
 export function buildShadbalaBlock(
@@ -674,44 +2311,40 @@ export function buildShadbalaBlock(
   const { chart } = ctx;
   const issues = [];
 
-  const planetPositions: Record<ClassicalPlanet, { house: number; sign: ZodiacSign; isRetrograde: boolean }> = {
-    Sun: { house: chart.planets.Sun.house, sign: chart.planets.Sun.sign, isRetrograde: chart.planets.Sun.isRetrograde },
-    Moon: { house: chart.planets.Moon.house, sign: chart.planets.Moon.sign, isRetrograde: chart.planets.Moon.isRetrograde },
-    Mars: { house: chart.planets.Mars.house, sign: chart.planets.Mars.sign, isRetrograde: chart.planets.Mars.isRetrograde },
-    Mercury: { house: chart.planets.Mercury.house, sign: chart.planets.Mercury.sign, isRetrograde: chart.planets.Mercury.isRetrograde },
-    Jupiter: { house: chart.planets.Jupiter.house, sign: chart.planets.Jupiter.sign, isRetrograde: chart.planets.Jupiter.isRetrograde },
-    Venus: { house: chart.planets.Venus.house, sign: chart.planets.Venus.sign, isRetrograde: chart.planets.Venus.isRetrograde },
-    Saturn: { house: chart.planets.Saturn.house, sign: chart.planets.Saturn.sign, isRetrograde: chart.planets.Saturn.isRetrograde },
-  };
-
-  // Pre-compute per-planet Ayana Bala and Moon/Sun special values for Chesta Bala (PL9 dviguṇa rule)
-  const planetAyanaBala: Record<ClassicalPlanet, number> = {} as Record<ClassicalPlanet, number>;
-  for (const planet of CLASSICAL_PLANETS_ORDER) {
-    const siderealLon = chart.planets[planet].siderealLongitude;
-    const decl = planetDeclination(siderealLon, shadbalaInput.ayanamsaDeg);
-    planetAyanaBala[planet] = ayanaBalaFromDeclination(decl);
-  }
-  const sunAyanaBala  = planetAyanaBala["Sun"]!;
-  const moonPakshaBala = pakshaBalaValue(
-    chart.planets.Moon.siderealLongitude,
-    chart.planets.Sun.siderealLongitude,
-    true // Moon is benefic
+  const planetsInput: PlanetPositionInput[] = CLASSICAL_PLANETS_ORDER.map(
+    (p) => {
+      const pos = chart.planets[p];
+      return {
+        planet: p,
+        lon: pos.siderealLongitude,
+        speed: pos.speedLongitude,
+        retro: pos.isRetrograde,
+        house: pos.house,
+        lat: pos.eclipticLatitude,
+      };
+    }
   );
 
-  const kaalaBase: KaalaInput = {
-    paksha: shadbalaInput.paksha,
-    tithiIndex: shadbalaInput.tithiIndex,
-    weekday: shadbalaInput.weekday,
-    hora: shadbalaInput.hora,
-    isNight: shadbalaInput.isNight,
-    moonLon: chart.planets.Moon.siderealLongitude,
-    sunLon: chart.planets.Sun.siderealLongitude,
-    chartJd: shadbalaInput.chartJd,
-    longitude: shadbalaInput.longitude,
-    ayanamsaDeg: shadbalaInput.ayanamsaDeg,
+  // Extract cardinal house cusps from CanonicalChart.houses (or derive from Lagna siderealLongitude)
+  const lagnaLon = chart.lagna.siderealLongitude;
+  const houseCusps: Record<number, number> = {
+    1: chart.houses["1"]?.cuspLongitude ?? norm360(lagnaLon),
+    4: chart.houses["4"]?.cuspLongitude ?? norm360(lagnaLon + 90),
+    7: chart.houses["7"]?.cuspLongitude ?? norm360(lagnaLon + 180),
+    10: chart.houses["10"]?.cuspLongitude ?? norm360(lagnaLon + 270),
   };
 
-  // Compute per-planet Shadbala
+  const engineOut = calculateShadbala({
+    planets: planetsInput,
+    jdUt: shadbalaInput.chartJd,
+    tzOffsetHours: chart.time.timezoneOffsetHours,
+    geoLonDeg: shadbalaInput.longitude,
+    ayanamsaDeg: shadbalaInput.ayanamsaDeg,
+    houseCusps,
+    usePanchadhaSaptavargaja: shadbalaInput.usePanchadhaSaptavargaja ?? true,
+    drigMode: shadbalaInput.drigMode ?? "DEGREE_RAMAN_BAND",
+  });
+
   const sthanaTotals: number[] = [];
   const digBalaValues: number[] = [];
   const kaalaTotals: number[] = [];
@@ -720,45 +2353,26 @@ export function buildShadbalaBlock(
   const drigValues: number[] = [];
   const totalVirupas: number[] = [];
 
-  for (const planet of CLASSICAL_PLANETS_ORDER) {
-    const pos = chart.planets[planet];
-
-    const sthana = sthanaBala(planet, pos.siderealLongitude, pos.sign, pos.signDegree, pos.house);
-    const dig = digBala(planet, pos.house);
-
-    // Inject per-planet pre-computed Ayana Bala into KaalaInput (PL9 per-planet declination)
-    const planetKaalaInput: KaalaInput = {
-      ...kaalaBase,
-      planetAyana: planetAyanaBala[planet]!,
-    };
-    const kaalaResult = kaalaBalaForPlanet(planet, planetKaalaInput);
-    const chesta = chestaBala(planet, pos.speedLongitude, sunAyanaBala, moonPakshaBala);
-    const naisargika = NAISARGIKA_BALA[planet];
-    const drig = drigBala(planet, planetPositions);
-
-    sthanaTotals.push(parseFloat(sthana.toFixed(2)));
-    digBalaValues.push(parseFloat(dig.toFixed(2)));
-    kaalaTotals.push(parseFloat(kaalaResult.total.toFixed(2)));
-    chestaValues.push(parseFloat(chesta.toFixed(2)));
-    naisargikaValues.push(parseFloat(naisargika.toFixed(2)));
-    drigValues.push(parseFloat(drig.toFixed(2)));
-
-    const total = sthana + dig + kaalaResult.total + chesta + naisargika + drig;
-    totalVirupas.push(parseFloat(total.toFixed(2)));
+  for (const p of CLASSICAL_PLANETS_ORDER) {
+    const r = engineOut.results[p];
+    sthanaTotals.push(r.sthana);
+    digBalaValues.push(r.dig);
+    kaalaTotals.push(r.kaala);
+    chestaValues.push(r.chesta);
+    naisargikaValues.push(round2(r.naisargika));
+    drigValues.push(r.drig);
+    totalVirupas.push(r.totalVirupas);
   }
 
-  // Compute percent_required and rank
   const percentRequired = totalVirupas.map((v, i) =>
-    parseFloat((v / MINIMUM_REQUIRED_VIRUPAS[i]! * 100).toFixed(2))
+    round2((v / MINIMUM_REQUIRED_VIRUPAS[i]!) * 100)
   );
 
-  // Rank: 1=highest total_virupas, 7=lowest
   const sorted = [...totalVirupas].sort((a, b) => b - a);
-  const rank = totalVirupas.map(v => sorted.indexOf(v) + 1);
+  const rank = totalVirupas.map((v) => sorted.indexOf(v) + 1);
 
-  // kaala_pct for SIF_v3 KIF computation
   const kaala_pct = kaalaTotals.map((k, i) =>
-    parseFloat((k / MINIMUM_REQUIRED_VIRUPAS[i]! * 100).toFixed(2))
+    round2((k / MINIMUM_REQUIRED_VIRUPAS[i]!) * 100)
   );
 
   const value: ShadbalaBlock = {
@@ -776,8 +2390,10 @@ export function buildShadbalaBlock(
     drig_bala: drigValues,
   };
 
-  if (totalVirupas.every(v => v === 0)) {
-    issues.push(warningIssue("SHADBALA.total_virupas", "All Shadbala totals are zero"));
+  if (totalVirupas.every((v) => v === 0)) {
+    issues.push(
+      warningIssue("SHADBALA.total_virupas", "All Shadbala totals are zero")
+    );
   }
 
   return finalizeBlock({

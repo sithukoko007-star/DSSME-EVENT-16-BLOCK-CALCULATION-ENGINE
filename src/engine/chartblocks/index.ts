@@ -231,22 +231,10 @@ export async function buildDssme16BlockResult(
   // Step 2: Ashtakavarga (BAV/SAV/BAV_CURRENT_SIGN)
   const { BAV, SAV, BAV_CURRENT_SIGN } = computeAshtakavarga(ctx);
 
-  // Step 3: BhavaBala (needs shadbala totals)
+  // Step 3: Aspects & BhavaBala (BPHS Ch. 27 1.0x Adhipati + Sign-Nature Dig + Signed Drig)
   const { ASPECTS_PLANETS, ASPECTS_BHAVAS } = computeAspects(ctx);
-
-  // Build bhavaAspectScores from ASPECTS_BHAVAS
-  const bhavaAspectScores: Partial<Record<HouseKey, number>> = {};
-  for (const key of ["1","2","3","4","5","6","7","8","9","10","11","12"] as HouseKey[]) {
-    const entry = ASPECTS_BHAVAS[key];
-    if (entry) {
-      const total = Object.values(entry.aspects).reduce((sum, d) => sum + (d?.score ?? 0), 0);
-      bhavaAspectScores[key] = total;
-    }
-  }
-
   const bhavaBalaResult = buildBhavaBalaBlock(ctx, {
     shadbalaTotals,
-    bhavaAspectScores,
   });
 
   // Step 4: Dignity block (needed for PLANETS)

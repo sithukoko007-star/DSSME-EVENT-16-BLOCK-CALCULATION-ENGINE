@@ -60,7 +60,7 @@ export function ShadbalaTable({ shadbala }: ShadbalaTableProps) {
                 1. Sthana Bala (Positional)
               </div>
               <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                Uchcha Bala (arc to de-exaltation / 3), Saptavargaja Bala (dignities across D1–D9), Ojha Yugma (Mercury Napumsaka 15v rule), Kendradi & Drekkana Bala.
+                Uchcha Bala (arc to exaltation / 3), 7-Varga Panchadha Maitri Saptavargaja (D1, D2, D3, D7, D9, D12, D30 on 45-1.875 scale), D1+D9 Ojha-Yugma (0-30v), Kendradi & Decanate Drekkana Bala.
               </p>
             </div>
             <div className="p-2.5 rounded bg-slate-900/60 border border-slate-800/80">
@@ -69,7 +69,7 @@ export function ShadbalaTable({ shadbala }: ShadbalaTableProps) {
                 2. Dig Bala (Directional)
               </div>
               <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                Max 60 virupas at strong house cusps: Jupiter/Mercury in 1st house (Asc), Sun/Mars in 10th (MC), Saturn in 7th (Desc), Moon/Venus in 4th (IC).
+                Degree-based arc distance (60 - shortestArc / 3) to cardinal cusps: Jupiter/Mercury at H1 (Asc), Sun/Mars at H10 (MC), Saturn at H7 (Desc), Moon/Venus at H4 (IC).
               </p>
             </div>
             <div className="p-2.5 rounded bg-slate-900/60 border border-slate-800/80">
@@ -78,7 +78,7 @@ export function ShadbalaTable({ shadbala }: ShadbalaTableProps) {
                 3. Kaala Bala (Temporal)
               </div>
               <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                Nathonnatha (diurnal/nocturnal), Paksha (Shukla benefics, Krishna malefics), Tribhaga day/night lords, Abda, Masa, Vaara, Hora, Ayana, Yuddha.
+                Nathonnatha (0-60v, Mercury 60v), Paksha (Moon doubled 0-120v), Tribhaga (permanent Jupiter +60v & third ruler), Abda (15v), Masa (30v), Vaara (45v), Hora (60v), Ayana & Bimba Parimana Yuddha Bala.
               </p>
             </div>
             <div className="p-2.5 rounded bg-slate-900/60 border border-slate-800/80">
@@ -87,7 +87,7 @@ export function ShadbalaTable({ shadbala }: ShadbalaTableProps) {
                 4. Chesta Bala (Motional)
               </div>
               <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                BPHS Ch. 27: Retrograde motion imparts full 60 virupas motional power. Sun & Moon derive Chesta from Ayana/Paksha respectively.
+                BPHS Ch. 27 Geocentric Speed & Ashta Gati: Vakra (60v), Vikala (15v), Sama (30v at geocentric mean), Chara (45v cap). Sun & Moon derive Chesta from Ayana & un-doubled Paksha.
               </p>
             </div>
             <div className="p-2.5 rounded bg-slate-900/60 border border-slate-800/80">
@@ -105,7 +105,7 @@ export function ShadbalaTable({ shadbala }: ShadbalaTableProps) {
                 6. Drig Bala (Aspectual)
               </div>
               <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                Aspectual strength from all other planets. Special Parashari partial aspects included (Mars 4th/8th, Jupiter 5th/9th, Saturn 3rd/10th). Can be negative.
+                BPHS Ch. 27 Slokas 19-29 piecewise Drishti Kona (30-300 deg) with full special aspects (Mars 4th/8th, Jupiter 5th/9th, Saturn 3rd/10th = 60v) divided by 4.
               </p>
             </div>
           </div>
