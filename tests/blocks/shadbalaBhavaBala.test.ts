@@ -15,20 +15,19 @@ import {
   calculateDigBala,
   getVedicWeekdayAtJd,
   calculateKaalaBala,
-  calculateChestaBala,
+  chestaBala,
   calculateDrigBala,
   calculateDetailedDrigBala,
   calculatePanchadhaSaptavargaja,
   calculateYuddhaBala,
-  calculateAshtaGatiChestaBala,
   calculateIshtaKashtaFromShadbala,
   calculateShadbala,
   EXALTATION_DEG,
-  GEOCENTRIC_MEAN_SPEED,
   PlanetId,
   PlanetPositionInput,
   ShadbalaChartInput,
 } from "../../src/engine/chartblocks/shadbala.ts";
+import { calculateOuterPlanetChestaBala } from "../../src/engine/strength/chestaBala.ts";
 import {
   classifyBhavaSignNature,
   calculateSingleBhavaDigBala,
@@ -146,29 +145,14 @@ export function runShadbalaAndBhavaBalaTests(): void {
   assert.equal(chofuKaala.lords.vaaraLord, "Mercury");
   assert.equal(chofuKaala.lords.horaLord, "Sun");
 
-  // 6. Chesta Bala & Ashta Gati 8-State Machine
-  assert.equal(
-    calculateChestaBala(
-      {
-        planet: "Mercury",
-        lon: 165,
-        speed: GEOCENTRIC_MEAN_SPEED.Mercury,
-        retro: false,
-        house: 7,
-      },
-      30,
-      30
-    ),
-    30.0
-  );
-  assert.equal(calculateChestaBala(CHOFU_PLANETS[3]!, 30, 30), 45.0);
-  assert.equal(calculateChestaBala(CHOFU_PLANETS[6]!, 30, 30), 60.0);
-
-  const ashtaGati = calculateAshtaGatiChestaBala(CHOFU_PLANETS, 33.28, 20.99);
-  assert.equal(ashtaGati.byPlanet.Mars.gatiState, "Chara");
-  assert.equal(ashtaGati.byPlanet.Mercury.gatiState, "Atichara");
-  assert.equal(ashtaGati.byPlanet.Venus.gatiState, "Manda");
-  assert.equal(ashtaGati.byPlanet.Saturn.gatiState, "Vakra");
+  // 6. Chesta Bala (Method 2: Speed & Retrograde BPHS Classical)
+  assert.equal(calculateOuterPlanetChestaBala("Mars", -0.3), 60.0); // Retrograde
+  assert.equal(calculateOuterPlanetChestaBala("Venus", 0.024), 0.0); // Stationary (<5% mean)
+  assert.equal(calculateOuterPlanetChestaBala("Mars", 0.524), 60.0); // Mean speed direct
+  assert.equal(calculateOuterPlanetChestaBala("Mars", 0.262), 30.0); // Half speed direct
+  assert.equal(chestaBala("Sun", 0.98, 33.28, 20.99), 33.28);
+  assert.equal(chestaBala("Moon", 12.18, 33.28, 20.99), 20.99);
+  assert.equal(chestaBala("Saturn", -0.0718, 33.28, 20.99), 60.0);
 
   // 7. Drig Bala (Whole-House /4 Divisor & Degree-Based Piecewise Drishti Kona)
   const drigWhole = calculateDrigBala(CHOFU_PLANETS, "WHOLE_HOUSE");
@@ -215,8 +199,8 @@ export function runShadbalaAndBhavaBalaTests(): void {
   assert.equal(shadbala20Pt.results.Saturn.totalVirupas, 379.6);
 
   const ikOut = calculateIshtaKashtaFromShadbala(shadbala20Pt.results);
-  assert.equal(ikOut.byPlanet.Mercury.ishtaVirupas, 51.94);
-  assert.equal(ikOut.byPlanet.Jupiter.ishtaVirupas, 49.35);
+  assert.equal(ikOut.byPlanet.Mercury.ishtaVirupas, 42.41);
+  assert.equal(ikOut.byPlanet.Jupiter.ishtaVirupas, 40.30);
 
   const shadbalaPanchadha = calculateShadbala({
     ...CHOFU_CHART_INPUT,
@@ -225,10 +209,10 @@ export function runShadbalaAndBhavaBalaTests(): void {
   });
   assert.equal(shadbalaPanchadha.results.Sun.totalVirupas, 468.7);
   assert.equal(shadbalaPanchadha.results.Moon.totalVirupas, 434.5);
-  assert.equal(shadbalaPanchadha.results.Mars.totalVirupas, 340.8);
-  assert.equal(shadbalaPanchadha.results.Mercury.totalVirupas, 492.0);
-  assert.equal(shadbalaPanchadha.results.Jupiter.totalVirupas, 447.6);
-  assert.equal(shadbalaPanchadha.results.Venus.totalVirupas, 336.9);
+  assert.equal(shadbalaPanchadha.results.Mars.totalVirupas, 350.9);
+  assert.equal(shadbalaPanchadha.results.Mercury.totalVirupas, 477.0);
+  assert.equal(shadbalaPanchadha.results.Jupiter.totalVirupas, 432.6);
+  assert.equal(shadbalaPanchadha.results.Venus.totalVirupas, 350.7);
   assert.equal(shadbalaPanchadha.results.Saturn.totalVirupas, 366.1);
 
   for (const item of shadbalaPanchadha.ordered) {

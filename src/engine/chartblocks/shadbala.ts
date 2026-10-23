@@ -20,6 +20,7 @@ import type {
 } from "../../types/dssme-canonical-types.ts";
 import type { BlockContext, BlockResult } from "../blocks/blockTypes.ts";
 import { finalizeBlock, warningIssue } from "../blocks/blockResult.ts";
+import { calculateOuterPlanetChestaBala } from "../strength/chestaBala.ts";
 
 // ============================================================================
 // CORE TYPES & CONSTANTS (BPHS CHAPTER 3 & CHAPTER 27)
@@ -86,15 +87,6 @@ export const EXALTATION_DEG: Record<PlanetId, number> = {
   Jupiter: 95,  // 5 deg Cancer
   Venus: 357,   // 27 deg Pisces
   Saturn: 200,  // 20 deg Libra
-};
-
-// Geocentric mean daily motion (degrees/day) - corrects heliocentric Mercury/Venus bug
-export const GEOCENTRIC_MEAN_SPEED: Record<TaraGrahaId, number> = {
-  Mars: 0.5240,
-  Mercury: 0.9856,
-  Jupiter: 0.0831,
-  Venus: 0.9856,
-  Saturn: 0.0335,
 };
 
 // Sign rulers (0 = Aries ... 11 = Pisces)
@@ -1446,347 +1438,427 @@ export function calculateKaalaBala(chart: ShadbalaChartInput): KaalaBalaOutput {
 }
 
 // ============================================================================
-// 4. CHESTA BALA (P1 GEOCENTRIC SPEEDS & BPHS ASHTA GATI 8-STATE MACHINE)
+// 4. CHESTA BALA (BPHS CH. 27 SLOKAS 18, 21-25 CANONICAL IMPLEMENTATION)
 // ============================================================================
 
+/**
+ * BPHS 27.21-22: 8 States of Planetary Motion (Ashta-Gati) for the 5 Tara Grahas
+ */
 export type AshtaGatiState =
-  | "Vakra"
-  | "Anuvakra"
-  | "Vikala"
-  | "Mandatara"
-  | "Manda"
-  | "Sama"
-  | "Chara"
-  | "Atichara";
+  | "Vakra"      // ၁။ ဝကြ — လက်ရှိရာသီခွင်အတွင်း နောက်ပြန်သွားခြင်း (Full Retrograde)
+  | "Anuvakra"   // ၂။ အနုဝကြ — နောက်ပြန်သွားရင်း အရှေ့ရာသီခွင်သို့ ပြန်ဝင်ခြင်း
+  | "Vikala"     // ၃။ ဝိကလ (ကုဋိလ) — ရပ်တန့်နေခြင်း (Stationary: |R| < 0.05 or |v| < 1'/day)
+  | "Manda"      // ၄။ မန္ဒ — ပုံမှန်သွားနှုန်းထက် အနည်းငယ်နှေးကွေးခြင်း (0.50 <= R < 0.90)
+  | "Mandatara"  // ၅။ မန္ဒတရ — အလွန်နှေးကွေးခြင်း (0.05 <= R < 0.50)
+  | "Sama"       // ၆။ သမ — ပုံမှန်သွားနှုန်းအတိုင်း သွားနေခြင်း (0.90 <= R <= 1.10)
+  | "Chara"      // ၇။ စရ (သီဃြ) — ပုံမှန်သွားနှုန်းထက် မြန်ဆန်ခြင်း (1.10 < R <= 1.50)
+  | "Atichara";  // ၈။ အတိစရ — အလွန်မြန်သောအရှိန်ဖြင့် နောက်ရာသီသို့ ကျော်ဝင်ခြင်း (R > 1.50)
 
-export type LuminaryChestaState = "AyanaProxy" | "PakshaProxy";
+export type LuminaryChestaState = "AyanaBalaProxy" | "PakshaBalaProxy";
 export type PlanetGatiClassification = AshtaGatiState | LuminaryChestaState;
 
-export type AshtaGatiScalePreset =
-  | "BPHS_SLOKA_17"
-  | "SIDDHANTIC_MONOTONIC"
-  | "CONTINUOUS_HYBRID";
+/**
+ * Chesta Bala Calculation Mode:
+ *   - BPHS_ORIGINAL_27_23 : BPHS မူရင်းဂါထာ (27.23) တန်ဖိုးများ (60, 30, 15, 30, 15, 7.5, 45, 30)
+ *   - MODERN_SOFTWARE     : ခေတ်သစ် Software မူကွဲတန်ဖိုးများ (60, 30, 15, 15, 7.5, 30, 30, 45)
+ *   - METHOD_1_KENDRA     : BPHS (27.24-25) Seeghrocha / Chesta Kendra နည်းလမ်း (Chesta Kendra / 3)
+ */
+export type ChestaBalaMode =
+  | "BPHS_ORIGINAL_27_23"
+  | "MODERN_SOFTWARE"
+  | "METHOD_1_KENDRA";
+
+/**
+ * Geocentric Mean Daily Motion (degrees/day) for the 5 Tara Grahas
+ */
+export const TARA_MEAN_DAILY_SPEED_DEG: Record<TaraGrahaId, number> = {
+  Mars: 0.5240,    // 0° 31' 26"
+  Mercury: 0.9856, // 0° 59' 08" (Geocentric Mean)
+  Jupiter: 0.0831, // 0° 04' 59"
+  Venus: 0.9856,   // 0° 59' 08" (Geocentric Mean)
+  Saturn: 0.0335,  // 0° 02' 00"
+};
+
+/**
+ * Practical Maximum Daily Speed (degrees/day) for UI & reference diagnostics
+ */
+export const TARA_MAX_DAILY_SPEED_DEG: Record<TaraGrahaId, number> = {
+  Mars: 0.79,
+  Mercury: 2.20,
+  Jupiter: 0.24,
+  Venus: 1.25,
+  Saturn: 0.13,
+};
+
+/**
+ * BPHS Original Sloka 27.23 Virupa Table (R. Santhanam / G.C. Sharma)
+ * Sequence: Vakra=60, Anuvakra=30, Vikala=15, Manda=30, Mandatara=15, Sama=7.5, Chara=45, Atichara=30
+ */
+export const ASHTA_GATI_VIRUPAS_BPHS_ORIGINAL: Record<AshtaGatiState, number> = {
+  Vakra: 60.0,
+  Anuvakra: 30.0,
+  Vikala: 15.0,
+  Manda: 30.0,
+  Mandatara: 15.0,
+  Sama: 7.5,
+  Chara: 45.0,
+  Atichara: 30.0,
+};
+
+/**
+ * Modern Jyotish Software Variant Virupa Table
+ * Sequence: Vakra=60, Anuvakra=30, Vikala=15, Manda=15, Mandatara=7.5, Sama=30, Chara=30, Atichara=45
+ */
+export const ASHTA_GATI_VIRUPAS_MODERN_VARIANT: Record<AshtaGatiState, number> = {
+  Vakra: 60.0,
+  Anuvakra: 30.0,
+  Vikala: 15.0,
+  Manda: 15.0,
+  Mandatara: 7.5,
+  Sama: 30.0,
+  Chara: 30.0,
+  Atichara: 45.0,
+};
 
 export interface AshtaGatiThresholds {
+  /** Vikala stationary ratio cutoff (default 0.05 = 5% of mean speed) */
   vikalaMaxRatio: number;
+  /** Vikala absolute daily motion cutoff in degrees (default 1 arcminute = 1/60 deg) */
+  vikalaMaxAbsSpeedDeg: number;
+  /** Mandatara upper bound (default 0.50 = 50% of mean speed) */
   mandataraMaxRatio: number;
+  /** Manda upper bound (default 0.90 = 90% of mean speed) */
   mandaMaxRatio: number;
+  /** Sama upper bound (default 1.10 = 110% of mean speed) */
   samaMaxRatio: number;
+  /** Chara upper bound before Atichara (default 1.50 = 150% of mean speed) */
   charaMaxRatio: number;
-}
-
-export interface AshtaGatiPlanetInput extends PlanetPositionInput {
-  stationRetrogradeLon?: number;
-  isAnuvakra?: boolean;
-  isAtichara?: boolean;
-}
-
-export interface AshtaGatiOptions {
-  scalePreset?: AshtaGatiScalePreset;
-  thresholds?: Partial<AshtaGatiThresholds>;
-}
-
-export interface PlanetAshtaGatiResult {
-  planet: PlanetId;
-  gatiState: PlanetGatiClassification;
-  dailySpeedDeg: number;
-  meanSpeedDeg: number;
-  speedRatio: number;
-  isRetrograde: boolean;
-  currentRasi: RasiIndex;
-  stationRasi?: RasiIndex;
-  chestaBalaVirupas: number;
-}
-
-export interface AshtaGatiEngineOutput {
-  scalePreset: AshtaGatiScalePreset;
-  byPlanet: Record<PlanetId, PlanetAshtaGatiResult>;
-  ordered: PlanetAshtaGatiResult[];
 }
 
 export const DEFAULT_ASHTA_GATI_THRESHOLDS: Readonly<AshtaGatiThresholds> = {
   vikalaMaxRatio: 0.05,
+  vikalaMaxAbsSpeedDeg: 1.0 / 60.0, // 0° 01' (1 arcminute/day)
   mandataraMaxRatio: 0.50,
   mandaMaxRatio: 0.90,
   samaMaxRatio: 1.10,
   charaMaxRatio: 1.50,
 };
 
-export const ASHTA_GATI_VIRUPAS_BPHS_SLOKA_17: Record<AshtaGatiState, number> = {
-  Vakra: 60.0,
-  Anuvakra: 30.0,
-  Vikala: 15.0,
-  Manda: 30.0,
-  Mandatara: 7.5,
-  Sama: 15.0,
-  Chara: 45.0,
-  Atichara: 30.0,
-};
+export interface ChestaPlanetInput extends PlanetPositionInput {
+  /** Optional Day-2 longitude (if provided without speed, v = lonDay2 - lon) */
+  lonDay2?: number;
+  /** Optional longitude where retrograde station began (to detect Anuvakra sign change) */
+  stationRetrogradeLon?: number;
+  /** Explicit flag: retrograde planet crossed back into previous sign (Anuvakra) */
+  isAnuvakra?: boolean;
+  /** Explicit flag: accelerated planet crossed into next sign (Atichara) */
+  isAtichara?: boolean;
+  /** Optional Method 1 inputs: Mean Longitude (Madhyama) and Seeghrocha (degrees) */
+  meanLon?: number;
+  seeghrochaLon?: number;
+}
 
-export const ASHTA_GATI_VIRUPAS_SIDDHANTIC: Record<AshtaGatiState, number> = {
-  Vakra: 60.0,
-  Anuvakra: 30.0,
-  Vikala: 15.0,
-  Mandatara: 7.5,
-  Manda: 15.0,
-  Sama: 30.0,
-  Chara: 45.0,
-  Atichara: 30.0,
-};
-
-export function classifyTaraGrahaGati(
-  input: AshtaGatiPlanetInput & { planet: TaraGrahaId },
-  thresholds: AshtaGatiThresholds = DEFAULT_ASHTA_GATI_THRESHOLDS
-): {
-  gatiState: AshtaGatiState;
+export interface PlanetChestaBalaDetail {
+  planet: PlanetId;
+  mode: ChestaBalaMode;
+  gatiState: PlanetGatiClassification;
+  dailySpeedDeg: number;
   meanSpeedDeg: number;
   speedRatio: number;
   isRetrograde: boolean;
   currentRasi: RasiIndex;
-  stationRasi?: RasiIndex;
-} {
-  const {
-    planet,
-    lon,
-    speed,
-    retro,
-    stationRetrogradeLon,
-    isAnuvakra,
-    isAtichara,
-  } = input;
-
-  const meanSpeedDeg = GEOCENTRIC_MEAN_SPEED[planet];
-  const speedRatio = speed / meanSpeedDeg;
-  const absRatio = Math.abs(speedRatio);
-  const isRetrograde = Boolean(retro) || speed < 0;
-
-  const currentRasi = Math.floor(norm360(lon) / 30) as RasiIndex;
-  const stationRasi =
-    typeof stationRetrogradeLon === "number" &&
-    !Number.isNaN(stationRetrogradeLon)
-      ? (Math.floor(norm360(stationRetrogradeLon) / 30) as RasiIndex)
-      : undefined;
-
-  if (absRatio < thresholds.vikalaMaxRatio) {
-    return {
-      gatiState: "Vikala",
-      meanSpeedDeg,
-      speedRatio: round4(speedRatio),
-      isRetrograde,
-      currentRasi,
-      stationRasi,
-    };
-  }
-
-  if (isRetrograde) {
-    const crossedIntoPrevSign =
-      isAnuvakra === true ||
-      (stationRasi !== undefined && stationRasi !== currentRasi);
-
-    return {
-      gatiState: crossedIntoPrevSign ? "Anuvakra" : "Vakra",
-      meanSpeedDeg,
-      speedRatio: round4(speedRatio),
-      isRetrograde: true,
-      currentRasi,
-      stationRasi,
-    };
-  }
-
-  if (isAtichara === true || speedRatio > thresholds.charaMaxRatio) {
-    return {
-      gatiState: "Atichara",
-      meanSpeedDeg,
-      speedRatio: round4(speedRatio),
-      isRetrograde: false,
-      currentRasi,
-      stationRasi,
-    };
-  }
-
-  if (speedRatio > thresholds.samaMaxRatio) {
-    return {
-      gatiState: "Chara",
-      meanSpeedDeg,
-      speedRatio: round4(speedRatio),
-      isRetrograde: false,
-      currentRasi,
-      stationRasi,
-    };
-  }
-
-  if (speedRatio >= thresholds.mandaMaxRatio) {
-    return {
-      gatiState: "Sama",
-      meanSpeedDeg,
-      speedRatio: round4(speedRatio),
-      isRetrograde: false,
-      currentRasi,
-      stationRasi,
-    };
-  }
-
-  if (speedRatio >= thresholds.mandataraMaxRatio) {
-    return {
-      gatiState: "Manda",
-      meanSpeedDeg,
-      speedRatio: round4(speedRatio),
-      isRetrograde: false,
-      currentRasi,
-      stationRasi,
-    };
-  }
-
-  return {
-    gatiState: "Mandatara",
-    meanSpeedDeg,
-    speedRatio: round4(speedRatio),
-    isRetrograde: false,
-    currentRasi,
-    stationRasi,
-  };
+  chestaKendraDeg?: number;
+  chestaBalaVirupas: number;
+  chestaBalaRupas: number;
 }
 
-export function evaluateSinglePlanetAshtaGati(
-  input: AshtaGatiPlanetInput,
-  sunAyanaVirupas: number,
-  unDoubledMoonPakshaVirupas: number,
-  options: AshtaGatiOptions = {}
-): PlanetAshtaGatiResult {
-  const { scalePreset = "BPHS_SLOKA_17", thresholds: customThresholds } =
-    options;
-  const thresholds: AshtaGatiThresholds = {
-    ...DEFAULT_ASHTA_GATI_THRESHOLDS,
-    ...customThresholds,
-  };
+/**
+ * Compute True Daily Speed v = Longitude_Day2 - Longitude_Day1 (handling 360° wrap)
+ */
+export function computeDailySpeedFromLongitudes(
+  lonDay1: number,
+  lonDay2: number
+): number {
+  const diff = norm360(lonDay2) - norm360(lonDay1);
+  if (diff > 180) return diff - 360;
+  if (diff < -180) return diff + 360;
+  return round4(diff);
+}
 
-  const currentRasi = Math.floor(norm360(input.lon) / 30) as RasiIndex;
-
-  if (input.planet === "Sun") {
-    const sunMeanSpeed = 0.9856;
-    return {
-      planet: "Sun",
-      gatiState: "AyanaProxy",
-      dailySpeedDeg: input.speed,
-      meanSpeedDeg: sunMeanSpeed,
-      speedRatio: round4(input.speed / sunMeanSpeed),
-      isRetrograde: false,
-      currentRasi,
-      chestaBalaVirupas: round2(Math.max(0, Math.min(60, sunAyanaVirupas))),
-    };
-  }
-
-  if (input.planet === "Moon") {
-    const moonMeanSpeed = 13.1764;
-    return {
-      planet: "Moon",
-      gatiState: "PakshaProxy",
-      dailySpeedDeg: input.speed,
-      meanSpeedDeg: moonMeanSpeed,
-      speedRatio: round4(input.speed / moonMeanSpeed),
-      isRetrograde: false,
-      currentRasi,
-      chestaBalaVirupas: round2(
-        Math.max(0, Math.min(60, unDoubledMoonPakshaVirupas))
-      ),
-    };
-  }
-
-  const taraInput = input as AshtaGatiPlanetInput & { planet: TaraGrahaId };
-  const classified = classifyTaraGrahaGati(taraInput, thresholds);
-
-  let chestaBalaVirupas: number;
-  if (scalePreset === "SIDDHANTIC_MONOTONIC") {
-    chestaBalaVirupas = ASHTA_GATI_VIRUPAS_SIDDHANTIC[classified.gatiState];
-  } else if (scalePreset === "CONTINUOUS_HYBRID") {
-    if (
-      classified.gatiState === "Vakra" ||
-      classified.gatiState === "Anuvakra" ||
-      classified.gatiState === "Vikala"
-    ) {
-      chestaBalaVirupas =
-        ASHTA_GATI_VIRUPAS_BPHS_SLOKA_17[classified.gatiState];
-    } else {
-      chestaBalaVirupas = round2(
-        Math.min(45.0, Math.abs(classified.speedRatio) * 30.0)
-      );
-    }
-  } else {
-    chestaBalaVirupas = ASHTA_GATI_VIRUPAS_BPHS_SLOKA_17[classified.gatiState];
-  }
-
+/**
+ * BPHS Method 1 (Slokas 27.24-25): Seeghrocha / Chesta Kendra Formula
+ *   1. Average Longitude = (Mean Longitude + True Longitude) / 2
+ *   2. Chesta Kendra = |Seeghrocha - Average Longitude| reduced to [0°, 180°]
+ *   3. Chesta Bala (Virupas) = Chesta Kendra / 3
+ */
+export function calculateMethod1ChestaKendraBala(
+  trueLonDeg: number,
+  meanLonDeg: number,
+  seeghrochaLonDeg: number
+): { chestaKendraDeg: number; chestaBalaVirupas: number; chestaBalaRupas: number } {
+  const avgLon = (norm360(meanLonDeg) + norm360(trueLonDeg)) / 2.0;
+  const chestaKendraDeg = shortestArc(seeghrochaLonDeg, avgLon);
+  const chestaBalaVirupas = round2(Math.max(0, Math.min(60, chestaKendraDeg / 3.0)));
   return {
-    planet: input.planet,
-    gatiState: classified.gatiState,
-    dailySpeedDeg: input.speed,
-    meanSpeedDeg: classified.meanSpeedDeg,
-    speedRatio: classified.speedRatio,
-    isRetrograde: classified.isRetrograde,
-    currentRasi: classified.currentRasi,
-    stationRasi: classified.stationRasi,
+    chestaKendraDeg: round4(chestaKendraDeg),
     chestaBalaVirupas,
-  };
-}
-
-export function calculateAshtaGatiChestaBala(
-  planets: readonly AshtaGatiPlanetInput[],
-  sunAyanaVirupas: number,
-  unDoubledMoonPakshaVirupas: number,
-  options: AshtaGatiOptions = {}
-): AshtaGatiEngineOutput {
-  const scalePreset = options.scalePreset ?? "BPHS_SLOKA_17";
-  const byPlanet = {} as Record<PlanetId, PlanetAshtaGatiResult>;
-  const ordered: PlanetAshtaGatiResult[] = [];
-
-  for (const planetId of PLANET_ORDER) {
-    const pos = planets.find((p) => p.planet === planetId);
-    if (!pos) {
-      throw new Error(`Missing planet position for ${planetId}`);
-    }
-
-    const res = evaluateSinglePlanetAshtaGati(
-      pos,
-      sunAyanaVirupas,
-      unDoubledMoonPakshaVirupas,
-      options
-    );
-    byPlanet[planetId] = res;
-    ordered.push(res);
-  }
-
-  return {
-    scalePreset,
-    byPlanet,
-    ordered,
+    chestaBalaRupas: round4(chestaBalaVirupas / 60.0),
   };
 }
 
 /**
- * Component 4: Chesta Bala
- *   - Sun: Ayana Bala [0, 60]
- *   - Moon: Un-doubled Paksha Bala [0, 60]
- *   - Tara Grahas: Geocentric speed ratio with Vakra=60, Vikala=15, Sama=30 at mean, Chara=45 cap
+ * BPHS Method 2 (Slokas 27.21-23): Classify Tara Graha into 1 of the 8 Ashta-Gati states
+ */
+export function classifyTaraGrahaAshtaGati(
+  input: ChestaPlanetInput & { planet: TaraGrahaId },
+  thresholds: AshtaGatiThresholds = DEFAULT_ASHTA_GATI_THRESHOLDS
+): {
+  gatiState: AshtaGatiState;
+  dailySpeedDeg: number;
+  meanSpeedDeg: number;
+  speedRatio: number;
+  isRetrograde: boolean;
+  currentRasi: RasiIndex;
+} {
+  const dailySpeedDeg =
+    typeof input.lonDay2 === "number" && !Number.isNaN(input.lonDay2)
+      ? computeDailySpeedFromLongitudes(input.lon, input.lonDay2)
+      : input.speed;
+
+  const meanSpeedDeg = TARA_MEAN_DAILY_SPEED_DEG[input.planet];
+  const speedRatio = dailySpeedDeg / meanSpeedDeg;
+  const absSpeed = Math.abs(dailySpeedDeg);
+  const absRatio = Math.abs(speedRatio);
+  const isRetrograde = Boolean(input.retro) || dailySpeedDeg < 0;
+
+  const currentRasi = Math.floor(norm360(input.lon) / 30) as RasiIndex;
+  const stationRasi =
+    typeof input.stationRetrogradeLon === "number" &&
+    !Number.isNaN(input.stationRetrogradeLon)
+      ? (Math.floor(norm360(input.stationRetrogradeLon) / 30) as RasiIndex)
+      : undefined;
+
+  // 1. Vikala (Stationary): |R| < 0.05 OR |v| < 0°01' (1 arcminute/day)
+  if (
+    absRatio < thresholds.vikalaMaxRatio ||
+    absSpeed < thresholds.vikalaMaxAbsSpeedDeg
+  ) {
+    return {
+      gatiState: "Vikala",
+      dailySpeedDeg,
+      meanSpeedDeg,
+      speedRatio: round4(speedRatio),
+      isRetrograde,
+      currentRasi,
+    };
+  }
+
+  // 2 & 3. Retrograde States: Anuvakra (previous sign re-entry) vs Vakra (same sign)
+  if (isRetrograde) {
+    const crossedIntoPreviousSign =
+      input.isAnuvakra === true ||
+      (stationRasi !== undefined && stationRasi !== currentRasi);
+
+    return {
+      gatiState: crossedIntoPreviousSign ? "Anuvakra" : "Vakra",
+      dailySpeedDeg,
+      meanSpeedDeg,
+      speedRatio: round4(speedRatio),
+      isRetrograde: true,
+      currentRasi,
+    };
+  }
+
+  // 4. Mandatara: 0.05 <= R < 0.50
+  if (speedRatio < thresholds.mandataraMaxRatio) {
+    return {
+      gatiState: "Mandatara",
+      dailySpeedDeg,
+      meanSpeedDeg,
+      speedRatio: round4(speedRatio),
+      isRetrograde: false,
+      currentRasi,
+    };
+  }
+
+  // 5. Manda: 0.50 <= R < 0.90
+  if (speedRatio < thresholds.mandaMaxRatio) {
+    return {
+      gatiState: "Manda",
+      dailySpeedDeg,
+      meanSpeedDeg,
+      speedRatio: round4(speedRatio),
+      isRetrograde: false,
+      currentRasi,
+    };
+  }
+
+  // 6. Sama: 0.90 <= R <= 1.10
+  if (speedRatio <= thresholds.samaMaxRatio) {
+    return {
+      gatiState: "Sama",
+      dailySpeedDeg,
+      meanSpeedDeg,
+      speedRatio: round4(speedRatio),
+      isRetrograde: false,
+      currentRasi,
+    };
+  }
+
+  // 7 & 8. Chara vs Atichara: R > 1.50 or explicit accelerated sign entry -> Atichara
+  if (input.isAtichara === true || speedRatio > thresholds.charaMaxRatio) {
+    return {
+      gatiState: "Atichara",
+      dailySpeedDeg,
+      meanSpeedDeg,
+      speedRatio: round4(speedRatio),
+      isRetrograde: false,
+      currentRasi,
+    };
+  }
+
+  return {
+    gatiState: "Chara",
+    dailySpeedDeg,
+    meanSpeedDeg,
+    speedRatio: round4(speedRatio),
+    isRetrograde: false,
+    currentRasi,
+  };
+}
+
+/**
+ * Evaluate full Chesta Bala detail for any of the 7 classical planets
+ */
+export function evaluatePlanetChestaBala(
+  pos: ChestaPlanetInput,
+  sunAyanaBala: number,
+  unDoubledMoonPakshaBala: number,
+  mode: ChestaBalaMode = "BPHS_ORIGINAL_27_23",
+  thresholds: AshtaGatiThresholds = DEFAULT_ASHTA_GATI_THRESHOLDS
+): PlanetChestaBalaDetail {
+  const currentRasi = Math.floor(norm360(pos.lon) / 30) as RasiIndex;
+
+  // BPHS 27.18: Sun's Chesta Bala = Ayana Bala
+  if (pos.planet === "Sun") {
+    const virupas = round2(Math.max(0, Math.min(60, sunAyanaBala)));
+    return {
+      planet: "Sun",
+      mode,
+      gatiState: "AyanaBalaProxy",
+      dailySpeedDeg: pos.speed,
+      meanSpeedDeg: 0.9856,
+      speedRatio: round4(pos.speed / 0.9856),
+      isRetrograde: false,
+      currentRasi,
+      chestaBalaVirupas: virupas,
+      chestaBalaRupas: round4(virupas / 60.0),
+    };
+  }
+
+  // BPHS 27.18: Moon's Chesta Bala = Paksha Bala (un-doubled)
+  if (pos.planet === "Moon") {
+    const virupas = round2(Math.max(0, Math.min(60, unDoubledMoonPakshaBala)));
+    return {
+      planet: "Moon",
+      mode,
+      gatiState: "PakshaBalaProxy",
+      dailySpeedDeg: pos.speed,
+      meanSpeedDeg: 13.1764,
+      speedRatio: round4(pos.speed / 13.1764),
+      isRetrograde: false,
+      currentRasi,
+      chestaBalaVirupas: virupas,
+      chestaBalaRupas: round4(virupas / 60.0),
+    };
+  }
+
+  const taraPos = pos as ChestaPlanetInput & { planet: TaraGrahaId };
+  const classified = classifyTaraGrahaAshtaGati(taraPos, thresholds);
+
+  // Optional Method 1 (Seeghrocha / Chesta Kendra) if requested and inputs exist
+  if (
+    mode === "METHOD_1_KENDRA" &&
+    typeof pos.meanLon === "number" &&
+    typeof pos.seeghrochaLon === "number"
+  ) {
+    const kendraOut = calculateMethod1ChestaKendraBala(
+      pos.lon,
+      pos.meanLon,
+      pos.seeghrochaLon
+    );
+    return {
+      planet: pos.planet,
+      mode,
+      gatiState: classified.gatiState,
+      dailySpeedDeg: classified.dailySpeedDeg,
+      meanSpeedDeg: classified.meanSpeedDeg,
+      speedRatio: classified.speedRatio,
+      isRetrograde: classified.isRetrograde,
+      currentRasi: classified.currentRasi,
+      chestaKendraDeg: kendraOut.chestaKendraDeg,
+      chestaBalaVirupas: kendraOut.chestaBalaVirupas,
+      chestaBalaRupas: kendraOut.chestaBalaRupas,
+    };
+  }
+
+  const virupaTable =
+    mode === "MODERN_SOFTWARE"
+      ? ASHTA_GATI_VIRUPAS_MODERN_VARIANT
+      : ASHTA_GATI_VIRUPAS_BPHS_ORIGINAL;
+
+  const chestaBalaVirupas = virupaTable[classified.gatiState];
+
+  return {
+    planet: pos.planet,
+    mode,
+    gatiState: classified.gatiState,
+    dailySpeedDeg: classified.dailySpeedDeg,
+    meanSpeedDeg: classified.meanSpeedDeg,
+    speedRatio: classified.speedRatio,
+    isRetrograde: classified.isRetrograde,
+    currentRasi: classified.currentRasi,
+    chestaBalaVirupas,
+    chestaBalaRupas: round4(chestaBalaVirupas / 60.0),
+  };
+}
+
+/**
+ * Component 4 Entry Point used by `calculateShadbala()`
  */
 export function calculateChestaBala(
-  pos: PlanetPositionInput,
+  pos: ChestaPlanetInput,
   sunAyanaBala: number,
-  unDoubledMoonPakshaBala: number
+  unDoubledMoonPakshaBala: number,
+  mode: ChestaBalaMode = "BPHS_ORIGINAL_27_23"
 ): number {
-  if (pos.planet === "Sun") return round2(sunAyanaBala);
-  if (pos.planet === "Moon") return round2(unDoubledMoonPakshaBala);
-
-  const meanSpeed = GEOCENTRIC_MEAN_SPEED[pos.planet];
-  const absSpeed = Math.abs(pos.speed);
-
-  if (absSpeed < meanSpeed * 0.05) {
-    return 15.0; // Vikala (Stationary)
-  }
-  if (pos.retro || pos.speed < 0) {
-    return 60.0; // Vakra (Retrograde)
-  }
-
-  return round2(Math.min(45.0, (absSpeed / meanSpeed) * 30.0));
+  return evaluatePlanetChestaBala(
+    pos,
+    sunAyanaBala,
+    unDoubledMoonPakshaBala,
+    mode
+  ).chestaBalaVirupas;
 }
+
+/**
+ * Convenience wrapper for Chesta Bala by planet name and speed.
+ */
+export function chestaBala(
+  planet: ClassicalPlanet,
+  speedLon: number,
+  sunAyanaBala: number,
+  moonPakshaBala: number,
+  mode: ChestaBalaMode = "BPHS_ORIGINAL_27_23"
+): number {
+  return calculateChestaBala(
+    { planet, speed: speedLon, lon: 0, house: 1 },
+    sunAyanaBala,
+    moonPakshaBala,
+    mode
+  );
+}
+
+
 
 // ============================================================================
 // 6. DRIG BALA (P0 DIVISOR & BPHS CH. 27 PIECEWISE EQUATIONS)

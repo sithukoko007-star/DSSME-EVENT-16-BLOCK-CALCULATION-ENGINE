@@ -1,0 +1,902 @@
+သင်ပေးပို့ထားသော **Brihat Parashara Hora Shastra (BPHS) အခန်း (၂၇)၊ ဂါထာ (၂၁ မှ ၂၅)** စံနှုန်းများနှင့် လက်ရှိ `src/engine/chartblocks/shadbala.ts` ဖိုင်အတွင်းရှိ ကုဒ်အဟောင်းတို့ကို တိုက်ဆိုင်စစ်ဆေးပြီး၊ ကုဒ်အဟောင်းများကို ဖယ်ရှားကာ အသစ်ပြန်လည်ရေးသားထားသော **TypeScript Engine ကုဒ်** နှင့် **Interactive Calculator UI Component** တို့ကို အောက်ပါအတိုင်း ပြင်ဆင်ပေးထားပါသည်။
+
+---
+
+## ၁။ ကုဒ်အဟောင်း (`shadbala.ts`) တွင် တွေ့ရှိရသော အမှားများနှင့် BPHS စံနှုန်း ကွာဟချက်များ
+
+လက်ရှိ `shadbala.ts` ဖိုင်အတွင်းရှိ ဖျက်ပစ်ရမည့် ကုဒ်အဟောင်းတွင် အောက်ပါ အဓိက လွဲမှားမှု (၄) ချက် ရှိနေသည်ကို တွေ့ရှိရပါသည် -
+
+1. **ပင်မ `calculateShadbala()` တွင် ဂတိ (၈) မျိုးကို လုံးဝသုံးမထားခြင်း**:
+* `calculateShadbala()` သည် အဆင့် (၈) ဆင့်ပါဝင်သော Ashta-Gati ဖန်ရှင်ကို မခေါ်ဘဲ `calculateChestaBala()` ဟူသော အနီးစပ်ဆုံးဖော်မြူလာ (`Math.min(45.0, (absSpeed / meanSpeed) * 30.0)`) ကိုသာ ခေါ်ယူအသုံးပြုထားပါသည်။
+
+
+
+
+2. **BPHS မူရင်း Virupa တန်ဖိုးများ မှားယွင်းနေခြင်း**:
+* ကုဒ်အဟောင်း၏ `ASHTA_GATI_VIRUPAS_BPHS_SLOKA_17` တွင် `Mandatara: 7.5` နှင့် `Sama: 15.0` ဟု မှားယွင်းသတ်မှတ်ထားပါသည်။
+
+
+* သင်ပေးပို့သော BPHS မူရင်းဂါထာ (27.23) အရ `Mandatara = 15.0 Virupas` ဖြစ်ရမည်ဖြစ်ပြီး ပုံမှန်သွားနှုန်း `Sama = 7.5 Virupas` သာ ဖြစ်ရပါမည်။
+
+
+3. **ခေတ်သစ် Software မူကွဲတန်ဖိုးများ ပြောင်းပြန်ဖြစ်နေခြင်း**:
+* ကုဒ်အဟောင်း၏ `ASHTA_GATI_VIRUPAS_SIDDHANTIC` တွင် `Chara: 45.0` နှင့် `Atichara: 30.0` ဟု ပြောင်းပြန်ရေးသားထားပါသည်။
+
+
+* ခေတ်သစ် Software မူကွဲအရ `Chara = 30.0 Virupas` နှင့် `Atichara = 45.0 Virupas` ဖြစ်ရပါမည်။
+
+
+4. **Vikala (ရပ်တန့်နေချိန်) စစ်ဆေးမှု မပြည့်စုံခြင်း**:
+* ကုဒ်အဟောင်းတွင် `absRatio < 0.05` တစ်ခုတည်းကိုသာ စစ်ဆေးထားပြီး၊ တစ်နေ့တာရွေ့လျားမှု ၁ မိနစ် ($0^\circ 01' = \frac{1}{60}^\circ \approx 0.01667^\circ\text{/day}$) အောက် ရောက်နေချိန် စည်းမျဉ်း မပါဝင်သေးပါ။
+
+
+
+
+
+---
+
+## ၂။ အသစ်ပြန်လည်ရေးသားထားသော Chesta Bala TypeScript ကုဒ် (`shadbala.ts` အတွက်)
+
+`src/engine/chartblocks/shadbala.ts` ရှိ Section 4 ကုဒ်အဟောင်း တစ်ခုလုံးကို ဖျက်၍ အောက်ပါ BPHS (27.18–25) အတိအကျ ကုဒ်အသစ်ဖြင့် အစားထိုးနိုင်ပါသည်။ ဤကုဒ်အသစ်တွင် **Method 2 (Ashta-Gati 8-State: BPHS Original နှင့် Modern Software Variant)** သာမက **Method 1 (Seeghrocha / Chesta Kendra)** ကိုပါ တစ်ပါတည်း ထည့်သွင်းပေးထားပြီး ပင်မ `calculateShadbala()` နှင့် တိုက်ရိုက်ချိတ်ဆက်ထားပါသည်။
+
+```typescript
+// ============================================================================
+// 4. CHESTA BALA (BPHS CH. 27 SLOKAS 18, 21-25 CANONICAL IMPLEMENTATION)
+// ============================================================================
+
+/**
+ * BPHS 27.21-22: 8 States of Planetary Motion (Ashta-Gati) for the 5 Tara Grahas
+ */
+export type AshtaGatiState =
+  | "Vakra"      // ၁။ ဝကြ — လက်ရှိရာသီခွင်အတွင်း နောက်ပြန်သွားခြင်း (Full Retrograde)
+  | "Anuvakra"   // ၂။ အနုဝကြ — နောက်ပြန်သွားရင်း အရှေ့ရာသီခွင်သို့ ပြန်ဝင်ခြင်း
+  | "Vikala"     // ၃။ ဝိကလ (ကုဋိလ) — ရပ်တန့်နေခြင်း (Stationary: |R| < 0.05 or |v| < 1'/day)
+  | "Manda"      // ၄။ မန္ဒ — ပုံမှန်သွားနှုန်းထက် အနည်းငယ်နှေးကွေးခြင်း (0.50 <= R < 0.90)
+  | "Mandatara"  // ၅။ မန္ဒတရ — အလွန်နှေးကွေးခြင်း (0.05 <= R < 0.50)
+  | "Sama"       // ၆။ သမ — ပုံမှန်သွားနှုန်းအတိုင်း သွားနေခြင်း (0.90 <= R <= 1.10)
+  | "Chara"      // ၇။ စရ (သီဃြ) — ပုံမှန်သွားနှုန်းထက် မြန်ဆန်ခြင်း (1.10 < R <= 1.50)
+  | "Atichara";  // ၈။ အတိစရ — အလွန်မြန်သောအရှိန်ဖြင့် နောက်ရာသီသို့ ကျော်ဝင်ခြင်း (R > 1.50)
+
+export type LuminaryChestaState = "AyanaBalaProxy" | "PakshaBalaProxy";
+export type PlanetGatiClassification = AshtaGatiState | LuminaryChestaState;
+
+/**
+ * Chesta Bala Calculation Mode:
+ *   - BPHS_ORIGINAL_27_23 : BPHS မူရင်းဂါထာ (27.23) တန်ဖိုးများ (60, 30, 15, 30, 15, 7.5, 45, 30)
+ *   - MODERN_SOFTWARE     : ခေတ်သစ် Software မူကွဲတန်ဖိုးများ (60, 30, 15, 15, 7.5, 30, 30, 45)
+ *   - METHOD_1_KENDRA     : BPHS (27.24-25) Seeghrocha / Chesta Kendra နည်းလမ်း (Chesta Kendra / 3)
+ */
+export type ChestaBalaMode =
+  | "BPHS_ORIGINAL_27_23"
+  | "MODERN_SOFTWARE"
+  | "METHOD_1_KENDRA";
+
+/**
+ * Geocentric Mean Daily Motion (degrees/day) for the 5 Tara Grahas
+ */
+export const TARA_MEAN_DAILY_SPEED_DEG: Record<TaraGrahaId, number> = {
+  Mars: 0.5240,    // 0° 31' 26"
+  Mercury: 0.9856, // 0° 59' 08" (Geocentric Mean)
+  Jupiter: 0.0831, // 0° 04' 59"
+  Venus: 0.9856,   // 0° 59' 08" (Geocentric Mean)
+  Saturn: 0.0335,  // 0° 02' 00"
+};
+
+/**
+ * Practical Maximum Daily Speed (degrees/day) for UI & reference diagnostics
+ */
+export const TARA_MAX_DAILY_SPEED_DEG: Record<TaraGrahaId, number> = {
+  Mars: 0.79,
+  Mercury: 2.20,
+  Jupiter: 0.24,
+  Venus: 1.25,
+  Saturn: 0.13,
+};
+
+/**
+ * BPHS Original Sloka 27.23 Virupa Table (R. Santhanam / G.C. Sharma)
+ * Sequence: Vakra=60, Anuvakra=30, Vikala=15, Manda=30, Mandatara=15, Sama=7.5, Chara=45, Atichara=30
+ */
+export const ASHTA_GATI_VIRUPAS_BPHS_ORIGINAL: Record<AshtaGatiState, number> = {
+  Vakra: 60.0,
+  Anuvakra: 30.0,
+  Vikala: 15.0,
+  Manda: 30.0,
+  Mandatara: 15.0,
+  Sama: 7.5,
+  Chara: 45.0,
+  Atichara: 30.0,
+};
+
+/**
+ * Modern Jyotish Software Variant Virupa Table
+ * Sequence: Vakra=60, Anuvakra=30, Vikala=15, Manda=15, Mandatara=7.5, Sama=30, Chara=30, Atichara=45
+ */
+export const ASHTA_GATI_VIRUPAS_MODERN_VARIANT: Record<AshtaGatiState, number> = {
+  Vakra: 60.0,
+  Anuvakra: 30.0,
+  Vikala: 15.0,
+  Manda: 15.0,
+  Mandatara: 7.5,
+  Sama: 30.0,
+  Chara: 30.0,
+  Atichara: 45.0,
+};
+
+export interface AshtaGatiThresholds {
+  /** Vikala stationary ratio cutoff (default 0.05 = 5% of mean speed) */
+  vikalaMaxRatio: number;
+  /** Vikala absolute daily motion cutoff in degrees (default 1 arcminute = 1/60 deg) */
+  vikalaMaxAbsSpeedDeg: number;
+  /** Mandatara upper bound (default 0.50 = 50% of mean speed) */
+  mandataraMaxRatio: number;
+  /** Manda upper bound (default 0.90 = 90% of mean speed) */
+  mandaMaxRatio: number;
+  /** Sama upper bound (default 1.10 = 110% of mean speed) */
+  samaMaxRatio: number;
+  /** Chara upper bound before Atichara (default 1.50 = 150% of mean speed) */
+  charaMaxRatio: number;
+}
+
+export const DEFAULT_ASHTA_GATI_THRESHOLDS: Readonly<AshtaGatiThresholds> = {
+  vikalaMaxRatio: 0.05,
+  vikalaMaxAbsSpeedDeg: 1.0 / 60.0, // 0° 01' (1 arcminute/day)
+  mandataraMaxRatio: 0.50,
+  mandaMaxRatio: 0.90,
+  samaMaxRatio: 1.10,
+  charaMaxRatio: 1.50,
+};
+
+export interface ChestaPlanetInput extends PlanetPositionInput {
+  /** Optional Day-2 longitude (if provided without speed, v = lonDay2 - lon) */
+  lonDay2?: number;
+  /** Optional longitude where retrograde station began (to detect Anuvakra sign change) */
+  stationRetrogradeLon?: number;
+  /** Explicit flag: retrograde planet crossed back into previous sign (Anuvakra) */
+  isAnuvakra?: boolean;
+  /** Explicit flag: accelerated planet crossed into next sign (Atichara) */
+  isAtichara?: boolean;
+  /** Optional Method 1 inputs: Mean Longitude (Madhyama) and Seeghrocha (degrees) */
+  meanLon?: number;
+  seeghrochaLon?: number;
+}
+
+export interface PlanetChestaBalaDetail {
+  planet: PlanetId;
+  mode: ChestaBalaMode;
+  gatiState: PlanetGatiClassification;
+  dailySpeedDeg: number;
+  meanSpeedDeg: number;
+  speedRatio: number;
+  isRetrograde: boolean;
+  currentRasi: RasiIndex;
+  chestaKendraDeg?: number;
+  chestaBalaVirupas: number;
+  chestaBalaRupas: number;
+}
+
+/**
+ * Compute True Daily Speed v = Longitude_Day2 - Longitude_Day1 (handling 360° wrap)
+ */
+export function computeDailySpeedFromLongitudes(
+  lonDay1: number,
+  lonDay2: number
+): number {
+  const diff = norm360(lonDay2) - norm360(lonDay1);
+  if (diff > 180) return diff - 360;
+  if (diff < -180) return diff + 360;
+  return round4(diff);
+}
+
+/**
+ * BPHS Method 1 (Slokas 27.24-25): Seeghrocha / Chesta Kendra Formula
+ *   1. Average Longitude = (Mean Longitude + True Longitude) / 2
+ *   2. Chesta Kendra = |Seeghrocha - Average Longitude| reduced to [0°, 180°]
+ *   3. Chesta Bala (Virupas) = Chesta Kendra / 3
+ */
+export function calculateMethod1ChestaKendraBala(
+  trueLonDeg: number,
+  meanLonDeg: number,
+  seeghrochaLonDeg: number
+): { chestaKendraDeg: number; chestaBalaVirupas: number; chestaBalaRupas: number } {
+  const avgLon = (norm360(meanLonDeg) + norm360(trueLonDeg)) / 2.0;
+  const chestaKendraDeg = shortestArc(seeghrochaLonDeg, avgLon);
+  const chestaBalaVirupas = round2(Math.max(0, Math.min(60, chestaKendraDeg / 3.0)));
+  return {
+    chestaKendraDeg: round4(chestaKendraDeg),
+    chestaBalaVirupas,
+    chestaBalaRupas: round4(chestaBalaVirupas / 60.0),
+  };
+}
+
+/**
+ * BPHS Method 2 (Slokas 27.21-23): Classify Tara Graha into 1 of the 8 Ashta-Gati states
+ */
+export function classifyTaraGrahaAshtaGati(
+  input: ChestaPlanetInput & { planet: TaraGrahaId },
+  thresholds: AshtaGatiThresholds = DEFAULT_ASHTA_GATI_THRESHOLDS
+): {
+  gatiState: AshtaGatiState;
+  dailySpeedDeg: number;
+  meanSpeedDeg: number;
+  speedRatio: number;
+  isRetrograde: boolean;
+  currentRasi: RasiIndex;
+} {
+  const dailySpeedDeg =
+    typeof input.lonDay2 === "number" && !Number.isNaN(input.lonDay2)
+      ? computeDailySpeedFromLongitudes(input.lon, input.lonDay2)
+      : input.speed;
+
+  const meanSpeedDeg = TARA_MEAN_DAILY_SPEED_DEG[input.planet];
+  const speedRatio = dailySpeedDeg / meanSpeedDeg;
+  const absSpeed = Math.abs(dailySpeedDeg);
+  const absRatio = Math.abs(speedRatio);
+  const isRetrograde = Boolean(input.retro) || dailySpeedDeg < 0;
+
+  const currentRasi = Math.floor(norm360(input.lon) / 30) as RasiIndex;
+  const stationRasi =
+    typeof input.stationRetrogradeLon === "number" &&
+    !Number.isNaN(input.stationRetrogradeLon)
+      ? (Math.floor(norm360(input.stationRetrogradeLon) / 30) as RasiIndex)
+      : undefined;
+
+  // 1. Vikala (Stationary): |R| < 0.05 OR |v| < 0°01' (1 arcminute/day)
+  if (
+    absRatio < thresholds.vikalaMaxRatio ||
+    absSpeed < thresholds.vikalaMaxAbsSpeedDeg
+  ) {
+    return {
+      gatiState: "Vikala",
+      dailySpeedDeg,
+      meanSpeedDeg,
+      speedRatio: round4(speedRatio),
+      isRetrograde,
+      currentRasi,
+    };
+  }
+
+  // 2 & 3. Retrograde States: Anuvakra (previous sign re-entry) vs Vakra (same sign)
+  if (isRetrograde) {
+    const crossedIntoPreviousSign =
+      input.isAnuvakra === true ||
+      (stationRasi !== undefined && stationRasi !== currentRasi);
+
+    return {
+      gatiState: crossedIntoPreviousSign ? "Anuvakra" : "Vakra",
+      dailySpeedDeg,
+      meanSpeedDeg,
+      speedRatio: round4(speedRatio),
+      isRetrograde: true,
+      currentRasi,
+    };
+  }
+
+  // 4. Mandatara: 0.05 <= R < 0.50
+  if (speedRatio < thresholds.mandataraMaxRatio) {
+    return {
+      gatiState: "Mandatara",
+      dailySpeedDeg,
+      meanSpeedDeg,
+      speedRatio: round4(speedRatio),
+      isRetrograde: false,
+      currentRasi,
+    };
+  }
+
+  // 5. Manda: 0.50 <= R < 0.90
+  if (speedRatio < thresholds.mandaMaxRatio) {
+    return {
+      gatiState: "Manda",
+      dailySpeedDeg,
+      meanSpeedDeg,
+      speedRatio: round4(speedRatio),
+      isRetrograde: false,
+      currentRasi,
+    };
+  }
+
+  // 6. Sama: 0.90 <= R <= 1.10
+  if (speedRatio <= thresholds.samaMaxRatio) {
+    return {
+      gatiState: "Sama",
+      dailySpeedDeg,
+      meanSpeedDeg,
+      speedRatio: round4(speedRatio),
+      isRetrograde: false,
+      currentRasi,
+    };
+  }
+
+  // 7 & 8. Chara vs Atichara: R > 1.50 or explicit accelerated sign entry -> Atichara
+  if (input.isAtichara === true || speedRatio > thresholds.charaMaxRatio) {
+    return {
+      gatiState: "Atichara",
+      dailySpeedDeg,
+      meanSpeedDeg,
+      speedRatio: round4(speedRatio),
+      isRetrograde: false,
+      currentRasi,
+    };
+  }
+
+  return {
+    gatiState: "Chara",
+    dailySpeedDeg,
+    meanSpeedDeg,
+    speedRatio: round4(speedRatio),
+    isRetrograde: false,
+    currentRasi,
+  };
+}
+
+/**
+ * Evaluate full Chesta Bala detail for any of the 7 classical planets
+ */
+export function evaluatePlanetChestaBala(
+  pos: ChestaPlanetInput,
+  sunAyanaBala: number,
+  unDoubledMoonPakshaBala: number,
+  mode: ChestaBalaMode = "BPHS_ORIGINAL_27_23",
+  thresholds: AshtaGatiThresholds = DEFAULT_ASHTA_GATI_THRESHOLDS
+): PlanetChestaBalaDetail {
+  const currentRasi = Math.floor(norm360(pos.lon) / 30) as RasiIndex;
+
+  // BPHS 27.18: Sun's Chesta Bala = Ayana Bala
+  if (pos.planet === "Sun") {
+    const virupas = round2(Math.max(0, Math.min(60, sunAyanaBala)));
+    return {
+      planet: "Sun",
+      mode,
+      gatiState: "AyanaBalaProxy",
+      dailySpeedDeg: pos.speed,
+      meanSpeedDeg: 0.9856,
+      speedRatio: round4(pos.speed / 0.9856),
+      isRetrograde: false,
+      currentRasi,
+      chestaBalaVirupas: virupas,
+      chestaBalaRupas: round4(virupas / 60.0),
+    };
+  }
+
+  // BPHS 27.18: Moon's Chesta Bala = Paksha Bala (un-doubled)
+  if (pos.planet === "Moon") {
+    const virupas = round2(Math.max(0, Math.min(60, unDoubledMoonPakshaBala)));
+    return {
+      planet: "Moon",
+      mode,
+      gatiState: "PakshaBalaProxy",
+      dailySpeedDeg: pos.speed,
+      meanSpeedDeg: 13.1764,
+      speedRatio: round4(pos.speed / 13.1764),
+      isRetrograde: false,
+      currentRasi,
+      chestaBalaVirupas: virupas,
+      chestaBalaRupas: round4(virupas / 60.0),
+    };
+  }
+
+  const taraPos = pos as ChestaPlanetInput & { planet: TaraGrahaId };
+  const classified = classifyTaraGrahaAshtaGati(taraPos, thresholds);
+
+  // Optional Method 1 (Seeghrocha / Chesta Kendra) if requested and inputs exist
+  if (
+    mode === "METHOD_1_KENDRA" &&
+    typeof pos.meanLon === "number" &&
+    typeof pos.seeghrochaLon === "number"
+  ) {
+    const kendraOut = calculateMethod1ChestaKendraBala(
+      pos.lon,
+      pos.meanLon,
+      pos.seeghrochaLon
+    );
+    return {
+      planet: pos.planet,
+      mode,
+      gatiState: classified.gatiState,
+      dailySpeedDeg: classified.dailySpeedDeg,
+      meanSpeedDeg: classified.meanSpeedDeg,
+      speedRatio: classified.speedRatio,
+      isRetrograde: classified.isRetrograde,
+      currentRasi: classified.currentRasi,
+      chestaKendraDeg: kendraOut.chestaKendraDeg,
+      chestaBalaVirupas: kendraOut.chestaBalaVirupas,
+      chestaBalaRupas: kendraOut.chestaBalaRupas,
+    };
+  }
+
+  const virupaTable =
+    mode === "MODERN_SOFTWARE"
+      ? ASHTA_GATI_VIRUPAS_MODERN_VARIANT
+      : ASHTA_GATI_VIRUPAS_BPHS_ORIGINAL;
+
+  const chestaBalaVirupas = virupaTable[classified.gatiState];
+
+  return {
+    planet: pos.planet,
+    mode,
+    gatiState: classified.gatiState,
+    dailySpeedDeg: classified.dailySpeedDeg,
+    meanSpeedDeg: classified.meanSpeedDeg,
+    speedRatio: classified.speedRatio,
+    isRetrograde: classified.isRetrograde,
+    currentRasi: classified.currentRasi,
+    chestaBalaVirupas,
+    chestaBalaRupas: round4(chestaBalaVirupas / 60.0),
+  };
+}
+
+/**
+ * Component 4 Entry Point used by `calculateShadbala()`
+ */
+export function calculateChestaBala(
+  pos: ChestaPlanetInput,
+  sunAyanaBala: number,
+  unDoubledMoonPakshaBala: number,
+  mode: ChestaBalaMode = "BPHS_ORIGINAL_27_23"
+): number {
+  return evaluatePlanetChestaBala(
+    pos,
+    sunAyanaBala,
+    unDoubledMoonPakshaBala,
+    mode
+  ).chestaBalaVirupas;
+}
+
+```
+
+---
+
+## ၃။ Interactive Chesta Bala Calculator UI Component (`React + TypeScript`)
+
+သင်ဖော်ပြထားသော BPHS Method 2 (Speed & Retrograde — ဂတိ ၈ မျိုး) နှင့် Method 1 (Chesta Kendra) တို့ကို လက်တွေ့စမ်းသပ်တွက်ချက်နိုင်ရန်အတွက် ပရောဂျက်၏ Dark Theme (Slate/Teal/Amber/Gold) ဒီဇိုင်းစံနှုန်းအတိုင်း တည်ဆောက်ထားသော React UI Component (`src/components/ChestaBalaCalculator.tsx`) ဖြစ်ပါသည် -
+
+```tsx
+import React, { useState, useMemo } from "react";
+
+type TaraGrahaId = "Mars" | "Mercury" | "Jupiter" | "Venus" | "Saturn";
+type AshtaGatiState =
+  | "Vakra"
+  | "Anuvakra"
+  | "Vikala"
+  | "Manda"
+  | "Mandatara"
+  | "Sama"
+  | "Chara"
+  | "Atichara";
+
+interface GatiMetadata {
+  sanskrit: string;
+  myanmarName: string;
+  description: string;
+  ruleText: string;
+  bphsVirupas: number;
+  modernVirupas: number;
+  badgeColor: string;
+}
+
+const PLANET_META: Record<
+  TaraGrahaId,
+  { myanmar: string; meanSpeed: number; maxSpeed: number; dms: string }
+> = {
+  Mars: {
+    myanmar: "အင်္ဂါ (Mars)",
+    meanSpeed: 0.5240,
+    maxSpeed: 0.79,
+    dms: "0° 31' 26\"",
+  },
+  Mercury: {
+    myanmar: "ဗုဒ္ဓဟူး (Mercury)",
+    meanSpeed: 0.9856,
+    maxSpeed: 2.20,
+    dms: "0° 59' 08\"",
+  },
+  Jupiter: {
+    myanmar: "ကြာသပတေး (Jupiter)",
+    meanSpeed: 0.0831,
+    maxSpeed: 0.24,
+    dms: "0° 04' 59\"",
+  },
+  Venus: {
+    myanmar: "သောကြာ (Venus)",
+    meanSpeed: 0.9856,
+    maxSpeed: 1.25,
+    dms: "0° 59' 08\"",
+  },
+  Saturn: {
+    myanmar: "စနေ (Saturn)",
+    meanSpeed: 0.0335,
+    maxSpeed: 0.13,
+    dms: "0° 02' 00\"",
+  },
+};
+
+const GATI_TABLE: Record<AshtaGatiState, GatiMetadata> = {
+  Vakra: {
+    sanskrit: "Vakra (वक्र)",
+    myanmarName: "ဝကြ",
+    description: "လက်ရှိရာသီခွင်အတွင်း နောက်ပြန်သွားခြင်း (Full Retrograde)",
+    ruleText: "R ≤ -0.05 (လက်ရှိရာသီအတွင်း)",
+    bphsVirupas: 60.0,
+    modernVirupas: 60.0,
+    badgeColor: "bg-amber-500/20 text-amber-300 border-amber-500/40",
+  },
+  Anuvakra: {
+    sanskrit: "Anuvakra (अनुवक्र)",
+    myanmarName: "အနုဝကြ",
+    description: "နောက်ပြန်သွားရင်း အရှေ့ရာသီခွင် (Previous Sign) သို့ ပြန်ဝင်ခြင်း",
+    ruleText: "R ≤ -0.05 + အရှေ့ရာသီသို့ နောက်ပြန်ကူးဝင်ခြင်း",
+    bphsVirupas: 30.0,
+    modernVirupas: 30.0,
+    badgeColor: "bg-orange-500/20 text-orange-300 border-orange-500/40",
+  },
+  Vikala: {
+    sanskrit: "Vikala / Kutila (विकल)",
+    myanmarName: "ဝိကလ",
+    description: "ရပ်တန့်နေခြင်း / သွားနှုန်း ကင်းမဲ့နေခြင်း (Stationary)",
+    ruleText: "|R| < 0.05 သို့မဟုတ် |v| < 0° 01'/day",
+    bphsVirupas: 15.0,
+    modernVirupas: 15.0,
+    badgeColor: "bg-slate-500/20 text-slate-300 border-slate-500/40",
+  },
+  Manda: {
+    sanskrit: "Manda (मन्द)",
+    myanmarName: "မန္ဒ",
+    description: "ပုံမှန်သွားနှုန်းထက် အနည်းငယ်နှေးကွေးခြင်း (Slower than mean)",
+    ruleText: "0.50 ≤ R < 0.90",
+    bphsVirupas: 30.0,
+    modernVirupas: 15.0,
+    badgeColor: "bg-teal-500/20 text-teal-300 border-teal-500/40",
+  },
+  Mandatara: {
+    sanskrit: "Mandatara (मन्दतर)",
+    myanmarName: "မန္ဒတရ",
+    description: "မန္ဒထက်ပင် ပို၍ အလွန်နှေးကွေးခြင်း (Much slower than mean)",
+    ruleText: "0.05 ≤ R < 0.50",
+    bphsVirupas: 15.0,
+    modernVirupas: 7.5,
+    badgeColor: "bg-cyan-500/20 text-cyan-300 border-cyan-500/40",
+  },
+  Sama: {
+    sanskrit: "Sama (सम)",
+    myanmarName: "သမ",
+    description: "ပုံမှန်သွားနှုန်းအတိုင်း သွားနေခြင်း (Normal / Mean motion)",
+    ruleText: "0.90 ≤ R ≤ 1.10",
+    bphsVirupas: 7.5,
+    modernVirupas: 30.0,
+    badgeColor: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+  },
+  Chara: {
+    sanskrit: "Chara / Shighra (चर)",
+    myanmarName: "စရ (သီဃြ)",
+    description: "ပုံမှန်သွားနှုန်းထက် မြန်ဆန်ခြင်း (Faster than normal)",
+    ruleText: "1.10 < R ≤ 1.50",
+    bphsVirupas: 45.0,
+    modernVirupas: 30.0,
+    badgeColor: "bg-yellow-500/20 text-yellow-300 border-yellow-500/40",
+  },
+  Atichara: {
+    sanskrit: "Atichara (अतिचर)",
+    myanmarName: "အတိစရ",
+    description: "အလွန်မြန်သောအရှိန်ဖြင့် နောက်ရာသီခွင်သို့ ကျော်ဝင်ခြင်း (Accelerated)",
+    ruleText: "R > 1.50 (သို့မဟုတ် အရှိန်ဖြင့် ရာသီကူးပြောင်းခြင်း)",
+    bphsVirupas: 30.0,
+    modernVirupas: 45.0,
+    badgeColor: "bg-purple-500/20 text-purple-300 border-purple-500/40",
+  },
+};
+
+export const ChestaBalaCalculator: React.FC = () => {
+  const [planet, setPlanet] = useState<TaraGrahaId>("Mars");
+  const [dailySpeed, setDailySpeed] = useState<number>(0.35);
+  const [crossedPrevSign, setCrossedPrevSign] = useState<boolean>(false);
+  const [crossedNextSignFast, setCrossedNextSignFast] = useState<boolean>(false);
+  const [useModernScale, setUseModernScale] = useState<boolean>(false);
+
+  const calculation = useMemo(() => {
+    const meta = PLANET_META[planet];
+    const meanSpeed = meta.meanSpeed;
+    const speedRatio = dailySpeed / meanSpeed;
+    const absSpeed = Math.abs(dailySpeed);
+    const absRatio = Math.abs(speedRatio);
+
+    let gati: AshtaGatiState;
+    if (absRatio < 0.05 || absSpeed < 1 / 60) {
+      gati = "Vikala";
+    } else if (dailySpeed < 0) {
+      gati = crossedPrevSign ? "Anuvakra" : "Vakra";
+    } else if (speedRatio < 0.50) {
+      gati = "Mandatara";
+    } else if (speedRatio < 0.90) {
+      gati = "Manda";
+    } else if (speedRatio <= 1.10) {
+      gati = "Sama";
+    } else if (crossedNextSignFast || speedRatio > 1.50) {
+      gati = "Atichara";
+    } else {
+      gati = "Chara";
+    }
+
+    const gatiInfo = GATI_TABLE[gati];
+    const virupas = useModernScale
+      ? gatiInfo.modernVirupas
+      : gatiInfo.bphsVirupas;
+    const rupas = virupas / 60.0;
+
+    return {
+      meanSpeed,
+      speedRatio,
+      gati,
+      gatiInfo,
+      virupas,
+      rupas,
+    };
+  }, [planet, dailySpeed, crossedPrevSign, crossedNextSignFast, useModernScale]);
+
+  return (
+    <div className="bg-slate-950 text-slate-100 p-6 rounded-2xl border border-slate-800 shadow-xl max-w-4xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+        <div>
+          <h2 className="text-xl font-bold text-teal-400">
+            BPHS Ch.27 — Chesta Bala Interactive Calculator (အဋ္ဌဂတိ တွက်ချက်စက်)
+          </h2>
+          <p className="text-sm text-slate-400">
+            Method 2: ဂြိုဟ်သွားနှုန်း (Daily Speed) နှင့် နောက်ပြန်သွားမှု (Retrograde) အခြေအနေ ၈ မျိုးဖြင့် တွက်ချက်ခြင်း
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 bg-slate-900 p-1.5 rounded-lg border border-slate-800">
+          <button
+            type="button"
+            onClick={() => setUseModernScale(false)}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition ${
+              !useModernScale
+                ? "bg-teal-600 text-white"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            BPHS မူရင်း (27.23)
+          </button>
+          <button
+            type="button"
+            onClick={() => setUseModernScale(true)}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition ${
+              useModernScale
+                ? "bg-amber-600 text-white"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            ခေတ်သစ် Software မူကွဲ
+          </button>
+        </div>
+      </div>
+
+      {/* Controls Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Left: Planet & Speed Input */}
+        <div className="bg-slate-900/70 p-5 rounded-xl border border-slate-800 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+              ၁။ တာရာဂြိုဟ် ရွေးချယ်ရန် (Select Tara Graha)
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {(Object.keys(PLANET_META) as TaraGrahaId[]).map((pKey) => (
+                <button
+                  key={pKey}
+                  type="button"
+                  onClick={() => {
+                    setPlanet(pKey);
+                    setDailySpeed(PLANET_META[pKey].meanSpeed);
+                  }}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium border text-left transition ${
+                    planet === pKey
+                      ? "bg-teal-500/20 border-teal-500 text-teal-300"
+                      : "bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700"
+                  }`}
+                >
+                  <div className="font-bold">{PLANET_META[pKey].myanmar}</div>
+                  <div className="text-[11px] text-slate-400">
+                    v̄ = {PLANET_META[pKey].meanSpeed}°/d
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex justify-between text-xs mb-1">
+              <span className="text-slate-400 font-medium">
+                ၂။ တစ်နေ့တာ အမှန်သွားနှုန်း v (°/day):
+              </span>
+              <span className="font-mono text-teal-300 font-bold">
+                {dailySpeed >= 0 ? `+${dailySpeed.toFixed(4)}` : dailySpeed.toFixed(4)}°/day
+              </span>
+            </div>
+            <input
+              type="range"
+              min={-PLANET_META[planet].maxSpeed}
+              max={PLANET_META[planet].maxSpeed * 1.4}
+              step={0.001}
+              value={dailySpeed}
+              onChange={(e) => setDailySpeed(parseFloat(e.target.value))}
+              className="w-full accent-teal-500 cursor-pointer"
+            />
+            <div className="flex items-center gap-2 mt-2">
+              <input
+                type="number"
+                step="0.0001"
+                value={dailySpeed}
+                onChange={(e) => setDailySpeed(parseFloat(e.target.value) || 0)}
+                className="bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-sm font-mono text-slate-100 w-36"
+              />
+              <button
+                type="button"
+                onClick={() => setDailySpeed(-0.1167)}
+                className="text-xs px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 rounded text-slate-300"
+              >
+                နမူနာ ၁ (Jupiter -0.1167°)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPlanet("Mars");
+                  setDailySpeed(0.35);
+                }}
+                className="text-xs px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 rounded text-slate-300"
+              >
+                နမူနာ ၂ (Mars +0.35°)
+              </button>
+            </div>
+          </div>
+
+          {/* Sign Transition Toggles */}
+          <div className="pt-2 border-t border-slate-800 space-y-2">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+              ၃။ ရာသီကူးပြောင်းမှု အခြေအနေ (Sign Boundary Conditions)
+            </label>
+            <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={crossedPrevSign}
+                disabled={dailySpeed >= 0}
+                onChange={(e) => setCrossedPrevSign(e.target.checked)}
+                className="accent-amber-500"
+              />
+              <span>
+                နောက်ပြန်သွားရင်း အရှေ့ရာသီခွင်သို့ ပြန်ဝင်ထားသည် (Anuvakra)
+              </span>
+            </label>
+            <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={crossedNextSignFast}
+                disabled={dailySpeed <= 0}
+                onChange={(e) => setCrossedNextSignFast(e.target.checked)}
+                className="accent-purple-500"
+              />
+              <span>
+                အရှိန်ပြင်းစွာဖြင့် နောက်ရာသီခွင်သို့ ကျော်ဖြတ်ဝင်ရောက်သည် (Atichara)
+              </span>
+            </label>
+          </div>
+        </div>
+
+        {/* Right: Live Result Card */}
+        <div className="bg-slate-900/70 p-5 rounded-xl border border-slate-800 flex flex-col justify-between space-y-4">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs uppercase tracking-wider text-slate-400">
+                လက်ရှိ ဂတိအမျိုးအစား (Motion State)
+              </span>
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-bold border ${calculation.gatiInfo.badgeColor}`}
+              >
+                {calculation.gatiInfo.sanskrit} — {calculation.gatiInfo.myanmarName}
+              </span>
+            </div>
+
+            <p className="text-sm text-slate-300 bg-slate-950/80 p-3 rounded-lg border border-slate-800/80">
+              {calculation.gatiInfo.description}
+            </p>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                <div className="text-slate-400">ပျမ်းမျှသွားနှုန်း (v̄)</div>
+                <div className="font-mono text-sm font-bold text-slate-200 mt-0.5">
+                  {calculation.meanSpeed.toFixed(4)}°/day ({PLANET_META[planet].dms})
+                </div>
+              </div>
+              <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                <div className="text-slate-400">သွားနှုန်းအချိုး (R = v / v̄)</div>
+                <div className="font-mono text-sm font-bold text-teal-400 mt-0.5">
+                  {calculation.speedRatio.toFixed(3)} ({(calculation.speedRatio * 100).toFixed(1)}%)
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Virupa & Rupa Output Box */}
+          <div className="bg-gradient-to-r from-teal-950/60 to-slate-950 p-4 rounded-xl border border-teal-500/30 flex items-center justify-between">
+            <div>
+              <div className="text-xs text-teal-300 font-semibold uppercase">
+                ရရှိသော Chesta Bala စွမ်းအား
+              </div>
+              <div className="text-xs text-slate-400 mt-0.5">
+                စည်းမျဉ်း: {calculation.gatiInfo.ruleText}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-extrabold text-amber-400 font-mono">
+                {calculation.virupas.toFixed(1)} <span className="text-sm font-normal">Virupas</span>
+              </div>
+              <div className="text-xs font-mono text-teal-300">
+                = {calculation.rupas.toFixed(3)} Rupas
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Full 8-Gati Reference Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs text-left border-collapse">
+          <thead>
+            <tr className="border-b border-slate-800 text-slate-400 bg-slate-900/50">
+              <th className="py-2.5 px-3">စဉ်</th>
+              <th className="py-2.5 px-3">ဂြိုဟ်သွားအခြေအနေ (Gati)</th>
+              <th className="py-2.5 px-3">သင်္ချာစံနှုန်း (Speed Ratio R)</th>
+              <th className="py-2.5 px-3 text-right">BPHS မူရင်း (Virupas)</th>
+              <th className="py-2.5 px-3 text-right">Rupa (÷60)</th>
+              <th className="py-2.5 px-3 text-right">Software မူကွဲ</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800/60">
+            {(Object.keys(GATI_TABLE) as AshtaGatiState[]).map((gKey, idx) => {
+              const row = GATI_TABLE[gKey];
+              const isActive = calculation.gati === gKey;
+              return (
+                <tr
+                  key={gKey}
+                  className={
+                    isActive
+                      ? "bg-teal-500/10 text-teal-200 font-semibold"
+                      : "text-slate-300 hover:bg-slate-900/40"
+                  }
+                >
+                  <td className="py-2 px-3 font-mono">{idx + 1}</td>
+                  <td className="py-2 px-3">
+                    {row.sanskrit} — <span className="text-teal-400">{row.myanmarName}</span>
+                  </td>
+                  <td className="py-2 px-3 font-mono text-[11px]">{row.ruleText}</td>
+                  <td className="py-2 px-3 text-right font-mono text-amber-300">
+                    {row.bphsVirupas.toFixed(1)}
+                  </td>
+                  <td className="py-2 px-3 text-right font-mono">
+                    {(row.bphsVirupas / 60).toFixed(3)}
+                  </td>
+                  <td className="py-2 px-3 text-right font-mono text-slate-400">
+                    {row.modernVirupas.toFixed(1)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+export default ChestaBalaCalculator;
+
+```
+
+---
+
+## ၄။ အကျဉ်းချုပ် အတည်ပြုချက်
+
+* **BPHS 27.18 ချွင်းချက်များ**: တနင်္ဂနွေဂြိုဟ်အတွက် `Ayana Bala`၊ တနင်္လာဂြိုဟ်အတွက် `Paksha Bala` တို့ကို တိုက်ရိုက်ယူပြီး ရာဟုနှင့် ကိတ်ကို Shadbala မှ ချန်လှပ်ထားပါသည်။
+
+
+* **BPHS 27.21–23 အဋ္ဌဂတိ (၈) မျိုး**: `Vakra (60)`, `Anuvakra (30)`, `Vikala (15)`, `Manda (30)`, `Mandatara (15)`, `Sama (7.5)`, `Chara (45)`, `Atichara (30)` တို့ကို သွားနှုန်းအချိုး $R = \frac{v}{\bar{v}}$ နှင့် ရာသီကူးပြောင်းမှု စည်းမျဉ်းများအတိုင်း တိကျစွာ တွက်ချက်ပေးထားပါသည်။

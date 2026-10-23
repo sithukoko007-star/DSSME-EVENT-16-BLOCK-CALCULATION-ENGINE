@@ -26,6 +26,7 @@ import { formatDms } from "./engine/astronomy/ayanamsa.ts";
 import { TimezoneSelect } from "./components/TimezoneSelect.tsx";
 import { PanchangaSummary } from "./components/PanchangaSummary.tsx";
 import { ShadbalaTable } from "./components/ShadbalaTable.tsx";
+import { ChestaBalaCalculator } from "./components/ChestaBalaCalculator.tsx";
 import { CpsFactorsTable } from "./components/CpsFactorsTable.tsx";
 import { ChartblocksInspector } from "./components/ChartblocksInspector.tsx";
 import { fromCanonicalChart, computePanchanga, createSunriseProvider } from "./engine/panchanga/index.ts";
@@ -61,6 +62,7 @@ export default function App() {
   const [copied, setCopied] = useState<boolean>(false);
 
   const [selectedCityLocation, setSelectedCityLocation] = useState<string>("Tokyo/Chofu, Japan");
+  const [showChestaCalc, setShowChestaCalc] = useState<boolean>(false);
 
   // DSSME Engine state
   const [dssmeBodyMode, setDssmeBodyMode] = useState<"7-body" | "9-body">("9-body");
@@ -822,6 +824,22 @@ export default function App() {
             {blockResult?.SHADBALA && (
               <ShadbalaTable shadbala={blockResult.SHADBALA} />
             )}
+
+            {/* Chesta Bala Ashta-Gati Interactive Calculator */}
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setShowChestaCalc(!showChestaCalc)}
+                className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-900 border border-teal-500/30 text-xs font-semibold text-teal-300 hover:bg-slate-800 hover:border-teal-500/50 transition cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <Compass className="h-4 w-4 text-teal-400" />
+                  BPHS Ch. 27 — Chesta Bala Ashta-Gati Interactive Calculator (အဋ္ဌဂတိ တွက်ချက်စက်)
+                </span>
+                {showChestaCalc ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+              </button>
+              {showChestaCalc && <ChestaBalaCalculator />}
+            </div>
 
             {/* 16-Block Intermediate Representation Inspector */}
             {blockResult && (
