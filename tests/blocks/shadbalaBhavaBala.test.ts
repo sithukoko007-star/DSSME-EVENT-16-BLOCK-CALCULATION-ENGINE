@@ -59,6 +59,7 @@ const CHOFU_CHART_INPUT: ShadbalaChartInput = {
     10: 272.39,
   },
   masaConvention: "AMANTA_LUNAR",
+  doubleMoonPaksha: true,
 };
 
 const CHOFU_PLACIDUS_CUSPS: readonly number[] = [
@@ -141,7 +142,7 @@ export function runShadbalaAndBhavaBalaTests(): void {
   assert.equal(chofuKaala.byPlanet.Moon.tribhaga, 60);
   assert.equal(chofuKaala.byPlanet.Moon.paksha, 41.98);
   assert.equal(chofuKaala.byPlanet.Mercury.nathonnatha, 60.0);
-  assert.equal(chofuKaala.lords.masaLord, "Venus");
+  assert.equal(chofuKaala.lords.masaLord, "Moon");
   assert.equal(chofuKaala.lords.vaaraLord, "Mercury");
   assert.equal(chofuKaala.lords.horaLord, "Sun");
 
@@ -194,9 +195,9 @@ export function runShadbalaAndBhavaBalaTests(): void {
 
   // 9. End-to-End Chofu Shadbala & Ishta/Kashta Phala
   const shadbala20Pt = calculateShadbala(CHOFU_CHART_INPUT);
-  assert.equal(shadbala20Pt.results.Sun.totalVirupas, 414.4);
-  assert.equal(shadbala20Pt.results.Moon.totalVirupas, 409.2);
-  assert.equal(shadbala20Pt.results.Saturn.totalVirupas, 379.6);
+  assert.equal(shadbala20Pt.results.Sun.totalVirupas, 402.1);
+  assert.equal(shadbala20Pt.results.Moon.totalVirupas, 451.5);
+  assert.equal(shadbala20Pt.results.Saturn.totalVirupas, 364.5);
 
   const ikOut = calculateIshtaKashtaFromShadbala(shadbala20Pt.results);
   assert.equal(ikOut.byPlanet.Mercury.ishtaVirupas, 42.41);
@@ -207,17 +208,18 @@ export function runShadbalaAndBhavaBalaTests(): void {
     usePanchadhaSaptavargaja: true,
     drigMode: "WHOLE_HOUSE",
   });
-  assert.equal(shadbalaPanchadha.results.Sun.totalVirupas, 468.7);
-  assert.equal(shadbalaPanchadha.results.Moon.totalVirupas, 434.5);
-  assert.equal(shadbalaPanchadha.results.Mars.totalVirupas, 350.9);
+  assert.equal(shadbalaPanchadha.results.Sun.totalVirupas, 456.4);
+  assert.equal(shadbalaPanchadha.results.Moon.totalVirupas, 476.8);
+  assert.equal(shadbalaPanchadha.results.Mars.totalVirupas, 378.2);
   assert.equal(shadbalaPanchadha.results.Mercury.totalVirupas, 477.0);
-  assert.equal(shadbalaPanchadha.results.Jupiter.totalVirupas, 432.6);
-  assert.equal(shadbalaPanchadha.results.Venus.totalVirupas, 350.7);
-  assert.equal(shadbalaPanchadha.results.Saturn.totalVirupas, 366.1);
+  assert.equal(shadbalaPanchadha.results.Jupiter.totalVirupas, 420.3);
+  assert.equal(shadbalaPanchadha.results.Venus.totalVirupas, 320.8);
+  assert.equal(shadbalaPanchadha.results.Saturn.totalVirupas, 351.0);
 
-  for (const item of shadbalaPanchadha.ordered) {
+  for (const item of shadbalaPanchadha.ordered.filter((x) => x.planet !== "Venus")) {
     assert.equal(item.meetsMinimum, true, `${item.planet} should meet minimum`);
   }
+  assert.equal(shadbalaPanchadha.results.Venus.meetsMinimum, false);
 
   // 10. 12-House Bhava Bala (Sign Nature Splits & Rankings)
   assert.equal(classifyBhavaSignNature(272.39).nature, "CHATUSHPADA"); // Cap 2.39 deg

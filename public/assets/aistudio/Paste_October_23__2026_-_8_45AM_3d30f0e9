@@ -1,0 +1,621 @@
+`src/engine/chartblocks/shadbala.ts` နှင့် `src/engine/chartblocks/index.ts` တို့ရှိ **Kaala Bala (ကာလဗလ)** တွက်ချက်မှု အစိတ်အပိုင်း (၉) ခုလုံး၏ အသေးစိတ် ခွဲခြမ်းစိတ်ဖြာချက် (Detailed Analysis) နှင့် ပယ်ဖျက်ရမည့် ကုဒ်အဟောင်းများနေရာတွင် တိုက်ရိုက် အစားထိုးရမည့် **TypeScript ကုဒ်အသစ်များ** ကို အောက်တွင် အပိုင်းလိုက် စနစ်တကျ ဖော်ပြထားပါသည်။
+
+---
+
+## ၁။ Kaala Bala (ကာလဗလ) အစိတ်အပိုင်း (၉) ခု အသေးစိတ် ခွဲခြမ်းစိတ်ဖြာချက်
+
+ကာလဗလသည် အချိန်ကာလ (Time / Temporal Factors) ပေါ်မူတည်၍ ဂြိုဟ်တို့၏ အားအင်ကို တိုင်းတာသော ဗလဖြစ်ပြီး DSSME Pipeline ၏ **Step S5 ($RS(p)$)** နှင့် **Step S6 ($KIF$ - Kaala Inflation Factor)** တို့တွင် တိုက်ရိုက်အသုံးပြုပါသည်။
+
+| စဉ် | ကာလဗလ အစိတ်အပိုင်း | အမြင့်ဆုံး ဗိရူပ (Max Virupas) | ကုဒ်အဟောင်းရှိ အမှား (Root Cause) | ပြင်ဆင်ထားသော အတိအကျ ဖော်မြူလာ (Exact Fix) |
+| --- | --- | --- | --- | --- |
+| **①** | **Nathonnatha Bala** (နတောနတဗလ) | **60** | `(trueSolarNoonHours - 12) / 24` ကြောင့် မွန်းတည့်နှင့် သန်းခေါင်ယံ ပြောင်းပြန်ဖြစ်နေခြင်း၊ အမြင့်ဆုံး 30 သာ ပေးထားခြင်းနှင့် သောကြာ/စနေ နေ့/ည သဘာဝ မှားယွင်းနေခြင်း။ | Equation of Time ပါဝင်သော Local Apparent Solar Time (LAST) ဖြင့် သန်းခေါင်ယံမှ ကွာဝေးချိန် $\Delta t \in [0, 12]\text{ hrs}$ ကို ရှာပြီး $\text{Unnata} = \frac{\Delta t}{12} \times 60$ ဖြင့် တွက်သည်။ **နေ့အားကြီးဂြိုဟ် (Sun, Jupiter, Venus)** = $\text{Unnata}$၊ **ညအားကြီးဂြိုဟ် (Moon, Mars, Saturn)** = $60 - \text{Unnata}$၊ **ဗုဒ္ဓဟူး (Mercury)** = အမြဲတမ်း **60**။ |
+| **②** | **Paksha Bala** (ပက္ခဗလ) | **60** (Moon **60** သို့ **120**) | `beneficPaksha * 2.0` ကို ပုံသေ (hardcoded) ရေးထားသဖြင့် BPHS (2x) နှင့် PL9 (1x) ရွေးချယ်၍ မရခြင်း။ | $\Delta\lambda = \vert{}\lambda_{\text{Moon}} - \lambda_{\text{Sun}}\vert{}$ (0° မှ 180° အတွင်း) ကို တည်၍ သောမဂြိုဟ်များအတွက် $\frac{\Delta\lambda}{3}$၊ ပါပဂြိုဟ်များအတွက် $60 - \frac{\Delta\lambda}{3}$ ဟု တွက်သည်။ `doubleMoonPaksha` option ဖြင့် BPHS (2x = max 120) သို့မဟုတ် PL9 (1x = max 60) ကို ရွေးချယ်နိုင်သည်။ |
+| **③** | **Tribhaga Bala** (တြိဘာဂဗလ) | **60** | နေ့/ည သုံးပုံတစ်ပုံစီ မခွဲခြားဘဲ ဂြိုဟ် ၃ လုံးစလုံးကို 60 ပေးထားခြင်းနှင့် ကြာသပတေးဂြိုဟ် (+60) ကျန်ခဲ့ခြင်း။ | နေထွက်မှ နေဝင် (Dinamana) ၃ ပိုင်းတွင် **[၁] Mercury, [၂] Sun, [၃] Saturn**၊ နေဝင်မှ နောက်နေ့နေထွက် (Ratrimana) ၃ ပိုင်းတွင် **[၁] Moon, [၂] Venus, [၃] Mars** တို့ကို **60** ပေးပြီး **Jupiter** ကို အချိန်မရွေး အမြဲ **60** ပေးသည်။ |
+| **④** | **Abda (Varsha) Bala** (အဗ္ဒဗလ) | **15** | ဂြိုဟ်အားလုံးကို 15 ပုံသေပေးခဲ့ခြင်းနှင့် `sunPos.lon / 0.9856` ပျမ်းမျှနှုန်းကြောင့် နွေရာသီ (Aphelion) ၌ Mesha Sankranti ရက် **~4.7 ရက်** လွဲချော်ခြင်း။ | ကမ္ဘာ့ပတ်လမ်း ဘဲဥပုံ (Eccentricity / Equation of Center) ပါဝင်သော **Kepler Newton-Raphson Solver** ဖြင့် တနင်္ဂနွေဂြိုဟ် မိဿရာသီ $0^\circ$ သို့ ဝင်သည့် အစစ်အမှန် `meshaSankrantiJd` ကို ရှာပြီး ၎င်းနေ့၏ နေထွက်အခြေပြု နေ့အရှင် (Vedic Weekday Lord) တစ်ပါးတည်းကိုသာ **15** ပေးသည်။ |
+| **⑤** | **Masa Bala** (မာသဗလ) | **30** | `(weekday + tithiIndex) % 7` ဖော်မြူလာအတု သုံးထားခြင်းနှင့် 30 အစား 60 မှားပေးထားခြင်း။ | တနင်္ဂနွေဂြိုဟ် လက်ရှိရောက်နေသော ရာသီအစ ($\lfloor\lambda_{\text{Sun}}/30^\circ\rfloor \times 30^\circ$) သို့ စတင်ဝင်ရောက်သည့် `masaSankrantiJd` ကို Newton-Raphson Solver ဖြင့် အတိအကျရှာပြီး ၎င်းရက်၏ Vedic Weekday Lord တစ်ပါးတည်းကိုသာ **30** ပေးသည်။ |
+| **⑥** | **Vaara Bala** (ဝါရဗလ) | **45** | နေထွက်ချိန် 6:00 AM ပုံသေသုံးထားပြီး `shadbalaInput.weekday` ကို ပစ်ပယ်ထားခြင်း။ | PANCHANGA block မှ နေထွက်ချိန်အစစ်ဖြင့် တွက်ထုတ်ထားသော `weekday` (သို့မဟုတ် အစစ်အမှန် `sunriseJdUt`) အရ နေ့အရှင်ဂြိုဟ်ကို **45** ပေးသည်။
+
+ |
+| **⑦** | **Hora Bala** (ဟောရာဗလ) | **60** | နေထွက် 6:00 AM / နေဝင် 18:00 PM ပုံသေသုံးထားပြီး `shadbalaInput.hora` ကို ချန်လှပ်ထားခြင်း။ | HORA block မှ ပို့ပေးသော `hora` (သို့မဟုတ် အစစ်အမှန် နေထွက်/နေဝင်ချိန်ကို ၁၂ ပိုင်းစီ အချိုးကျခွဲထားသော Chaldean Hora sequence) အရ လက်ရှိ ဟောရာအရှင်ဂြိုဟ်ကို **60** ပေးသည်။
+
+ |
+| **⑧** | **Ayana Bala** (အယနဗလ) | **60** | ဂြိုဟ်အလိုက် မြောက်/တောင် ယဉ်စွန်း သဘာဝ မပါဝင်ဘဲ ဂြိုဟ်အားလုံးကို တစ်ပုံစံတည်း တွက်ထားခြင်း။ | Tropical Longitude ($\lambda_{\text{sidereal}} + \text{ayanamsa}$) မှ ရရှိသော Declination ($\delta$) ဖြင့် **Sun, Mars, Jupiter, Venus** အတွက် $30(1 + \frac{\delta}{\varepsilon})$၊ **Moon, Saturn** အတွက် $30(1 - \frac{\delta}{\varepsilon})$၊ **Mercury** အတွက် $30(1 + \frac{\vert{}\delta\vert{}}{\varepsilon})$ ဟု တွက်သည်။ |
+| **⑨** | **Yuddha Bala** (ယုဒ္ဓဗလ) | **ပြောင်းလဲနိုင်** | ဂြိုဟ်စစ်ထိုးခြင်း (Graha Yuddha) ကို လုံးဝမတွက်ဘဲ `0` ပုံသေထားခြင်း။ | တာရာဂြိုဟ် ၅ လုံး (Mars, Mercury, Jupiter, Venus, Saturn) အချင်းချင်း လောင်ဂျီတွဒ် $< 1^\circ$ အတွင်း ပူးယှဉ်ပါက မြောက်ဘက်ပိုကျသော (Latitude / Declination ပိုမြင့်သော) ဂြိုဟ်ကို အနိုင်ပေး၍ ဗလခြားနားချက်အား ဂြိုဟ်အချင်း (Disc Diameter) ခြားနားချက်ဖြင့် စားကာ အနိုင်ရသူထံ ပေါင်းထည့်ပြီး အရှုံးသမားထံမှ နှုတ်သည်။ |
+
+---
+
+## ၂။ `src/engine/chartblocks/shadbala.ts` တွင် အစားထိုးရမည့် ကုဒ်အသစ်
+
+`src/engine/chartblocks/shadbala.ts` ဖိုင်အတွင်းရှိ သင်ပြုစုထားသော **DELETE 1A, 1B, 2, 3, 4A, 4B** ကုဒ်အဟောင်းများကို ဖယ်ရှားပြီး ၎င်းတို့နေရာတွင် အောက်ပါ အဆင့်မြှင့်တင်ထားသော ကုဒ်အသစ်ကို တိုက်ရိုက် အစားထိုးပါ—
+
+```typescript
+// ============================================================================
+// KAALA BALA — EXACT CLASSICAL BPHS / PL9 IMPLEMENTATION
+// ============================================================================
+
+const OBLIQUITY_DEG = 23.4392911;
+const DEG2RAD = Math.PI / 180;
+const RAD2DEG = 180 / Math.PI;
+
+/**
+ * ဝေဒနေ့အရှင် (Vara Lords) — တနင်္ဂနွေ (0) မှ စနေ (6)
+ */
+const VAARA_LORDS: readonly ClassicalPlanet[] = [
+  "Sun",
+  "Moon",
+  "Mars",
+  "Mercury",
+  "Jupiter",
+  "Venus",
+  "Saturn",
+];
+
+/**
+ * ဟောရာအရှင် စဉ်ဆက် (Chaldean Order — အနှေးမှ အမြန်):
+ * Saturn -> Jupiter -> Mars -> Sun -> Venus -> Mercury -> Moon
+ */
+const CHALDEAN_ORDER: readonly ClassicalPlanet[] = [
+  "Saturn",
+  "Jupiter",
+  "Mars",
+  "Sun",
+  "Venus",
+  "Mercury",
+  "Moon",
+];
+
+/**
+ * ဂြိုဟ်စစ်ထိုးရာတွင် (Graha Yuddha) အသုံးပြုသော ဂြိုဟ်အချင်းတန်ဖိုးများ (Bimba Parimana / Disc Diameters in arcseconds)
+ */
+const BIMBA_DIAMETERS: Record<Exclude<ClassicalPlanet, "Sun" | "Moon">, number> = {
+  Mars: 9.4,
+  Mercury: 6.6,
+  Jupiter: 190.4,
+  Venus: 16.6,
+  Saturn: 158.0,
+};
+
+function norm24(hours: number): number {
+  return ((hours % 24) + 24) % 24;
+}
+
+/**
+ * Equation of Time (မိနစ်ဖြင့်) — Smart's formula အရ Apparent Solar Time နှင့် Mean Solar Time ခြားနားချက်
+ */
+function equationOfTimeMinutes(jdUt: number): number {
+  const T = (jdUt - 2451545.0) / 36525.0;
+  const eps = (23.4392911 - 0.0130042 * T) * DEG2RAD;
+  const L0 = norm360(280.46646 + 36000.76983 * T + 0.0003032 * T * T) * DEG2RAD;
+  const M = norm360(357.52911 + 35999.05029 * T - 0.0001537 * T * T) * DEG2RAD;
+  const e = 0.016708634 - 0.000042037 * T - 0.0000001267 * T * T;
+
+  const y = Math.tan(eps / 2) * Math.tan(eps / 2);
+  const eqRad =
+    y * Math.sin(2 * L0) -
+    2 * e * Math.sin(M) +
+    4 * e * y * Math.sin(M) * Math.cos(2 * L0) -
+    0.5 * y * y * Math.sin(4 * L0) -
+    1.25 * e * e * Math.sin(2 * M);
+
+  return eqRad * RAD2DEG * 4.0;
+}
+
+/**
+ * ① Nathonnatha Bala (နတောနတဗလ — Max 60 Virupas)
+ * - နေ့အားကြီးဂြိုဟ် (Sun, Jupiter, Venus): မွန်းတည့် (Apparent Solar Noon) တွင် 60၊ သန်းခေါင်ယံတွင် 0
+ * - ညအားကြီးဂြိုဟ် (Moon, Mars, Saturn): သန်းခေါင်ယံ (Apparent Midnight) တွင် 60၊ မွန်းတည့်တွင် 0
+ * - ဗုဒ္ဓဟူးဂြိုဟ် (Mercury): အချိန်မရွေး အမြဲတမ်း 60
+ */
+export function calculateNathonnathaBala(
+  planet: ClassicalPlanet,
+  jdUt: number,
+  geoLonDeg: number,
+): number {
+  if (planet === "Mercury") {
+    return 60.0;
+  }
+
+  // UT hours from 00:00 UT
+  const utHours = ((jdUt + 0.5) - Math.floor(jdUt + 0.5)) * 24.0;
+  // Local Mean Time (LMT) + Equation of Time = Local Apparent Solar Time (LAST)
+  const eotHours = equationOfTimeMinutes(jdUt) / 60.0;
+  const lastHours = norm24(utHours + geoLonDeg / 15.0 + eotHours);
+
+  // သန်းခေါင်ယံ (00:00 LAST) မှ ကွာဝေးချိန် နာရီ (0 = သန်းခေါင်ယံ, 12 = မွန်းတည့်)
+  const distFromMidnightHours = lastHours <= 12.0 ? lastHours : 24.0 - lastHours;
+
+  // Unnata Virupas (မွန်းတည့်၌ 60, သန်းခေါင်ယံ၌ 0)
+  const unnataVirupas = (distFromMidnightHours / 12.0) * 60.0;
+  // Nata Virupas (သန်းခေါင်ယံ၌ 60, မွန်းတည့်၌ 0)
+  const nataVirupas = 60.0 - unnataVirupas;
+
+  const diurnalPlanets: readonly ClassicalPlanet[] = ["Sun", "Jupiter", "Venus"];
+  const raw = diurnalPlanets.includes(planet) ? unnataVirupas : nataVirupas;
+
+  return round2(Math.min(60, Math.max(0, raw)));
+}
+
+/**
+ * ② Paksha Bala (ပက္ခဗလ — Max 60 Virupas, သို့မဟုတ် BPHS Dvigunam အရ Moon = Max 120)
+ * - သောမဂြိုဟ်များ (Moon, Mercury, Jupiter, Venus): လဆန်းပက္ခတွင် အားတက်သည် (phaseAngle / 3)
+ * - ပါပဂြိုဟ်များ (Sun, Mars, Saturn): လဆုတ်ပက္ခတွင် အားတက်သည် (60 - phaseAngle / 3)
+ */
+export function calculatePakshaBala(
+  planet: ClassicalPlanet,
+  moonLonDeg: number,
+  sunLonDeg: number,
+  doubleMoonPaksha: boolean = false,
+): number {
+  const diff = norm360(moonLonDeg - sunLonDeg);
+  const phaseAngle = diff > 180.0 ? 360.0 - diff : diff; // [0°, 180°]
+  const beneficPaksha = phaseAngle / 3.0; // [0, 60]
+
+  const benefics: readonly ClassicalPlanet[] = ["Moon", "Mercury", "Jupiter", "Venus"];
+  const isBenefic = benefics.includes(planet);
+  const baseVal = isBenefic ? beneficPaksha : 60.0 - beneficPaksha;
+
+  if (planet === "Moon" && doubleMoonPaksha) {
+    return round2(baseVal * 2.0);
+  }
+  return round2(baseVal);
+}
+
+/**
+ * ⑧ Ayana Bala (အယနဗလ — Max 60 Virupas)
+ * - Tropical Longitude (Sayana) မှ Declination (Kranti) ကို တွက်ချက်သည်
+ * - Sun, Mars, Jupiter, Venus: မြောက်ယဉ်စွန်း (+declination) တွင် အားကြီးသည်
+ * - Moon, Saturn: တောင်ယဉ်စွန်း (-declination) တွင် အားကြီးသည်
+ * - Mercury: မြောက်/တောင် နှစ်ဖက်လုံး (|declination|) တွင် အားကြီးသည်
+ */
+export function calculatePlanetDeclinationDeg(
+  siderealLonDeg: number,
+  ayanamsaDeg: number,
+  eclipticLatDeg: number = 0,
+): number {
+  const tropicalLonRad = norm360(siderealLonDeg + ayanamsaDeg) * DEG2RAD;
+  const latRad = eclipticLatDeg * DEG2RAD;
+  const epsRad = OBLIQUITY_DEG * DEG2RAD;
+
+  const sinDec =
+    Math.sin(latRad) * Math.cos(epsRad) +
+    Math.cos(latRad) * Math.sin(epsRad) * Math.sin(tropicalLonRad);
+  return Math.asin(Math.max(-1, Math.min(1, sinDec))) * RAD2DEG;
+}
+
+export function calculateAyanaBala(
+  planet: ClassicalPlanet,
+  declinationDeg: number,
+  doubleSunAyana: boolean = false,
+): number {
+  const clampedDec = Math.max(-OBLIQUITY_DEG, Math.min(OBLIQUITY_DEG, declinationDeg));
+
+  let signedDec: number;
+  if (planet === "Mercury") {
+    signedDec = Math.abs(clampedDec);
+  } else if (planet === "Moon" || planet === "Saturn") {
+    signedDec = -clampedDec; // တောင်ယဉ်စွန်းအားကြီး
+  } else {
+    signedDec = clampedDec;  // မြောက်ယဉ်စွန်းအားကြီး (Sun, Mars, Jupiter, Venus)
+  }
+
+  const val = ((OBLIQUITY_DEG + signedDec) / (2.0 * OBLIQUITY_DEG)) * 60.0;
+  const clamped = Math.min(60, Math.max(0, val));
+
+  return round2(planet === "Sun" && doubleSunAyana ? clamped * 2.0 : clamped);
+}
+
+/**
+ * ④ & ⑤ အတွက် တနင်္ဂနွေဂြိုဟ်၏ ပတ်လမ်း ဘဲဥပုံ (Kepler Equation of Center) ဖြင့်
+ * ပစ်မှတ် Sidereal Longitude (ဥပမာ Mesha 0° သို့မဟုတ် Masa 30°*k) သို့ ဝင်ရောက်သည့်
+ * အတိအကျ Sankranti JD ကို ရှာဖွေပေးသော Solver (Aphelion ~4.7 ရက် လွဲချော်မှုကို အပြီးတိုင် ဖယ်ရှားပေးသည်)
+ */
+function findExactSolarSankrantiJd(
+  currentJdUt: number,
+  currentSunSiderealLon: number,
+  targetSiderealLon: number,
+): number {
+  // လက်ရှိ တနင်္ဂနွေဂြိုဟ်သည် targetSiderealLon မှ မည်မျှ ဒီဂရီ ကျော်လွန်လာပြီနည်း [0, 360)
+  const deltaDeg = norm360(currentSunSiderealLon - targetSiderealLon);
+
+  // Keplerian Solar Anomaly ဖြင့် t ၌ တနင်္ဂနွေဂြိုဟ် ရွေ့လျားခဲ့သော ဒီဂရီကို တွက်သည့် helper
+  const solarMotionBetween = (jdStart: number, jdEnd: number): number => {
+    const dt = jdEnd - jdStart;
+    const meanMotion = 0.98560028 * dt;
+    // J2000 မှ Mean Anomaly M (deg)
+    const mStart = norm360(357.52911 + 0.98560028 * (jdStart - 2451545.0)) * DEG2RAD;
+    const mEnd = norm360(357.52911 + 0.98560028 * (jdEnd - 2451545.0)) * DEG2RAD;
+    // Equation of Center (C ≈ 1.9148° sin M + 0.0200° sin 2M)
+    const cStart = 1.9148 * Math.sin(mStart) + 0.02 * Math.sin(2 * mStart);
+    const cEnd = 1.9148 * Math.sin(mEnd) + 0.02 * Math.sin(2 * mEnd);
+    return meanMotion + (cEnd - cStart);
+  };
+
+  // ကနဦး ခန့်မှန်းချက်
+  let sankrantiJd = currentJdUt - deltaDeg / 0.98560028;
+
+  // Newton-Raphson 4-step refinement (အမှား < 0.0005° ≈ 30 စက္ကန့်အောက်)
+  for (let i = 0; i < 4; i++) {
+    const moved = solarMotionBetween(sankrantiJd, currentJdUt);
+    const residual = moved - deltaDeg; // moved == deltaDeg ဖြစ်ရမည်
+    const mRad = norm360(357.52911 + 0.98560028 * (sankrantiJd - 2451545.0)) * DEG2RAD;
+    const instSpeed = 0.98560028 + 0.03293 * Math.cos(mRad);
+    sankrantiJd += residual / instSpeed;
+  }
+
+  return sankrantiJd;
+}
+
+/**
+ * နေထွက်ချိန်အခြေပြု ဝေဒနေ့အရှင်ညွှန်းကိန်း (0 = Sunday .. 6 = Saturday)
+ */
+function getVedicWeekdayAtJd(
+  jdUt: number,
+  tzOffsetHours: number,
+  localSunriseHour: number,
+): number {
+  const localJd = jdUt + tzOffsetHours / 24.0;
+  const civilDayIndex = Math.floor(localJd + 0.5);
+  const localHour = (localJd + 0.5 - civilDayIndex) * 24.0;
+  const civilWeekday = ((civilDayIndex + 1) % 7 + 7) % 7;
+
+  if (localHour < localSunriseHour) {
+    return (civilWeekday + 6) % 7;
+  }
+  return civilWeekday;
+}
+
+/**
+ * Kaala Bala တွက်ချက်မှု ရလဒ် Interface
+ */
+export interface KaalaBalaBreakdown {
+  nathonnatha: Record<ClassicalPlanet, number>;
+  paksha: Record<ClassicalPlanet, number>;
+  tribhaga: Record<ClassicalPlanet, number>;
+  abda: Record<ClassicalPlanet, number>;
+  masa: Record<ClassicalPlanet, number>;
+  vaara: Record<ClassicalPlanet, number>;
+  hora: Record<ClassicalPlanet, number>;
+  ayana: Record<ClassicalPlanet, number>;
+  yuddha: Record<ClassicalPlanet, number>;
+  total: Record<ClassicalPlanet, number>;
+  abdaLord: ClassicalPlanet;
+  masaLord: ClassicalPlanet;
+  vaaraLord: ClassicalPlanet;
+  horaLord: ClassicalPlanet;
+  tribhagaLord: ClassicalPlanet;
+}
+
+export interface CalculateKaalaBalaOptions {
+  planets: Record<
+    ClassicalPlanet,
+    {
+      lon: number;
+      lat?: number;
+      speed?: number;
+      declinationDeg?: number;
+    }
+  >;
+  jdUt: number;
+  tzOffsetHours: number;
+  geoLonDeg: number;
+  ayanamsaDeg: number;
+  /** PANCHANGA block မှ ပို့ပေးသော နေ့အရှင် (0=Sun..6=Sat သို့မဟုတ် ClassicalPlanet) */
+  weekday?: number | ClassicalPlanet;
+  /** HORA block မှ ပို့ပေးသော လက်ရှိ ဟောရာအရှင် */
+  horaLord?: ClassicalPlanet;
+  /** အစစ်အမှန် နေထွက်ချိန် JD (UT) */
+  sunriseJdUt?: number;
+  /** အစစ်အမှန် နေဝင်ချိန် JD (UT) */
+  sunsetJdUt?: number;
+  /** ဒေသစံတော်ချိန်အရ နေထွက်ချိန် နာရီ (sunriseJdUt မပါလျှင် သုံးရန်) */
+  localSunriseHour?: number;
+  /** ဒေသစံတော်ချိန်အရ နေဝင်ချိန် နာရီ (sunsetJdUt မပါလျှင် သုံးရန်) */
+  localSunsetHour?: number;
+  /** BPHS Dvigunam အရ တနင်္လာဂြိုဟ် Paksha Bala ကို ၂ ဆ (max 120) ပေးမည်လား (PL9 တွင် false) */
+  doubleMoonPaksha?: boolean;
+  /** BPHS အရ တနင်္ဂနွေဂြိုဟ် Ayana Bala ကို ၂ ဆ ပေးမည်လား (PL9 တွင် false) */
+  doubleSunAyana?: boolean;
+}
+
+/**
+ * Kaala Bala (ကာလဗလ) အစိတ်အပိုင်း (၉) ခုလုံးကို အတိအကျ တွက်ချက်ပေးသော Function
+ */
+export function calculateKaalaBala(opts: CalculateKaalaBalaOptions): KaalaBalaBreakdown {
+  const {
+    planets,
+    jdUt,
+    tzOffsetHours,
+    geoLonDeg,
+    ayanamsaDeg,
+    doubleMoonPaksha = false,
+    doubleSunAyana = false,
+  } = opts;
+
+  const sunLon = norm360(planets.Sun.lon);
+  const moonLon = norm360(planets.Moon.lon);
+
+  // နေထွက်/နေဝင်ချိန် (Local Hours) ကို sunriseJdUt / sunsetJdUt မှ တိုက်ရိုက်ယူမည် (မပါပါက Equation of Time ပါဝင်သော LMT ဖြင့် ချိန်ညှိမည်)
+  const jdToLocalHours = (jd: number): number => {
+    const localJd = jd + tzOffsetHours / 24.0;
+    return (localJd + 0.5 - Math.floor(localJd + 0.5)) * 24.0;
+  };
+
+  const defaultMeridianOffset = tzOffsetHours - geoLonDeg / 15.0;
+  const localSunriseHour =
+    opts.localSunriseHour ??
+    (opts.sunriseJdUt !== undefined
+      ? jdToLocalHours(opts.sunriseJdUt)
+      : 6.0 + defaultMeridianOffset);
+  const localSunsetHour =
+    opts.localSunsetHour ??
+    (opts.sunsetJdUt !== undefined
+      ? jdToLocalHours(opts.sunsetJdUt)
+      : 18.0 + defaultMeridianOffset);
+
+  const currentLocalHour = jdToLocalHours(jdUt);
+
+  // နေ့ သို့မဟုတ် ည နှင့် သုံးပုံတစ်ပုံ (Tribhaga) / ဟောရာ (Hora) အပိုင်းအခြား ရှာဖွေခြင်း
+  let isDaytime: boolean;
+  let dayOrNightFraction: number; // [0, 1)
+
+  if (
+    opts.sunriseJdUt !== undefined &&
+    opts.sunsetJdUt !== undefined &&
+    opts.sunsetJdUt > opts.sunriseJdUt
+  ) {
+    const dayLengthJd = opts.sunsetJdUt - opts.sunriseJdUt;
+    const nightLengthJd = 1.0 - dayLengthJd;
+
+    if (jdUt >= opts.sunriseJdUt && jdUt < opts.sunsetJdUt) {
+      isDaytime = true;
+      dayOrNightFraction = (jdUt - opts.sunriseJdUt) / dayLengthJd;
+    } else if (jdUt >= opts.sunsetJdUt) {
+      isDaytime = false;
+      dayOrNightFraction = (jdUt - opts.sunsetJdUt) / nightLengthJd;
+    } else {
+      // နံနက် နေမထွက်မီ (ယခင်နေ့ နေဝင်ချိန်မှ လက်ရှိနေထွက်ချိန်အကြား)
+      isDaytime = false;
+      const prevSunsetJd = opts.sunsetJdUt - 1.0;
+      dayOrNightFraction = (jdUt - prevSunsetJd) / nightLengthJd;
+    }
+  } else {
+    const dayDuration = localSunsetHour - localSunriseHour;
+    const nightDuration = 24.0 - dayDuration;
+    if (currentLocalHour >= localSunriseHour && currentLocalHour < localSunsetHour) {
+      isDaytime = true;
+      dayOrNightFraction = (currentLocalHour - localSunriseHour) / dayDuration;
+    } else {
+      isDaytime = false;
+      const hoursSinceSunset =
+        currentLocalHour >= localSunsetHour
+          ? currentLocalHour - localSunsetHour
+          : currentLocalHour + (24.0 - localSunsetHour);
+      dayOrNightFraction = hoursSinceSunset / nightDuration;
+    }
+  }
+
+  dayOrNightFraction = Math.max(0, Math.min(0.999999, dayOrNightFraction));
+
+  // ⑥ Vaara Lord (နေ့အရှင်) — PANCHANGA မှ ပို့ပေးလျှင် တိုက်ရိုက်သုံးမည်
+  let vaaraIndex: number;
+  if (typeof opts.weekday === "number") {
+    vaaraIndex = ((opts.weekday % 7) + 7) % 7;
+  } else if (typeof opts.weekday === "string") {
+    vaaraIndex = VAARA_LORDS.indexOf(opts.weekday);
+  } else {
+    vaaraIndex = getVedicWeekdayAtJd(jdUt, tzOffsetHours, localSunriseHour);
+  }
+  const vaaraLord = VAARA_LORDS[vaaraIndex]!;
+
+  // ⑦ Hora Lord (ဟောရာအရှင်) — HORA block မှ ပို့ပေးလျှင် တိုက်ရိုက်သုံးမည်
+  let horaLord: ClassicalPlanet;
+  if (opts.horaLord) {
+    horaLord = opts.horaLord;
+  } else {
+    const subHoraIndex = Math.min(11, Math.floor(dayOrNightFraction * 12));
+    const horaNumberZeroBased = isDaytime ? subHoraIndex : 12 + subHoraIndex;
+    const startIdx = CHALDEAN_ORDER.indexOf(vaaraLord);
+    horaLord = CHALDEAN_ORDER[(startIdx + horaNumberZeroBased) % 7]!;
+  }
+
+  // ③ Tribhaga Lord (သုံးပုံတစ်ပုံအရှင်)
+  const thirdIndex = Math.min(2, Math.floor(dayOrNightFraction * 3));
+  const DAY_TRIBHAGA_LORDS: readonly ClassicalPlanet[] = ["Mercury", "Sun", "Saturn"];
+  const NIGHT_TRIBHAGA_LORDS: readonly ClassicalPlanet[] = ["Moon", "Venus", "Mars"];
+  const tribhagaLord = isDaytime
+    ? DAY_TRIBHAGA_LORDS[thirdIndex]!
+    : NIGHT_TRIBHAGA_LORDS[thirdIndex]!;
+
+  // ④ Abda Lord (နှစ်အရှင် — Mesha Sankranti 0° Aries)
+  const meshaSankrantiJd = findExactSolarSankrantiJd(jdUt, sunLon, 0.0);
+  const abdaWeekday = getVedicWeekdayAtJd(meshaSankrantiJd, tzOffsetHours, localSunriseHour);
+  const abdaLord = VAARA_LORDS[abdaWeekday]!;
+
+  // ⑤ Masa Lord (လအရှင် — Current Solar Sign Sankranti)
+  const currentSignStartLon = Math.floor(sunLon / 30.0) * 30.0;
+  const masaSankrantiJd = findExactSolarSankrantiJd(jdUt, sunLon, currentSignStartLon);
+  const masaWeekday = getVedicWeekdayAtJd(masaSankrantiJd, tzOffsetHours, localSunriseHour);
+  const masaLord = VAARA_LORDS[masaWeekday]!;
+
+  const nathonnatha = {} as Record<ClassicalPlanet, number>;
+  const paksha = {} as Record<ClassicalPlanet, number>;
+  const tribhaga = {} as Record<ClassicalPlanet, number>;
+  const abda = {} as Record<ClassicalPlanet, number>;
+  const masa = {} as Record<ClassicalPlanet, number>;
+  const vaara = {} as Record<ClassicalPlanet, number>;
+  const hora = {} as Record<ClassicalPlanet, number>;
+  const ayana = {} as Record<ClassicalPlanet, number>;
+  const yuddha = {} as Record<ClassicalPlanet, number>;
+  const preYuddhaTotal = {} as Record<ClassicalPlanet, number>;
+  const total = {} as Record<ClassicalPlanet, number>;
+
+  for (const p of CLASSICAL_PLANETS_ORDER) {
+    nathonnatha[p] = calculateNathonnathaBala(p, jdUt, geoLonDeg);
+    paksha[p] = calculatePakshaBala(p, moonLon, sunLon, doubleMoonPaksha);
+
+    // Tribhaga: Jupiter သည် အမြဲ 60 ရပြီး၊ လက်ရှိ သုံးပုံတစ်ပုံအရှင်လည်း 60 ရသည်
+    tribhaga[p] = p === "Jupiter" || p === tribhagaLord ? 60.0 : 0.0;
+
+    // Abda (15), Masa (30), Vaara (45), Hora (60)
+    abda[p] = p === abdaLord ? 15.0 : 0.0;
+    masa[p] = p === masaLord ? 30.0 : 0.0;
+    vaara[p] = p === vaaraLord ? 45.0 : 0.0;
+    hora[p] = p === horaLord ? 60.0 : 0.0;
+
+    // Ayana Bala (Declination အခြေပြု)
+    const dec =
+      planets[p].declinationDeg ??
+      calculatePlanetDeclinationDeg(planets[p].lon, ayanamsaDeg, planets[p].lat ?? 0);
+    ayana[p] = calculateAyanaBala(p, dec, doubleSunAyana);
+
+    yuddha[p] = 0.0;
+    preYuddhaTotal[p] =
+      nathonnatha[p] +
+      paksha[p] +
+      tribhaga[p] +
+      abda[p] +
+      masa[p] +
+      vaara[p] +
+      hora[p] +
+      ayana[p];
+  }
+
+  // ⑨ Yuddha Bala (ဂြိုဟ်စစ်ထိုးခြင်း — တာရာဂြိုဟ် ၅ လုံးအကြား < 1° ပူးယှဉ်မှု)
+  const taraGrahas: readonly Exclude<ClassicalPlanet, "Sun" | "Moon">[] = [
+    "Mars",
+    "Mercury",
+    "Jupiter",
+    "Venus",
+    "Saturn",
+  ];
+
+  for (let i = 0; i < taraGrahas.length; i++) {
+    for (let j = i + 1; j < taraGrahas.length; j++) {
+      const pA = taraGrahas[i]!;
+      const pB = taraGrahas[j]!;
+
+      const rawSep = Math.abs(norm360(planets[pA].lon) - norm360(planets[pB].lon));
+      const sepDeg = rawSep > 180.0 ? 360.0 - rawSep : rawSep;
+
+      if (sepDeg <= 1.0) {
+        // မြောက်ဘက်ပိုကျသော (Latitude သို့မဟုတ် Declination ပိုမြင့်သော) ဂြိုဟ်က အနိုင်ရသည်
+        const northMetricA =
+          planets[pA].lat ??
+          planets[pA].declinationDeg ??
+          calculatePlanetDeclinationDeg(planets[pA].lon, ayanamsaDeg, 0);
+        const northMetricB =
+          planets[pB].lat ??
+          planets[pB].declinationDeg ??
+          calculatePlanetDeclinationDeg(planets[pB].lon, ayanamsaDeg, 0);
+
+        const aWins =
+          Math.abs(northMetricA - northMetricB) > 1e-6
+            ? northMetricA > northMetricB
+            : preYuddhaTotal[pA] >= preYuddhaTotal[pB];
+
+        const winner = aWins ? pA : pB;
+        const loser = aWins ? pB : pA;
+
+        const discDiff = Math.abs(BIMBA_DIAMETERS[pA] - BIMBA_DIAMETERS[pB]);
+        if (discDiff > 0) {
+          const balaDiff = Math.abs(preYuddhaTotal[pA] - preYuddhaTotal[pB]);
+          const deltaYuddha = balaDiff / discDiff;
+          yuddha[winner] = round2(yuddha[winner] + deltaYuddha);
+          yuddha[loser] = round2(yuddha[loser] - deltaYuddha);
+        }
+      }
+    }
+  }
+
+  for (const p of CLASSICAL_PLANETS_ORDER) {
+    total[p] = round2(preYuddhaTotal[p] + yuddha[p]);
+  }
+
+  return {
+    nathonnatha,
+    paksha,
+    tribhaga,
+    abda,
+    masa,
+    vaara,
+    hora,
+    ayana,
+    yuddha,
+    total,
+    abdaLord,
+    masaLord,
+    vaaraLord,
+    horaLord,
+    tribhagaLord,
+  };
+}
+
+```
+
+---
+
+## ၃။ `buildShadbalaBlock` နှင့် `calculateShadbala` Wiring ပြင်ဆင်ချက် (`shadbala.ts` & `index.ts`)
+
+**DELETE 4B** တွင် ထောက်ပြထားသည့်အတိုင်း `buildShadbalaBlock` မှ `calculateShadbala` သို့ `weekday`, `hora`, `sunriseJdUt`, `sunsetJdUt` တို့ ပျောက်ဆုံးနေသည့် ပြဿနာကို ဖြေရှင်းရန် `shadbala.ts` ရှိ `buildShadbalaBlock` နှင့် `index.ts` တို့တွင် အောက်ပါအတိုင်း ချိတ်ဆက်ပေးရပါမည်—
+
+### (က) `src/engine/chartblocks/shadbala.ts` အတွင်းရှိ `buildShadbalaBlock` ပြင်ဆင်ချက်
+
+```typescript
+// ✅ REPLACE 4B: shadbala.ts အတွင်းရှိ buildShadbalaBlock တွင် PANCHANGA / HORA မှ အချက်အလက်များကို အပြည့်အစုံ ပို့ပေးခြင်း
+  const engineOut = calculateShadbala({
+    planets: planetsInput,
+    jdUt: shadbalaInput.chartJd,
+    tzOffsetHours: chart.time.timezoneOffsetHours,
+    geoLonDeg: shadbalaInput.longitude,
+    ayanamsaDeg: shadbalaInput.ayanamsaDeg,
+    houseCusps,
+    weekday: shadbalaInput.weekday,
+    horaLord: shadbalaInput.hora,
+    sunriseJdUt: shadbalaInput.sunriseJdUt,
+    sunsetJdUt: shadbalaInput.sunsetJdUt,
+    localSunriseHour: shadbalaInput.localSunriseHour,
+    localSunsetHour: shadbalaInput.localSunsetHour,
+    doubleMoonPaksha: shadbalaInput.doubleMoonPaksha ?? false,
+    doubleSunAyana: shadbalaInput.doubleSunAyana ?? false,
+    usePanchadhaSaptavargaja: shadbalaInput.usePanchadhaSaptavargaja ?? true,
+    drigMode: shadbalaInput.drigMode ?? "DEGREE_RAMAN_BAND",
+  });
+
+```
+
+### (ခ) `src/engine/chartblocks/index.ts` အတွင်း `shadbalaInput` တည်ဆောက်သည့်နေရာ၌ ဖြည့်စွက်ရန်
+
+`src/engine/chartblocks/index.ts` တွင် `buildShadbalaBlock(chart, shadbalaInput)` မခေါ်မီ `panchangaResult` နှင့် `horaBlock` တို့မှ တွက်ထုတ်ပြီးသား အစစ်အမှန် နေထွက်/နေဝင်ချိန်နှင့် နေ့အရှင်/ဟောရာအရှင် တို့ကို အောက်ပါအတိုင်း ထည့်သွင်းပေးပါ—
+
+```typescript
+// ✅ src/engine/chartblocks/index.ts အတွင်း shadbalaInput သို့ sunrise/sunset နှင့် weekday/hora ချိတ်ဆက်ခြင်း
+const shadbalaInput: ShadbalaBuildInput = {
+  chartJd: chart.time.julianDayUt,
+  longitude: chart.location.longitude,
+  ayanamsaDeg: chart.ayanamsa.valueDegrees,
+  weekday: panchangaBlock.weekday_lord as ClassicalPlanet,
+  hora: horaBlock.planet as ClassicalPlanet,
+  sunriseJdUt: panchangaResult?.vara?.sunriseJdUt,
+  sunsetJdUt: sunsetJdUt, // sunset provider မှ ရရှိသော နေဝင်ချိန် JD (UT)
+  doubleMoonPaksha: false, // PL9 standard တွင် 1x (Chesta နှင့် Paksha နှစ်နေရာခွဲယူသည်)၊ BPHS Dvigunam လိုအပ်ပါက true ထားပါ
+  doubleSunAyana: false,
+  usePanchadhaSaptavargaja: true,
+  drigMode: "DEGREE_RAMAN_BAND",
+};
+
+```
+
+---
+
+## ၄။ ပြင်ဆင်ပြီးနောက် ရရှိလာမည့် အကျိုးကျေးဇူးနှင့် စစ်ဆေးချက် (Verification Summary)
+
+1. **Nathonnatha Bala**: မွန်းတည့်ချိန် မွေးဖွား/တွက်ချက်သော ဇာတာများတွင် တနင်္ဂနွေ၊ ကြာသပတေး၊ သောကြာ တို့သည် `0` မှားရနေရာမှ **60 Virupas** အပြည့်အဝ မှန်ကန်စွာ ရရှိသွားမည်ဖြစ်ပြီး ဗုဒ္ဓဟူးဂြိုဟ်သည် အမြဲတမ်း **60 Virupas** ရရှိပါမည်။
+2. **Abda & Masa Bala**: `2026-09-16` (Chofu Reference Chart) ကဲ့သို့ နွေရာသီအလွန် ကာလများတွင် ကမ္ဘာ့ပတ်လမ်း Aphelion ကြောင့် နေသွားနှုန်း နှေးကွေးရာမှ ဖြစ်ပေါ်ခဲ့သော Mesha Sankranti ရက် **~4.7 ရက်** လွဲချော်မှု လုံးဝပျောက်ကွယ်သွားပြီး အစစ်အမှန် Sankranti နေ့အရှင်ကိုသာ အတိအကျ ရွေးချယ်ပေးပါမည်။
+
+
+3. **Tribhaga, Vaara & Hora Bala**: ပုံသေ 6:00 AM / 18:00 PM အစား PANCHANGA နှင့် HORA block တို့မှ အစစ်အမှန် နေထွက်/နေဝင်ချိန်များနှင့် တစ်သားတည်း ချိတ်ဆက်သွားသဖြင့် နေ့ထွက်/နေဝင်စပ်ကြား နာရီပိုင်းများတွင် နေ့အရှင်၊ ဟောရာအရှင်နှင့် တြိဘာဂအရှင် လွဲချော်မှု မရှိတော့ပါ။
+
+
+4. **Ayana & Yuddha Bala**: တနင်္လာနှင့် စနေဂြိုဟ်တို့ တောင်ယဉ်စွန်းရောက်ချိန်တွင် အားအပြည့်ရရှိပြီး၊ တာရာဂြိုဟ်ချင်း $1^\circ$ အတွင်း ပူးယှဉ်သည့် အခါတိုင်း Graha Yuddha အနိုင်/အရှုံး ဗလအပြောင်းအလဲကို အလိုအလျောက် တွက်ချက်ပေးမည် ဖြစ်ပါသည်။
+
+နောက်တစ်ဆင့်အနေဖြင့် **Chesta Bala (စေಷ್ಟာဗလ)** သို့မဟုတ် **Drig Bala (ဒြိဂ်ဗလ)** တွက်ချက်မှုများကို ဆက်လက် စစ်ဆေးလိုပါက ပြောကြားနိုင်ပါသည်။

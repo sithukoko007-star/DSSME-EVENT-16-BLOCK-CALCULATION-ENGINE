@@ -223,6 +223,8 @@ export async function buildDssme16BlockResult(
     chartJd: chart.time.julianDayUt,
     longitude: chart.location.longitude,
     ayanamsaDeg: chart.ayanamsa.value,
+    sunriseJdUt: options.sunriseJdUt,
+    sunsetJdUt: options.sunsetJdUt,
   };
   const shadbalaResult = buildShadbalaBlock(ctx, shadbalaInput);
   const shadbalaTotals = shadbalaResult.value?.total_virupas ?? new Array(7).fill(300);
