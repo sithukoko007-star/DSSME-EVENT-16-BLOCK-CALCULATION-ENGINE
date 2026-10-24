@@ -195,9 +195,9 @@ export function runShadbalaAndBhavaBalaTests(): void {
 
   // 9. End-to-End Chofu Shadbala & Ishta/Kashta Phala
   const shadbala20Pt = calculateShadbala(CHOFU_CHART_INPUT);
-  assert.equal(shadbala20Pt.results.Sun.totalVirupas, 402.1);
-  assert.equal(shadbala20Pt.results.Moon.totalVirupas, 451.5);
-  assert.equal(shadbala20Pt.results.Saturn.totalVirupas, 364.5);
+  assert.equal(shadbala20Pt.results.Sun.totalVirupas, 393.89);
+  assert.equal(shadbala20Pt.results.Moon.totalVirupas, 428.12);
+  assert.equal(shadbala20Pt.results.Saturn.totalVirupas, 347.48);
 
   const ikOut = calculateIshtaKashtaFromShadbala(shadbala20Pt.results);
   assert.equal(ikOut.byPlanet.Mercury.ishtaVirupas, 42.41);
@@ -208,13 +208,13 @@ export function runShadbalaAndBhavaBalaTests(): void {
     usePanchadhaSaptavargaja: true,
     drigMode: "WHOLE_HOUSE",
   });
-  assert.equal(shadbalaPanchadha.results.Sun.totalVirupas, 456.4);
-  assert.equal(shadbalaPanchadha.results.Moon.totalVirupas, 476.8);
-  assert.equal(shadbalaPanchadha.results.Mars.totalVirupas, 378.2);
-  assert.equal(shadbalaPanchadha.results.Mercury.totalVirupas, 477.0);
-  assert.equal(shadbalaPanchadha.results.Jupiter.totalVirupas, 420.3);
-  assert.equal(shadbalaPanchadha.results.Venus.totalVirupas, 320.8);
-  assert.equal(shadbalaPanchadha.results.Saturn.totalVirupas, 351.0);
+  assert.equal(shadbalaPanchadha.results.Sun.totalVirupas, 456.39);
+  assert.equal(shadbalaPanchadha.results.Moon.totalVirupas, 476.81);
+  assert.equal(shadbalaPanchadha.results.Mars.totalVirupas, 378.21);
+  assert.equal(shadbalaPanchadha.results.Mercury.totalVirupas, 476.98);
+  assert.equal(shadbalaPanchadha.results.Jupiter.totalVirupas, 420.36);
+  assert.equal(shadbalaPanchadha.results.Venus.totalVirupas, 320.77);
+  assert.equal(shadbalaPanchadha.results.Saturn.totalVirupas, 351.02);
 
   for (const item of shadbalaPanchadha.ordered.filter((x) => x.planet !== "Venus")) {
     assert.equal(item.meetsMinimum, true, `${item.planet} should meet minimum`);

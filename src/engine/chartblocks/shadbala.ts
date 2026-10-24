@@ -20,7 +20,6 @@ import type {
 } from "../../types/dssme-canonical-types.ts";
 import type { BlockContext, BlockResult } from "../blocks/blockTypes.ts";
 import { finalizeBlock, warningIssue } from "../blocks/blockResult.ts";
-import { calculateOuterPlanetChestaBala } from "../strength/chestaBala.ts";
 
 // ============================================================================
 // CORE TYPES & CONSTANTS (BPHS CHAPTER 3 & CHAPTER 27)
@@ -127,7 +126,6 @@ export const VAARA_LORDS: readonly PlanetId[] = [
 
 // Mean obliquity of ecliptic (J2000)
 const OBLIQUITY_DEG = 23.4393;
-const OBLIQUITY_RAD = (OBLIQUITY_DEG * Math.PI) / 180;
 
 // ============================================================================
 // MATHEMATICAL HELPERS
@@ -140,10 +138,6 @@ export function norm360(lon: number): number {
 export function shortestArc(lonA: number, lonB: number): number {
   const diff = Math.abs(norm360(lonA - lonB));
   return diff > 180 ? 360 - diff : diff;
-}
-
-function round1(val: number): number {
-  return Math.round((val + Number.EPSILON) * 10) / 10;
 }
 
 function round2(val: number): number {
@@ -859,17 +853,6 @@ const CHALDEAN_ORDER: readonly ClassicalPlanet[] = [
   "Moon",
 ];
 
-/**
- * ဂြိုဟ်စစ်ထိုးရာတွင် (Graha Yuddha) အသုံးပြုသော ဂြိုဟ်အချင်းတန်ဖိုးများ (Bimba Parimana / Disc Diameters in arcseconds)
- */
-const BIMBA_DIAMETERS: Record<Exclude<ClassicalPlanet, "Sun" | "Moon">, number> = {
-  Mars: 9.4,
-  Mercury: 6.6,
-  Jupiter: 190.4,
-  Venus: 16.6,
-  Saturn: 158.0,
-};
-
 function norm24(hours: number): number {
   return ((hours % 24) + 24) % 24;
 }
@@ -1137,289 +1120,13 @@ export interface CalculateKaalaBalaOptions {
   doubleMoonPaksha?: boolean;
   /** BPHS အရ တနင်္ဂနွေဂြိုဟ် Ayana Bala ကို ၂ ဆ ပေးမည်လား (PL9 တွင် false) */
   doubleSunAyana?: boolean;
+  /** Masa calculation convention (AMANTA_LUNAR or SAURA_SANKRANTI) */
+  masaConvention?: MasaConvention;
 }
 
-/**
- * Kaala Bala (ကာလဗလ) အစိတ်အပိုင်း (၉) ခုလုံးကို အတိအကျ တွက်ချက်ပေးသော Function
- */
-export function calculateKaalaBala(opts: CalculateKaalaBalaOptions | ShadbalaChartInput): KaalaBalaBreakdown {
-  const {
-    jdUt,
-    tzOffsetHours,
-    geoLonDeg,
-    ayanamsaDeg,
-    doubleMoonPaksha = false,
-    doubleSunAyana = false,
-  } = opts as any;
-
-  let planetsRecord: Record<
-    ClassicalPlanet,
-    { lon: number; lat?: number; speed?: number; declinationDeg?: number }
-  >;
-  if (Array.isArray(opts.planets)) {
-    planetsRecord = {} as any;
-    for (const p of CLASSICAL_PLANETS_ORDER) {
-      const pl = (opts.planets as readonly PlanetPositionInput[]).find(x => x.planet === p);
-      planetsRecord[p] = { lon: pl?.lon ?? 0, lat: pl?.lat, speed: pl?.speed };
-    }
-  } else {
-    planetsRecord = opts.planets as Record<ClassicalPlanet, any>;
-  }
-
-  const planets = planetsRecord;
-  const sunLon = norm360(planets.Sun.lon);
-  const moonLon = norm360(planets.Moon.lon);
-
-  // နေထွက်/နေဝင်ချိန် (Local Hours) ကို sunriseJdUt / sunsetJdUt မှ တိုက်ရိုက်ယူမည် (မပါပါက Equation of Time ပါဝင်သော LMT ဖြင့် ချိန်ညှိမည်)
-  const jdToLocalHours = (jd: number): number => {
-    const localJd = jd + tzOffsetHours / 24.0;
-    return (localJd + 0.5 - Math.floor(localJd + 0.5)) * 24.0;
-  };
-
-  const defaultMeridianOffset = tzOffsetHours - geoLonDeg / 15.0;
-  const localSunriseHour =
-    opts.localSunriseHour ??
-    (opts.sunriseJdUt !== undefined
-      ? jdToLocalHours(opts.sunriseJdUt)
-      : 6.0 + defaultMeridianOffset);
-  const localSunsetHour =
-    opts.localSunsetHour ??
-    (opts.sunsetJdUt !== undefined
-      ? jdToLocalHours(opts.sunsetJdUt)
-      : 18.0 + defaultMeridianOffset);
-
-  const currentLocalHour = jdToLocalHours(jdUt);
-
-  // နေ့ သို့မဟုတ် ည နှင့် သုံးပုံတစ်ပုံ (Tribhaga) / ဟောရာ (Hora) အပိုင်းအခြား ရှာဖွေခြင်း
-  let isDaytime: boolean;
-  let dayOrNightFraction: number; // [0, 1)
-
-  if (
-    opts.sunriseJdUt !== undefined &&
-    opts.sunsetJdUt !== undefined &&
-    opts.sunsetJdUt > opts.sunriseJdUt
-  ) {
-    const dayLengthJd = opts.sunsetJdUt - opts.sunriseJdUt;
-    const nightLengthJd = 1.0 - dayLengthJd;
-
-    if (jdUt >= opts.sunriseJdUt && jdUt < opts.sunsetJdUt) {
-      isDaytime = true;
-      dayOrNightFraction = (jdUt - opts.sunriseJdUt) / dayLengthJd;
-    } else if (jdUt >= opts.sunsetJdUt) {
-      isDaytime = false;
-      dayOrNightFraction = (jdUt - opts.sunsetJdUt) / nightLengthJd;
-    } else {
-      // နံနက် နေမထွက်မီ (ယခင်နေ့ နေဝင်ချိန်မှ လက်ရှိနေထွက်ချိန်အကြား)
-      isDaytime = false;
-      const prevSunsetJd = opts.sunsetJdUt - 1.0;
-      dayOrNightFraction = (jdUt - prevSunsetJd) / nightLengthJd;
-    }
-  } else {
-    const dayDuration = localSunsetHour - localSunriseHour;
-    const nightDuration = 24.0 - dayDuration;
-    if (currentLocalHour >= localSunriseHour && currentLocalHour < localSunsetHour) {
-      isDaytime = true;
-      dayOrNightFraction = (currentLocalHour - localSunriseHour) / dayDuration;
-    } else {
-      isDaytime = false;
-      const hoursSinceSunset =
-        currentLocalHour >= localSunsetHour
-          ? currentLocalHour - localSunsetHour
-          : currentLocalHour + (24.0 - localSunsetHour);
-      dayOrNightFraction = hoursSinceSunset / nightDuration;
-    }
-  }
-
-  dayOrNightFraction = Math.max(0, Math.min(0.999999, dayOrNightFraction));
-
-  // ⑥ Vaara Lord (နေ့အရှင်) — PANCHANGA မှ ပို့ပေးလျှင် တိုက်ရိုက်သုံးမည်
-  let vaaraIndex: number;
-  if (typeof opts.weekday === "number") {
-    vaaraIndex = ((opts.weekday % 7) + 7) % 7;
-  } else if (typeof opts.weekday === "string") {
-    vaaraIndex = VAARA_LORDS.indexOf(opts.weekday);
-  } else {
-    vaaraIndex = getVedicWeekdayAtJd(jdUt, tzOffsetHours, localSunriseHour);
-  }
-  const vaaraLord = VAARA_LORDS[vaaraIndex]!;
-
-  // ⑦ Hora Lord (ဟောရာအရှင်) — HORA block မှ ပို့ပေးလျှင် တိုက်ရိုက်သုံးမည်
-  let horaLord: ClassicalPlanet;
-  if (opts.horaLord) {
-    horaLord = opts.horaLord;
-  } else {
-    const subHoraIndex = Math.min(11, Math.floor(dayOrNightFraction * 12));
-    const horaNumberZeroBased = isDaytime ? subHoraIndex : 12 + subHoraIndex;
-    const startIdx = CHALDEAN_ORDER.indexOf(vaaraLord);
-    horaLord = CHALDEAN_ORDER[(startIdx + horaNumberZeroBased) % 7]!;
-  }
-
-  // ③ Tribhaga Lord (သုံးပုံတစ်ပုံအရှင်)
-  const thirdIndex = Math.min(2, Math.floor(dayOrNightFraction * 3));
-  const DAY_TRIBHAGA_LORDS: readonly ClassicalPlanet[] = ["Mercury", "Sun", "Saturn"];
-  const NIGHT_TRIBHAGA_LORDS: readonly ClassicalPlanet[] = ["Moon", "Venus", "Mars"];
-  const tribhagaLord = isDaytime
-    ? DAY_TRIBHAGA_LORDS[thirdIndex]!
-    : NIGHT_TRIBHAGA_LORDS[thirdIndex]!;
-
-  // ④ Abda Lord (နှစ်အရှင် — Mesha Sankranti 0° Aries)
-  const meshaSankrantiJd = findExactSolarSankrantiJd(jdUt, sunLon, 0.0);
-  const abdaWeekday = getVedicWeekdayAtJd(meshaSankrantiJd, tzOffsetHours, localSunriseHour);
-  const abdaLord = VAARA_LORDS[abdaWeekday]!;
-
-  // ⑤ Masa Lord (လအရှင် — Current Solar Sign Sankranti)
-  const currentSignStartLon = Math.floor(sunLon / 30.0) * 30.0;
-  const masaSankrantiJd = findExactSolarSankrantiJd(jdUt, sunLon, currentSignStartLon);
-  const masaWeekday = getVedicWeekdayAtJd(masaSankrantiJd, tzOffsetHours, localSunriseHour);
-  const masaLord = VAARA_LORDS[masaWeekday]!;
-
-  const nathonnatha = {} as Record<ClassicalPlanet, number>;
-  const paksha = {} as Record<ClassicalPlanet, number>;
-  const tribhaga = {} as Record<ClassicalPlanet, number>;
-  const abda = {} as Record<ClassicalPlanet, number>;
-  const masa = {} as Record<ClassicalPlanet, number>;
-  const vaara = {} as Record<ClassicalPlanet, number>;
-  const hora = {} as Record<ClassicalPlanet, number>;
-  const ayana = {} as Record<ClassicalPlanet, number>;
-  const yuddha = {} as Record<ClassicalPlanet, number>;
-  const preYuddhaTotal = {} as Record<ClassicalPlanet, number>;
-  const total = {} as Record<ClassicalPlanet, number>;
-
-  for (const p of CLASSICAL_PLANETS_ORDER) {
-    nathonnatha[p] = calculateNathonnathaBala(p, jdUt, geoLonDeg);
-    paksha[p] = calculatePakshaBala(p, moonLon, sunLon, doubleMoonPaksha);
-
-    // Tribhaga: Jupiter သည် အမြဲ 60 ရပြီး၊ လက်ရှိ သုံးပုံတစ်ပုံအရှင်လည်း 60 ရသည်
-    tribhaga[p] = p === "Jupiter" || p === tribhagaLord ? 60.0 : 0.0;
-
-    // Abda (15), Masa (30), Vaara (45), Hora (60)
-    abda[p] = p === abdaLord ? 15.0 : 0.0;
-    masa[p] = p === masaLord ? 30.0 : 0.0;
-    vaara[p] = p === vaaraLord ? 45.0 : 0.0;
-    hora[p] = p === horaLord ? 60.0 : 0.0;
-
-    // Ayana Bala (Declination အခြေပြု)
-    const dec =
-      planets[p].declinationDeg ??
-      calculatePlanetDeclinationDeg(planets[p].lon, ayanamsaDeg, planets[p].lat ?? 0);
-    ayana[p] = calculateAyanaBala(p, dec, doubleSunAyana);
-
-    yuddha[p] = 0.0;
-    preYuddhaTotal[p] =
-      nathonnatha[p] +
-      paksha[p] +
-      tribhaga[p] +
-      abda[p] +
-      masa[p] +
-      vaara[p] +
-      hora[p] +
-      ayana[p];
-  }
-
-  // ⑨ Yuddha Bala (ဂြိုဟ်စစ်ထိုးခြင်း — တာရာဂြိုဟ် ၅ လုံးအကြား < 1° ပူးယှဉ်မှု)
-  const taraGrahas: readonly Exclude<ClassicalPlanet, "Sun" | "Moon">[] = [
-    "Mars",
-    "Mercury",
-    "Jupiter",
-    "Venus",
-    "Saturn",
-  ];
-
-  for (let i = 0; i < taraGrahas.length; i++) {
-    for (let j = i + 1; j < taraGrahas.length; j++) {
-      const pA = taraGrahas[i]!;
-      const pB = taraGrahas[j]!;
-
-      const rawSep = Math.abs(norm360(planets[pA].lon) - norm360(planets[pB].lon));
-      const sepDeg = rawSep > 180.0 ? 360.0 - rawSep : rawSep;
-
-      if (sepDeg <= 1.0) {
-        // မြောက်ဘက်ပိုကျသော (Latitude သို့မဟုတ် Declination ပိုမြင့်သော) ဂြိုဟ်က အနိုင်ရသည်
-        const northMetricA =
-          planets[pA].lat ??
-          planets[pA].declinationDeg ??
-          calculatePlanetDeclinationDeg(planets[pA].lon, ayanamsaDeg, 0);
-        const northMetricB =
-          planets[pB].lat ??
-          planets[pB].declinationDeg ??
-          calculatePlanetDeclinationDeg(planets[pB].lon, ayanamsaDeg, 0);
-
-        const aWins =
-          Math.abs(northMetricA - northMetricB) > 1e-6
-            ? northMetricA > northMetricB
-            : preYuddhaTotal[pA] >= preYuddhaTotal[pB];
-
-        const winner = aWins ? pA : pB;
-        const loser = aWins ? pB : pA;
-
-        const discDiff = Math.abs(BIMBA_DIAMETERS[pA] - BIMBA_DIAMETERS[pB]);
-        if (discDiff > 0) {
-          const balaDiff = Math.abs(preYuddhaTotal[pA] - preYuddhaTotal[pB]);
-          const deltaYuddha = balaDiff / discDiff;
-          yuddha[winner] = round2(yuddha[winner] + deltaYuddha);
-          yuddha[loser] = round2(yuddha[loser] - deltaYuddha);
-        }
-      }
-    }
-  }
-
-  for (const p of CLASSICAL_PLANETS_ORDER) {
-    total[p] = round2(preYuddhaTotal[p] + yuddha[p]);
-  }
-
-  const byPlanet = {} as Record<ClassicalPlanet, PlanetKaalaBreakdown>;
-  for (const p of CLASSICAL_PLANETS_ORDER) {
-    byPlanet[p] = {
-      nathonnatha: nathonnatha[p],
-      paksha: paksha[p],
-      tribhaga: tribhaga[p],
-      abda: abda[p],
-      masa: masa[p],
-      vaara: vaara[p],
-      hora: hora[p],
-      ayana: ayana[p],
-      yuddha: yuddha[p],
-      total: total[p],
-    };
-  }
-
-  const lords = {
-    abdaLord,
-    masaLord,
-    vaaraLord,
-    horaLord,
-    tribhagaRuler: tribhagaLord,
-  };
-
-  const sunAyana = ayana.Sun;
-  const unDoubledMoonPaksha = calculatePakshaBala("Moon", moonLon, sunLon, false);
-
-  return {
-    nathonnatha,
-    paksha,
-    tribhaga,
-    abda,
-    masa,
-    vaara,
-    hora,
-    ayana,
-    yuddha,
-    total,
-    abdaLord,
-    masaLord,
-    vaaraLord,
-    horaLord,
-    tribhagaLord,
-    byPlanet,
-    lords,
-    sunAyana,
-    unDoubledMoonPaksha,
-  };
-}
-
-
-
-// -- BPHS Ch. 27 Sloka 20: Yuddha Bala (Planetary War) --
+// ============================================================================
+// ⑨ YUDDHA BALA (BPHS CH. 27 SLOKA 20: PLANETARY WAR)
+// ============================================================================
 
 export const BIMBA_PARIMANA_ARCSEC: Record<TaraGrahaId, number> = {
   Mars: 9.4,
@@ -1677,6 +1384,265 @@ export function calculateYuddhaBala(
     hasPlanetaryWar: encounters.length > 0,
   };
 }
+
+/**
+ * Kaala Bala (ကာလဗလ) အစိတ်အပိုင်း (၉) ခုလုံးကို အတိအကျ တွက်ချက်ပေးသော Function
+ */
+export function calculateKaalaBala(opts: CalculateKaalaBalaOptions | ShadbalaChartInput): KaalaBalaBreakdown {
+  const {
+    jdUt,
+    tzOffsetHours,
+    geoLonDeg,
+    ayanamsaDeg,
+    doubleMoonPaksha = false,
+    doubleSunAyana = false,
+  } = opts as any;
+
+  let planetsRecord: Record<
+    ClassicalPlanet,
+    { lon: number; lat?: number; speed?: number; declinationDeg?: number }
+  >;
+  if (Array.isArray(opts.planets)) {
+    planetsRecord = {} as any;
+    for (const p of CLASSICAL_PLANETS_ORDER) {
+      const pl = (opts.planets as readonly PlanetPositionInput[]).find(x => x.planet === p);
+      planetsRecord[p] = { lon: pl?.lon ?? 0, lat: pl?.lat, speed: pl?.speed };
+    }
+  } else {
+    planetsRecord = opts.planets as Record<ClassicalPlanet, any>;
+  }
+
+  const planets = planetsRecord;
+  const sunLon = norm360(planets.Sun.lon);
+  const moonLon = norm360(planets.Moon.lon);
+
+  // နေထွက်/နေဝင်ချိန် (Local Hours) ကို sunriseJdUt / sunsetJdUt မှ တိုက်ရိုက်ယူမည် (မပါပါက Equation of Time ပါဝင်သော LMT ဖြင့် ချိန်ညှိမည်)
+  const jdToLocalHours = (jd: number): number => {
+    const localJd = jd + tzOffsetHours / 24.0;
+    return (localJd + 0.5 - Math.floor(localJd + 0.5)) * 24.0;
+  };
+
+  const defaultMeridianOffset = tzOffsetHours - geoLonDeg / 15.0;
+  const localSunriseHour =
+    opts.localSunriseHour ??
+    (opts.sunriseJdUt !== undefined
+      ? jdToLocalHours(opts.sunriseJdUt)
+      : 6.0 + defaultMeridianOffset);
+  const localSunsetHour =
+    opts.localSunsetHour ??
+    (opts.sunsetJdUt !== undefined
+      ? jdToLocalHours(opts.sunsetJdUt)
+      : 18.0 + defaultMeridianOffset);
+
+  const currentLocalHour = jdToLocalHours(jdUt);
+
+  // နေ့ သို့မဟုတ် ည နှင့် သုံးပုံတစ်ပုံ (Tribhaga) / ဟောရာ (Hora) အပိုင်းအခြား ရှာဖွေခြင်း
+  let isDaytime: boolean;
+  let dayOrNightFraction: number; // [0, 1)
+
+  if (
+    opts.sunriseJdUt !== undefined &&
+    opts.sunsetJdUt !== undefined &&
+    opts.sunsetJdUt > opts.sunriseJdUt &&
+    opts.sunsetJdUt - opts.sunriseJdUt < 0.95
+  ) {
+    const dayLengthJd = opts.sunsetJdUt - opts.sunriseJdUt;
+    const nightLengthJd = 1.0 - dayLengthJd;
+
+    if (jdUt >= opts.sunriseJdUt && jdUt < opts.sunsetJdUt) {
+      isDaytime = true;
+      dayOrNightFraction = (jdUt - opts.sunriseJdUt) / dayLengthJd;
+    } else if (jdUt >= opts.sunsetJdUt) {
+      isDaytime = false;
+      dayOrNightFraction = (jdUt - opts.sunsetJdUt) / nightLengthJd;
+    } else {
+      // နံနက် နေမထွက်မီ (ယခင်နေ့ နေဝင်ချိန်မှ လက်ရှိနေထွက်ချိန်အကြား)
+      isDaytime = false;
+      const prevSunsetJd = opts.sunsetJdUt - 1.0;
+      dayOrNightFraction = (jdUt - prevSunsetJd) / nightLengthJd;
+    }
+  } else {
+    const dayDuration = localSunsetHour - localSunriseHour;
+    const nightDuration = 24.0 - dayDuration;
+    if (currentLocalHour >= localSunriseHour && currentLocalHour < localSunsetHour) {
+      isDaytime = true;
+      dayOrNightFraction = (currentLocalHour - localSunriseHour) / dayDuration;
+    } else {
+      isDaytime = false;
+      const hoursSinceSunset =
+        currentLocalHour >= localSunsetHour
+          ? currentLocalHour - localSunsetHour
+          : currentLocalHour + (24.0 - localSunsetHour);
+      dayOrNightFraction = hoursSinceSunset / nightDuration;
+    }
+  }
+
+  dayOrNightFraction = Math.max(0, Math.min(0.999999, dayOrNightFraction));
+
+  // ⑥ Vaara Lord (နေ့အရှင်) — PANCHANGA မှ ပို့ပေးလျှင် တိုက်ရိုက်သုံးမည်
+  let vaaraIndex: number;
+  if (typeof opts.weekday === "number") {
+    vaaraIndex = ((opts.weekday % 7) + 7) % 7;
+  } else if (typeof opts.weekday === "string") {
+    vaaraIndex = VAARA_LORDS.indexOf(opts.weekday);
+  } else {
+    vaaraIndex = getVedicWeekdayAtJd(jdUt, tzOffsetHours, localSunriseHour);
+  }
+  const vaaraLord = VAARA_LORDS[vaaraIndex]!;
+
+  // ⑦ Hora Lord (ဟောရာအရှင်) — HORA block မှ ပို့ပေးလျှင် တိုက်ရိုက်သုံးမည်
+  let horaLord: ClassicalPlanet;
+  if (opts.horaLord) {
+    horaLord = opts.horaLord;
+  } else {
+    const subHoraIndex = Math.min(11, Math.floor(dayOrNightFraction * 12));
+    const horaNumberZeroBased = isDaytime ? subHoraIndex : 12 + subHoraIndex;
+    const startIdx = CHALDEAN_ORDER.indexOf(vaaraLord);
+    horaLord = CHALDEAN_ORDER[(startIdx + horaNumberZeroBased) % 7]!;
+  }
+
+  // ③ Tribhaga Lord (သုံးပုံတစ်ပုံအရှင်)
+  const thirdIndex = Math.min(2, Math.floor(dayOrNightFraction * 3));
+  const DAY_TRIBHAGA_LORDS: readonly ClassicalPlanet[] = ["Mercury", "Sun", "Saturn"];
+  const NIGHT_TRIBHAGA_LORDS: readonly ClassicalPlanet[] = ["Moon", "Venus", "Mars"];
+  const tribhagaLord = isDaytime
+    ? DAY_TRIBHAGA_LORDS[thirdIndex]!
+    : NIGHT_TRIBHAGA_LORDS[thirdIndex]!;
+
+  // ④ Abda Lord (နှစ်အရှင် — Mesha Sankranti 0° Aries)
+  const meshaSankrantiJd = findExactSolarSankrantiJd(jdUt, sunLon, 0.0);
+  const abdaWeekday = getVedicWeekdayAtJd(meshaSankrantiJd, tzOffsetHours, localSunriseHour);
+  const abdaLord = VAARA_LORDS[abdaWeekday]!;
+
+  // ⑤ Masa Lord (လအရှင် — Current Solar Sign Sankranti)
+  const currentSignStartLon = Math.floor(sunLon / 30.0) * 30.0;
+  const masaSankrantiJd = findExactSolarSankrantiJd(jdUt, sunLon, currentSignStartLon);
+  const masaWeekday = getVedicWeekdayAtJd(masaSankrantiJd, tzOffsetHours, localSunriseHour);
+  const masaLord = VAARA_LORDS[masaWeekday]!;
+
+  const nathonnatha = {} as Record<ClassicalPlanet, number>;
+  const paksha = {} as Record<ClassicalPlanet, number>;
+  const tribhaga = {} as Record<ClassicalPlanet, number>;
+  const abda = {} as Record<ClassicalPlanet, number>;
+  const masa = {} as Record<ClassicalPlanet, number>;
+  const vaara = {} as Record<ClassicalPlanet, number>;
+  const hora = {} as Record<ClassicalPlanet, number>;
+  const ayana = {} as Record<ClassicalPlanet, number>;
+  const yuddha = {} as Record<ClassicalPlanet, number>;
+  const preYuddhaTotal = {} as Record<ClassicalPlanet, number>;
+  const total = {} as Record<ClassicalPlanet, number>;
+
+  for (const p of CLASSICAL_PLANETS_ORDER) {
+    nathonnatha[p] = calculateNathonnathaBala(p, jdUt, geoLonDeg);
+    paksha[p] = calculatePakshaBala(p, moonLon, sunLon, doubleMoonPaksha);
+
+    // Tribhaga: Jupiter သည် အမြဲ 60 ရပြီး၊ လက်ရှိ သုံးပုံတစ်ပုံအရှင်လည်း 60 ရသည်
+    tribhaga[p] = p === "Jupiter" || p === tribhagaLord ? 60.0 : 0.0;
+
+    // Abda (15), Masa (30), Vaara (45), Hora (60)
+    abda[p] = p === abdaLord ? 15.0 : 0.0;
+    masa[p] = p === masaLord ? 30.0 : 0.0;
+    vaara[p] = p === vaaraLord ? 45.0 : 0.0;
+    hora[p] = p === horaLord ? 60.0 : 0.0;
+
+    // Ayana Bala (Declination အခြေပြု)
+    const dec =
+      planets[p].declinationDeg ??
+      calculatePlanetDeclinationDeg(planets[p].lon, ayanamsaDeg, planets[p].lat ?? 0);
+    ayana[p] = calculateAyanaBala(p, dec, doubleSunAyana);
+
+    yuddha[p] = 0.0;
+    preYuddhaTotal[p] =
+      nathonnatha[p] +
+      paksha[p] +
+      tribhaga[p] +
+      abda[p] +
+      masa[p] +
+      vaara[p] +
+      hora[p] +
+      ayana[p];
+  }
+
+  // ⑨ Yuddha Bala (ဂြိုဟ်စစ်ထိုးခြင်း — တာရာဂြိုဟ် ၅ လုံးအကြား < 1° ပူးယှဉ်မှု)
+  const warringPlanets: WarringPlanetInput[] = CLASSICAL_PLANETS_ORDER.map((p) => ({
+    planet: p,
+    lon: planets[p].lon,
+    lat:
+      planets[p].lat ??
+      planets[p].declinationDeg ??
+      calculatePlanetDeclinationDeg(planets[p].lon, ayanamsaDeg, 0),
+    speed: planets[p].speed ?? 0,
+    house: 1,
+  }));
+  const yuddhaResult = calculateYuddhaBala(warringPlanets, preYuddhaTotal);
+  for (const p of CLASSICAL_PLANETS_ORDER) {
+    yuddha[p] = yuddhaResult.yuddhaVirupasByPlanet[p] ?? 0.0;
+  }
+
+  for (const p of CLASSICAL_PLANETS_ORDER) {
+    total[p] = round2(preYuddhaTotal[p] + yuddha[p]);
+  }
+
+  const byPlanet = {} as Record<ClassicalPlanet, PlanetKaalaBreakdown>;
+  for (const p of CLASSICAL_PLANETS_ORDER) {
+    byPlanet[p] = {
+      nathonnatha: nathonnatha[p],
+      paksha: paksha[p],
+      tribhaga: tribhaga[p],
+      abda: abda[p],
+      masa: masa[p],
+      vaara: vaara[p],
+      hora: hora[p],
+      ayana: ayana[p],
+      yuddha: yuddha[p],
+      total: total[p],
+    };
+  }
+
+  const lords = {
+    abdaLord,
+    masaLord,
+    vaaraLord,
+    horaLord,
+    tribhagaRuler: tribhagaLord,
+  };
+
+  const sunAyana = doubleSunAyana
+    ? calculateAyanaBala(
+        "Sun",
+        planets.Sun.declinationDeg ??
+          calculatePlanetDeclinationDeg(planets.Sun.lon, ayanamsaDeg, planets.Sun.lat ?? 0),
+        false
+      )
+    : ayana.Sun;
+  const unDoubledMoonPaksha = calculatePakshaBala("Moon", moonLon, sunLon, false);
+
+  return {
+    nathonnatha,
+    paksha,
+    tribhaga,
+    abda,
+    masa,
+    vaara,
+    hora,
+    ayana,
+    yuddha,
+    total,
+    abdaLord,
+    masaLord,
+    vaaraLord,
+    horaLord,
+    tribhagaLord,
+    byPlanet,
+    lords,
+    sunAyana,
+    unDoubledMoonPaksha,
+  };
+}
+
+
+
+
 
 
 
@@ -2527,7 +2493,7 @@ export function calculateShadbala(
   const kaalaOut = calculateKaalaBala(chart);
   const drigMap = calculateDrigBala(
     chart.planets,
-    chart.drigMode ?? "WHOLE_HOUSE"
+    chart.drigMode ?? "DEGREE_RAMAN_BAND"
   );
 
   const panchadhaSapta = chart.usePanchadhaSaptavargaja
@@ -2553,19 +2519,19 @@ export function calculateShadbala(
     const naisargikaVal = NAISARGIKA_BALA[p];
     const drigVal = drigMap[p];
 
-    const sthana = round1(sthanaBreakdown.total);
-    const dig = round1(digVal);
-    const kaala = round1(kaalaBreakdown.total);
-    const chesta = round1(chestaVal);
-    const naisargika = round1(naisargikaVal);
-    const drig = round1(drigVal);
+    const sthana = round2(sthanaBreakdown.total);
+    const dig = round2(digVal);
+    const kaala = round2(kaalaBreakdown.total);
+    const chesta = round2(chestaVal);
+    const naisargika = round2(naisargikaVal);
+    const drig = round2(drigVal);
 
-    const totalVirupas = round1(
+    const totalVirupas = round2(
       sthana + dig + kaala + chesta + naisargika + drig
     );
     const totalRupas = round2(totalVirupas / 60.0);
     const minRequired = MIN_REQUIRED_VIRUPAS[p];
-    const percentRequired = round1((totalVirupas / minRequired) * 100);
+    const percentRequired = round2((totalVirupas / minRequired) * 100);
 
     const item: PlanetShadbalaResult = {
       planet: p,
@@ -2681,6 +2647,8 @@ export function buildShadbalaBlock(
   const naisargikaValues: number[] = [];
   const drigValues: number[] = [];
   const totalVirupas: number[] = [];
+  const percentRequired: number[] = [];
+  const rank: number[] = [];
 
   for (const p of CLASSICAL_PLANETS_ORDER) {
     const r = engineOut.results[p];
@@ -2691,14 +2659,9 @@ export function buildShadbalaBlock(
     naisargikaValues.push(round2(r.naisargika));
     drigValues.push(r.drig);
     totalVirupas.push(r.totalVirupas);
+    percentRequired.push(r.percentRequired);
+    rank.push(r.rank);
   }
-
-  const percentRequired = totalVirupas.map((v, i) =>
-    round2((v / MINIMUM_REQUIRED_VIRUPAS[i]!) * 100)
-  );
-
-  const sorted = [...totalVirupas].sort((a, b) => b - a);
-  const rank = totalVirupas.map((v) => sorted.indexOf(v) + 1);
 
   const kaala_pct = kaalaTotals.map((k, i) =>
     round2((k / MINIMUM_REQUIRED_VIRUPAS[i]!) * 100)
