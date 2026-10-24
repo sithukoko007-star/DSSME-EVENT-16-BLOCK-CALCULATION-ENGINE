@@ -210,28 +210,32 @@ function detectYogas(ctx: BlockContext): YogaEntry[] {
     }
   }
 
-  // 7. Graha Yuddha: two planets within 1° in the same sign (planetary war)
+  // 7. Graha Yuddha: two Tara Grahas within 1° (planetary war — loser only receives -0.04 YIF)
   {
-    const classicalPlanets: ClassicalPlanet[] = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
-    for (let i = 0; i < classicalPlanets.length; i++) {
-      for (let j = i + 1; j < classicalPlanets.length; j++) {
-        const p1 = classicalPlanets[i]!;
-        const p2 = classicalPlanets[j]!;
+    const taraPlanets: ClassicalPlanet[] = ["Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
+    for (let i = 0; i < taraPlanets.length; i++) {
+      for (let j = i + 1; j < taraPlanets.length; j++) {
+        const p1 = taraPlanets[i]!;
+        const p2 = taraPlanets[j]!;
         const pos1 = chart.planets[p1];
         const pos2 = chart.planets[p2];
-        if (pos1.sign === pos2.sign) {
-          const sep = Math.abs(pos1.signDegree - pos2.signDegree);
-          if (sep < 1.0) {
-            // Loser = lower latitude or specific rule; simplified: lower signDegree = loser
-            const loser = pos1.signDegree < pos2.signDegree ? p1 : p2;
-            yogas.push({
-              name: "Graha Yuddha",
-              type: "spec_negative",
-              planets_involved: [p1, p2],
-              active: true,
-              description: `Planetary war: ${p1} vs ${p2} (loser: ${loser}) — severe disruption`,
-            });
-          }
+        const rawDiff = Math.abs(pos1.siderealLongitude - pos2.siderealLongitude) % 360;
+        const sep = rawDiff > 180 ? 360 - rawDiff : rawDiff;
+        if (sep < 1.0) {
+          const lat1 = pos1.eclipticLatitude ?? 0;
+          const lat2 = pos2.eclipticLatitude ?? 0;
+          const loser =
+            Math.abs(lat1 - lat2) > 1e-6
+              ? (lat1 < lat2 ? p1 : p2)
+              : (pos1.siderealLongitude > pos2.siderealLongitude ? p2 : p1);
+          const winner = loser === p1 ? p2 : p1;
+          yogas.push({
+            name: "Graha Yuddha",
+            type: "spec_negative",
+            planets_involved: [loser], // Master Contract §8 S6: "Graha Yuddha (planetary war — loser) -0.04"
+            active: true,
+            description: `Planetary war: ${winner} defeats ${loser} (sep=${sep.toFixed(2)}°) — loser attenuated`,
+          });
         }
       }
     }

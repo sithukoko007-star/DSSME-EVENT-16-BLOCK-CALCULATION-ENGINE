@@ -221,7 +221,7 @@ export default function App() {
           const pSrc = fromCanonicalChart(resolvedChart);
           const pResult = computePanchanga(pSrc, { sunrise: createSunriseProvider() }, { includeBoundaries: false, varaMode: "sunrise" });
           setPanchangaResult(pResult);
-          const blocks = await buildDssme16BlockResult(resolvedChart, pResult);
+          const blocks = await buildDssme16BlockResult(resolvedChart, pResult, { sunriseJdUt: pResult.vara.sunriseJdUT });
           setBlockResult(blocks);
         } catch (bErr) {
           console.warn("Intermediate block computation warning:", bErr);

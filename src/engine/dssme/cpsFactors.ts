@@ -111,11 +111,16 @@ function clamp(x: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, x));
 }
 
-function computeKIF(kaala_pct: number, sthana_pct: number, dig_pct: number, chesta_pct: number, drig_pct: number): number {
-  const others = [sthana_pct, dig_pct, chesta_pct, drig_pct].filter(v => v > 0);
-  if (others.length === 0) return 1.00;
+function computeKIF(
+  kaala_pct: number,
+  sthana_pct: number,
+  dig_pct: number,
+  chesta_pct: number,
+  drig_pct: number
+): number {
+  const others = [sthana_pct, dig_pct, chesta_pct, drig_pct];
   const meanOthers = others.reduce((a, b) => a + b, 0) / others.length;
-  if (meanOthers === 0) return 1.00;
+  if (meanOthers <= 0) return 1.00;
   const ratio = kaala_pct / meanOthers;
   if (ratio <= 1.5) return 1.00;
   if (ratio <= 2.5) return 0.95;

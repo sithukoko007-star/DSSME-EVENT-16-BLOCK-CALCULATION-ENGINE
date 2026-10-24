@@ -106,8 +106,8 @@ async function debugShadbala() {
 
   const sunInNorth = chart.planets.Sun.siderealLongitude < 180;
   const isNight = true;
-  const diurnal = ["Sun", "Jupiter", "Saturn"];
-  const nocturnal = ["Moon", "Mars", "Venus"];
+  const diurnal = ["Sun", "Jupiter", "Venus"];
+  const nocturnal = ["Moon", "Mars", "Saturn"];
   const benefics = ["Moon", "Mercury", "Jupiter", "Venus"];
   const malefics = ["Sun", "Mars", "Saturn"];
   const masaLords: string[] = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"];

@@ -192,13 +192,15 @@ export async function buildDssme16BlockResult(
     return new Date(Date.UTC(yr, mo - 1, dy)).getUTCDay();
   })();
 
+  const effectiveSunriseJdUt = options.sunriseJdUt ?? panchanga?.vara.sunriseJdUT;
+
   // Estimate if night using JD comparison when sunriseJdUt/sunsetJdUt are available,
   // or by parsing the hour from the localIso string (not new Date().getHours() which
   // is machine-timezone dependent).
   const isNight = (() => {
-    if (options.sunriseJdUt !== undefined && options.sunsetJdUt !== undefined) {
+    if (effectiveSunriseJdUt !== undefined && options.sunsetJdUt !== undefined) {
       return chart.time.julianDayUt >= options.sunsetJdUt ||
-             chart.time.julianDayUt < options.sunriseJdUt;
+             chart.time.julianDayUt < effectiveSunriseJdUt;
     }
     if (options.sunsetJdUt !== undefined) {
       return chart.time.julianDayUt >= options.sunsetJdUt;
@@ -210,7 +212,7 @@ export async function buildDssme16BlockResult(
   })();
 
   // Step 1: Shadbala (needed for BhavaBala and PLANETS block)
-  const horaResult = buildHoraBlock(ctx, options.sunriseJdUt, options.sunsetJdUt);
+  const horaResult = buildHoraBlock(ctx, effectiveSunriseJdUt, options.sunsetJdUt);
   const horaLord = horaResult.value?.planet ?? "Sun";
 
   const shadbalaInput: ShadbalaInput = {
@@ -223,8 +225,10 @@ export async function buildDssme16BlockResult(
     chartJd: chart.time.julianDayUt,
     longitude: chart.location.longitude,
     ayanamsaDeg: chart.ayanamsa.value,
-    sunriseJdUt: options.sunriseJdUt,
+    sunriseJdUt: effectiveSunriseJdUt,
     sunsetJdUt: options.sunsetJdUt,
+    masaConvention: "AMANTA_LUNAR",
+    doubleMoonPaksha: true,
   };
   const shadbalaResult = buildShadbalaBlock(ctx, shadbalaInput);
   const shadbalaTotals = shadbalaResult.value?.total_virupas ?? new Array(7).fill(300);

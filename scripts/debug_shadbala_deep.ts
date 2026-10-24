@@ -120,8 +120,8 @@ function bphs_ojhaBala(planet: ClassicalPlanet, sign: ZodiacSign): number {
 // Nocturnal (Moon, Mars, Venus, Mercury) strong by night
 // Mercury: always moderate (30)
 function bphs_nathonnatha(planet: ClassicalPlanet, isNight: boolean): number {
-  const diurnal: ClassicalPlanet[] = ["Sun", "Jupiter", "Saturn"];
-  const nocturnal: ClassicalPlanet[] = ["Moon", "Mars", "Venus"];
+  const diurnal: ClassicalPlanet[] = ["Sun", "Jupiter", "Venus"];
+  const nocturnal: ClassicalPlanet[] = ["Moon", "Mars", "Saturn"];
   if (planet === "Mercury") return 30;
   if (diurnal.includes(planet)) return isNight ? 15 : 60;
   if (nocturnal.includes(planet)) return isNight ? 60 : 15;

@@ -58,88 +58,90 @@ export function buildHoraBlock(
   sunriseJdUt?: number,
   sunsetJdUt?: number
 ): BlockResult<HoraBlock> {
-  const { chart } = ctx;
+  const { chart, panchanga } = ctx;
   const offsetHours = chart.time.timezoneOffsetHours;
   const chartJd = chart.time.julianDayUt;
   const issues = [];
 
-  // Determine weekday from localIso date string directly (timezone-safe).
-  // new Date(localIso).getDay() would use machine timezone; instead parse the
-  // date components from the already-localized localIso string.
+  // Panchanga မှ တွက်ချက်ပြီးသား sunriseJdUT ရှိပါက အလိုအလျောက် ရယူသုံးစွဲမည်
+  const effectiveSunriseJd = sunriseJdUt ?? panchanga?.vara.sunriseJdUT;
+
+  // Local civil date မှ Civil Weekday ကို ရှာခြင်း (Machine timezone မသုံးပါ)
   const localIso = chart.time.localIso;
   const datePart = localIso.split("T")[0] ?? "1970-01-01";
   const [yr, mo, dy] = datePart.split("-").map(Number) as [number, number, number];
-  const weekday = new Date(Date.UTC(yr, mo - 1, dy)).getUTCDay(); // 0=Sun..6=Sat
-
-  const sequence = HORA_SEQUENCES[weekday] ?? HORA_SEQUENCES[0]!;
+  const civilWeekday = new Date(Date.UTC(yr, mo - 1, dy)).getUTCDay(); // 0=Sun..6=Sat
 
   let horaIndex = 0;
   let horaStartJd = 0;
   let horaEndJd = 0;
   let defaulted = false;
+  let vedicWeekday = panchanga?.vara.weekday ?? civilWeekday;
 
-  if (sunriseJdUt !== undefined) {
-    // Use provided sunrise; estimate sunset if not given
-    const dayLengthJd = sunsetJdUt !== undefined
-      ? sunsetJdUt - sunriseJdUt
-      : 12.0 / 24.0; // default 12h day
+  if (effectiveSunriseJd !== undefined) {
+    const dayLengthJd =
+      sunsetJdUt !== undefined &&
+      sunsetJdUt > effectiveSunriseJd &&
+      sunsetJdUt - effectiveSunriseJd < 0.95
+        ? sunsetJdUt - effectiveSunriseJd
+        : 12.0 / 24.0;
+    const nightLengthJd = 1.0 - dayLengthJd;
+    const dayHoraLen = dayLengthJd / 12.0;
+    const nightHoraLen = nightLengthJd / 12.0;
+    const sunsetJd = effectiveSunriseJd + dayLengthJd;
 
-    const nightLengthJd = (sunsetJdUt !== undefined && sunriseJdUt !== undefined)
-      ? (1.0 - dayLengthJd)   // remainder of 24h
-      : 12.0 / 24.0;
-
-    const dayHoraLen = dayLengthJd / 12;
-    const nightHoraLen = nightLengthJd / 12;
-
-    const sunsetJd = sunriseJdUt + dayLengthJd;
-    const nextSunriseJd = sunsetJd + nightLengthJd;
-
-    if (chartJd >= sunriseJdUt && chartJd < sunsetJd) {
-      // Day hora
-      const elapsed = chartJd - sunriseJdUt;
+    if (chartJd >= effectiveSunriseJd && chartJd < sunsetJd) {
+      // နေ့ဟောရာ (0..11)
+      const elapsed = chartJd - effectiveSunriseJd;
       horaIndex = Math.min(11, Math.floor(elapsed / dayHoraLen));
-      horaStartJd = sunriseJdUt + horaIndex * dayHoraLen;
+      horaStartJd = effectiveSunriseJd + horaIndex * dayHoraLen;
       horaEndJd = horaStartJd + dayHoraLen;
-    } else {
-      // Night hora (index 12–23)
-      const nightStart = sunsetJd;
-      const elapsed = chartJd >= sunsetJd
-        ? chartJd - nightStart
-        : (chartJd + (nextSunriseJd - sunriseJdUt - dayLengthJd)); // pre-sunrise next day wrapping
+    } else if (chartJd >= sunsetJd) {
+      // ညဟောရာ — နေဝင်ပြီးနောက် သန်းခေါင်မတိုင်မီ (12..23)
+      const elapsed = chartJd - sunsetJd;
       const nightHoraIdx = Math.min(11, Math.floor(elapsed / nightHoraLen));
       horaIndex = 12 + nightHoraIdx;
-      horaStartJd = nightStart + nightHoraIdx * nightHoraLen;
+      horaStartJd = sunsetJd + nightHoraIdx * nightHoraLen;
+      horaEndJd = horaStartJd + nightHoraLen;
+    } else {
+      // ညဟောရာ — သန်းခေါင်ကျော် နေမထွက်မီ (ယခင်နေ့ နေဝင်ချိန်မှ စတင်တွက်ချက်သည်)
+      if (panchanga?.vara.weekday === undefined) {
+        vedicWeekday = (civilWeekday + 6) % 7;
+      }
+      const prevSunsetJd = sunsetJd - 1.0;
+      const elapsed = Math.max(0, chartJd - prevSunsetJd);
+      const nightHoraIdx = Math.min(11, Math.floor(elapsed / nightHoraLen));
+      horaIndex = 12 + nightHoraIdx;
+      horaStartJd = prevSunsetJd + nightHoraIdx * nightHoraLen;
       horaEndJd = horaStartJd + nightHoraLen;
     }
   } else {
-    // Fallback: estimate using noon ±6h (civil day)
     issues.push(warningIssue("HORA.sunrise", "Sunrise not provided; estimating hora from civil time"));
     defaulted = true;
 
-    // Approximate sunrise as chartDate 06:00 local
     const utcMs = (chartJd - 2440587.5) * 86400000;
     const localMs = utcMs + offsetHours * 3600000;
     const localMidnight = Math.floor(localMs / 86400000) * 86400000;
     const estimatedSunriseMs = localMidnight + 6 * 3600000;
     const estimatedSunriseJd = 2440587.5 + (estimatedSunriseMs - offsetHours * 3600000) / 86400000;
 
-    const dayHoraLen = (12.0 / 24.0) / 12; // 1h each
-    const elapsed = chartJd - estimatedSunriseJd;
-    if (elapsed >= 0) {
-      horaIndex = Math.min(23, Math.floor(elapsed / dayHoraLen));
+    const horaLen = (1.0 / 24.0);
+    if (chartJd >= estimatedSunriseJd) {
+      horaIndex = Math.min(23, Math.floor((chartJd - estimatedSunriseJd) / horaLen));
+      horaStartJd = estimatedSunriseJd + horaIndex * horaLen;
     } else {
-      horaIndex = Math.min(23, Math.max(0, Math.floor((elapsed + 1.0) / dayHoraLen)));
+      if (panchanga?.vara.weekday === undefined) {
+        vedicWeekday = (civilWeekday + 6) % 7;
+      }
+      const prevSunriseJd = estimatedSunriseJd - 1.0;
+      horaIndex = Math.min(23, Math.max(0, Math.floor((chartJd - prevSunriseJd) / horaLen)));
+      horaStartJd = prevSunriseJd + horaIndex * horaLen;
     }
-    horaStartJd = estimatedSunriseJd + horaIndex * dayHoraLen;
-    horaEndJd = horaStartJd + dayHoraLen;
+    horaEndJd = horaStartJd + horaLen;
   }
 
-  // Get hora lord: sequence repeats every 7, horaIndex mod 7
-  const lordsInOrder = horaIndex < 12
-    ? sequence
-    : sequence; // same sequence continues for night
-
-  const lord = lordsInOrder[horaIndex % 7]!;
+  const sequence = HORA_SEQUENCES[vedicWeekday] ?? HORA_SEQUENCES[0]!;
+  const lord = sequence[horaIndex % 7]!;
 
   const value: HoraBlock = {
     planet: lord,
