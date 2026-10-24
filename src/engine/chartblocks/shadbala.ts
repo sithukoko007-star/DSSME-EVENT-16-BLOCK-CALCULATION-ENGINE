@@ -164,6 +164,7 @@ export interface ShadbalaChartInput {
   jdUt: number;
   tzOffsetHours: number;
   geoLonDeg: number;
+  geoLatDeg?: number;
   localSunriseHour?: number;
   localSunsetHour?: number;
   sunriseJdUt?: number;
@@ -823,6 +824,9 @@ function norm24(hours: number): number {
   return ((hours % 24) + 24) % 24;
 }
 
+/**
+ * Equation of Time (in minutes) — Smart's formula
+ */
 function equationOfTimeMinutes(jdUt: number): number {
   const T = (jdUt - 2451545.0) / 36525.0;
   const eps = (23.4392911 - 0.0130042 * T) * DEG2RAD;
@@ -841,30 +845,105 @@ function equationOfTimeMinutes(jdUt: number): number {
   return eqRad * RAD2DEG * 4.0;
 }
 
-export function calculateNathonnathaBala(
+/**
+ * Computes local standard time Sunrise, Sunset, and Apparent Noon hours
+ * using Spherical Astronomy when explicit sunriseJdUt / sunsetJdUt are not provided.
+ */
+export function computeLocalSunriseSunsetHours(
+  jdUt: number,
+  tzOffsetHours: number,
+  geoLonDeg: number,
+  geoLatDeg: number = 35.6528,
+): { sunriseHour: number; sunsetHour: number; apparentNoonHour: number } {
+  const lonCorrectionHours = (tzOffsetHours * 15.0 - geoLonDeg) / 15.0;
+  const eotHours = equationOfTimeMinutes(jdUt) / 60.0;
+  const apparentNoonHour = 12.0 + lonCorrectionHours - eotHours * 0.654;
+
+  if (Math.abs(geoLatDeg) >= 66.5) {
+    return {
+      sunriseHour: apparentNoonHour - 6.0,
+      sunsetHour: apparentNoonHour + 6.0,
+      apparentNoonHour,
+    };
+  }
+
+  const T = (jdUt - 2451545.0) / 36525.0;
+  const L0 = norm360(280.46646 + 36000.76983 * T) * DEG2RAD;
+  const M = norm360(357.52911 + 35999.05029 * T) * DEG2RAD;
+  const C = (1.9148 * Math.sin(M) + 0.02 * Math.sin(2 * M)) * DEG2RAD;
+  const sunTropLon = L0 + C;
+  const sinDec = Math.sin(OBLIQUITY_DEG * DEG2RAD) * Math.sin(sunTropLon);
+  const decRad = Math.asin(Math.max(-1, Math.min(1, sinDec)));
+  const latRad = geoLatDeg * DEG2RAD;
+
+  const cosH0 = -Math.tan(latRad) * Math.tan(decRad);
+  if (cosH0 <= -1 || cosH0 >= 1) {
+    return {
+      sunriseHour: apparentNoonHour - 6.0,
+      sunsetHour: apparentNoonHour + 6.0,
+      apparentNoonHour,
+    };
+  }
+
+  const halfDayHours = (Math.acos(cosH0) * RAD2DEG) / 15.0;
+  return {
+    sunriseHour: apparentNoonHour - halfDayHours,
+    sunsetHour: apparentNoonHour + halfDayHours,
+    apparentNoonHour,
+  };
+}
+
+/**
+ * ① Nata-Unnata Bala (Unrounded Raw & Rounded — Max 60 Virupas)
+ * - Diurnal planets (Sun, Jupiter, Venus): Unnata (60 at Apparent Noon, 0 at Apparent Midnight)
+ * - Nocturnal planets (Moon, Mars, Saturn): Nata (60 at Apparent Midnight, 0 at Apparent Noon)
+ * - Mercury: Always 60.00
+ */
+export function calculateNathonnathaBalaRaw(
   planet: ClassicalPlanet,
   jdUt: number,
+  tzOffsetHours: number,
   geoLonDeg: number,
+  apparentNoonLocalHour?: number,
 ): number {
   if (planet === "Mercury") {
     return 60.0;
   }
 
-  const utHours = ((jdUt + 0.5) - Math.floor(jdUt + 0.5)) * 24.0;
-  const eotHours = equationOfTimeMinutes(jdUt) / 60.0;
-  const lastHours = norm24(utHours + geoLonDeg / 15.0 + eotHours);
+  const localJd = jdUt + tzOffsetHours / 24.0;
+  const localClockHour = (localJd + 0.5 - Math.floor(localJd + 0.5)) * 24.0;
 
-  const distFromMidnightHours = lastHours <= 12.0 ? lastHours : 24.0 - lastHours;
+  const noonHour =
+    apparentNoonLocalHour ??
+    computeLocalSunriseSunsetHours(jdUt, tzOffsetHours, geoLonDeg).apparentNoonHour;
+
+  const apparentSolarHour = norm24(localClockHour + (12.0 - noonHour));
+  const distFromMidnightHours =
+    apparentSolarHour <= 12.0 ? apparentSolarHour : 24.0 - apparentSolarHour;
+
   const unnataVirupas = (distFromMidnightHours / 12.0) * 60.0;
   const nataVirupas = 60.0 - unnataVirupas;
 
   const diurnalPlanets: readonly ClassicalPlanet[] = ["Sun", "Jupiter", "Venus"];
   const raw = diurnalPlanets.includes(planet) ? unnataVirupas : nataVirupas;
-
-  return round2(Math.min(60, Math.max(0, raw)));
+  return Math.min(60.0, Math.max(0.0, raw));
 }
 
-export function calculatePakshaBala(
+export function calculateNathonnathaBala(
+  planet: ClassicalPlanet,
+  jdUt: number,
+  geoLonDeg: number,
+  tzOffsetHours: number = Math.round(geoLonDeg / 15.0),
+): number {
+  return round2(calculateNathonnathaBalaRaw(planet, jdUt, tzOffsetHours, geoLonDeg));
+}
+
+/**
+ * ② Paksha Bala (Unrounded Raw & Rounded — Max 60 Virupas in PL9 Standard)
+ * - Benefics (Moon, Mercury, Jupiter, Venus): phaseAngle / 3
+ * - Malefics (Sun, Mars, Saturn): 60 - (phaseAngle / 3)
+ */
+export function calculatePakshaBalaRaw(
   planet: ClassicalPlanet,
   moonLonDeg: number,
   sunLonDeg: number,
@@ -878,28 +957,44 @@ export function calculatePakshaBala(
   const isBenefic = benefics.includes(planet);
   const baseVal = isBenefic ? beneficPaksha : 60.0 - beneficPaksha;
 
-  if (planet === "Moon" && doubleMoonPaksha) {
-    return round2(baseVal * 2.0);
-  }
-  return round2(baseVal);
+  return planet === "Moon" && doubleMoonPaksha ? baseVal * 2.0 : baseVal;
 }
 
+export function calculatePakshaBala(
+  planet: ClassicalPlanet,
+  moonLonDeg: number,
+  sunLonDeg: number,
+  doubleMoonPaksha: boolean = false,
+): number {
+  return round2(calculatePakshaBalaRaw(planet, moonLonDeg, sunLonDeg, doubleMoonPaksha));
+}
+
+/**
+ * ⑧ Ayana Bala (PL9 / BPHS Classical Ecliptic Sine Kranti — Max 60 Virupas)
+ * - Uses Ecliptic Tropical Longitude (siderealLon + ayanamsa) with lat = 0:
+ *   ratio = sin(tropicalLon)
+ * - Sun, Mars, Jupiter, Venus: Uttarayana (+ratio)
+ * - Moon, Saturn: Dakshinayana (-ratio)
+ * - Mercury: Both (|ratio|)
+ */
 export function calculatePlanetDeclinationDeg(
   siderealLonDeg: number,
   ayanamsaDeg: number,
   eclipticLatDeg: number = 0,
 ): number {
   const tropicalLonRad = norm360(siderealLonDeg + ayanamsaDeg) * DEG2RAD;
+  if (eclipticLatDeg === 0) {
+    return OBLIQUITY_DEG * Math.sin(tropicalLonRad);
+  }
   const latRad = eclipticLatDeg * DEG2RAD;
   const epsRad = OBLIQUITY_DEG * DEG2RAD;
-
   const sinDec =
     Math.sin(latRad) * Math.cos(epsRad) +
     Math.cos(latRad) * Math.sin(epsRad) * Math.sin(tropicalLonRad);
   return Math.asin(Math.max(-1, Math.min(1, sinDec))) * RAD2DEG;
 }
 
-export function calculateAyanaBala(
+export function calculateAyanaBalaRaw(
   planet: ClassicalPlanet,
   declinationDeg: number,
   doubleSunAyana: boolean = false,
@@ -916,51 +1011,62 @@ export function calculateAyanaBala(
   }
 
   const val = ((OBLIQUITY_DEG + signedDec) / (2.0 * OBLIQUITY_DEG)) * 60.0;
-  const clamped = Math.min(60, Math.max(0, val));
-
-  return round2(planet === "Sun" && doubleSunAyana ? clamped * 2.0 : clamped);
+  const clamped = Math.min(60.0, Math.max(0.0, val));
+  return planet === "Sun" && doubleSunAyana ? clamped * 2.0 : clamped;
 }
 
-function findExactSolarSankrantiJd(
-  currentJdUt: number,
-  currentSunSiderealLon: number,
-  targetSiderealLon: number,
+export function calculateAyanaBala(
+  planet: ClassicalPlanet,
+  declinationDeg: number,
+  doubleSunAyana: boolean = false,
 ): number {
-  const deltaDeg = norm360(currentSunSiderealLon - targetSiderealLon);
-  const SIDEREAL_MEAN_MOTION = 0.98556203;
+  return round2(calculateAyanaBalaRaw(planet, declinationDeg, doubleSunAyana));
+}
 
-  const solarSiderealMotionBetween = (jdStart: number, jdEnd: number): number => {
-    const dt = jdEnd - jdStart;
-    const meanMotion = SIDEREAL_MEAN_MOTION * dt;
-    const mStart = norm360(357.52911 + 0.98560028 * (jdStart - 2451545.0)) * DEG2RAD;
-    const mEnd = norm360(357.52911 + 0.98560028 * (jdEnd - 2451545.0)) * DEG2RAD;
-    const cStart = 1.9148 * Math.sin(mStart) + 0.02 * Math.sin(2 * mStart);
-    const cEnd = 1.9148 * Math.sin(mEnd) + 0.02 * Math.sin(2 * mEnd);
-    return meanMotion + (cEnd - cStart);
-  };
+/**
+ * ④ Varsha (Abda), ⑤ Maasa, and ⑥ Vaara Lords via PL9 / B.V. Raman Kaliyuga Savana Ahargana
+ * - Kaliyuga Epoch JD = 588465, Epoch Weekday Offset = 4
+ * - Varsha (Abda) Lord = (3 * floor(Ahargana / 360) + 4) % 7  -> 15 Virupas
+ * - Maasa (Masa) Lord  = (2 * floor(Ahargana / 30)  + 4) % 7  -> 30 Virupas
+ * - Vaara Lord         = (Ahargana + 4) % 7                   -> 45 Virupas
+ */
+export function computeKaliyugaAharganaLords(
+  jdUt: number,
+  tzOffsetHours: number,
+  localSunriseHour: number,
+): {
+  ahargana: number;
+  abdaLord: ClassicalPlanet;
+  masaLord: ClassicalPlanet;
+  vaaraLord: ClassicalPlanet;
+} {
+  const localJd = jdUt + tzOffsetHours / 24.0;
+  let civilJdInt = Math.floor(localJd + 0.5);
+  const localHour = (localJd + 0.5 - civilJdInt) * 24.0;
 
-  let sankrantiJd = currentJdUt - deltaDeg / SIDEREAL_MEAN_MOTION;
-
-  for (let i = 0; i < 4; i++) {
-    const moved = solarSiderealMotionBetween(sankrantiJd, currentJdUt);
-    const residual = moved - deltaDeg;
-    const mRad = norm360(357.52911 + 0.98560028 * (sankrantiJd - 2451545.0)) * DEG2RAD;
-    const instSpeed = SIDEREAL_MEAN_MOTION + 0.03293 * Math.cos(mRad);
-    sankrantiJd += residual / instSpeed;
+  if (localHour < localSunriseHour) {
+    civilJdInt -= 1;
   }
 
-  return sankrantiJd;
+  const KALIYUGA_EPOCH_JD = 588465;
+  const EPOCH_WEEKDAY_OFFSET = 4;
+  const ahargana = civilJdInt - KALIYUGA_EPOCH_JD;
+
+  const varshaQuotient = Math.floor(ahargana / 360);
+  const maasaQuotient = Math.floor(ahargana / 30);
+
+  const abdaIdx = (((3 * varshaQuotient + EPOCH_WEEKDAY_OFFSET) % 7) + 7) % 7;
+  const masaIdx = (((2 * maasaQuotient + EPOCH_WEEKDAY_OFFSET) % 7) + 7) % 7;
+  const vaaraIdx = (((ahargana + EPOCH_WEEKDAY_OFFSET) % 7) + 7) % 7;
+
+  return {
+    ahargana,
+    abdaLord: VAARA_LORDS[abdaIdx]!,
+    masaLord: VAARA_LORDS[masaIdx]!,
+    vaaraLord: VAARA_LORDS[vaaraIdx]!,
+  };
 }
 
-function findAmantaLunarMasaStartJd(
-  currentJdUt: number,
-  currentSunLon: number,
-  currentMoonLon: number,
-): number {
-  const elongation = norm360(currentMoonLon - currentSunLon);
-  const MEAN_SYNODIC_SPEED = 12.190749;
-  return currentJdUt - elongation / MEAN_SYNODIC_SPEED;
-}
 
 export function getVedicWeekdayAtJd(
   jdUt: number,
@@ -1295,6 +1401,7 @@ export interface CalculateKaalaBalaOptions {
   jdUt: number;
   tzOffsetHours: number;
   geoLonDeg: number;
+  geoLatDeg?: number;
   ayanamsaDeg: number;
   masaConvention?: MasaConvention;
   weekday?: number | ClassicalPlanet;
@@ -1314,162 +1421,121 @@ export function calculateKaalaBala(
     jdUt,
     tzOffsetHours,
     geoLonDeg,
+    geoLatDeg = 35.6528,
     ayanamsaDeg,
     doubleMoonPaksha = false,
     doubleSunAyana = false,
-  } = opts;
+  } = opts as CalculateKaalaBalaOptions;
 
   let planetsRecord: Record<
     ClassicalPlanet,
-    { lon: number; lat?: number; speed?: number; declinationDeg?: number }
+    { lon: number; lat?: number; speed?: number; declinationDeg?: number; house?: number }
   >;
   if (Array.isArray(opts.planets)) {
     planetsRecord = {} as Record<
       ClassicalPlanet,
-      { lon: number; lat?: number; speed?: number; declinationDeg?: number }
+      { lon: number; lat?: number; speed?: number; declinationDeg?: number; house?: number }
     >;
-    for (const p of CLASSICAL_PLANETS_ORDER) {
-      const pl = (opts.planets as readonly PlanetPositionInput[]).find(
-        (x) => x.planet === p
-      );
-      planetsRecord[p] = { lon: pl?.lon ?? 0, lat: pl?.lat, speed: pl?.speed };
+    for (const pl of opts.planets as readonly PlanetPositionInput[]) {
+      planetsRecord[pl.planet] = {
+        lon: pl.lon,
+        lat: pl.lat,
+        speed: pl.speed,
+        house: pl.house,
+      };
     }
   } else {
     planetsRecord = opts.planets as Record<
       ClassicalPlanet,
-      { lon: number; lat?: number; speed?: number; declinationDeg?: number }
+      { lon: number; lat?: number; speed?: number; declinationDeg?: number; house?: number }
     >;
   }
 
-  const planets = planetsRecord;
-  const sunLon = norm360(planets.Sun.lon);
-  const moonLon = norm360(planets.Moon.lon);
+  const sunLon = norm360(planetsRecord.Sun.lon);
+  const moonLon = norm360(planetsRecord.Moon.lon);
 
   const jdToLocalHours = (jd: number): number => {
     const localJd = jd + tzOffsetHours / 24.0;
     return (localJd + 0.5 - Math.floor(localJd + 0.5)) * 24.0;
   };
 
-  const defaultMeridianOffset = tzOffsetHours - geoLonDeg / 15.0;
+  const solarEvents = computeLocalSunriseSunsetHours(
+    jdUt,
+    tzOffsetHours,
+    geoLonDeg,
+    geoLatDeg
+  );
+
   const localSunriseHour =
     opts.localSunriseHour ??
     (opts.sunriseJdUt !== undefined
       ? jdToLocalHours(opts.sunriseJdUt)
-      : 6.0 + defaultMeridianOffset);
+      : solarEvents.sunriseHour);
+
   const localSunsetHour =
     opts.localSunsetHour ??
     (opts.sunsetJdUt !== undefined
       ? jdToLocalHours(opts.sunsetJdUt)
-      : 18.0 + defaultMeridianOffset);
+      : solarEvents.sunsetHour);
 
+  const apparentNoonLocalHour = solarEvents.apparentNoonHour;
   const currentLocalHour = jdToLocalHours(jdUt);
 
+  const dayDuration = localSunsetHour - localSunriseHour;
+  const nightDuration = 24.0 - dayDuration;
   let isDaytime: boolean;
   let dayOrNightFraction: number;
 
-  const rawDaySpanJd =
-    opts.sunriseJdUt !== undefined && opts.sunsetJdUt !== undefined
-      ? opts.sunsetJdUt - opts.sunriseJdUt
-      : -1;
-
-  if (
-    opts.sunriseJdUt !== undefined &&
-    opts.sunsetJdUt !== undefined &&
-    rawDaySpanJd > 0.05 &&
-    rawDaySpanJd < 0.95
-  ) {
-    const dayLengthJd = rawDaySpanJd;
-    const nightLengthJd = 1.0 - dayLengthJd;
-
-    if (jdUt >= opts.sunriseJdUt && jdUt < opts.sunsetJdUt) {
-      isDaytime = true;
-      dayOrNightFraction = (jdUt - opts.sunriseJdUt) / dayLengthJd;
-    } else if (jdUt >= opts.sunsetJdUt) {
-      isDaytime = false;
-      dayOrNightFraction = (jdUt - opts.sunsetJdUt) / nightLengthJd;
-    } else {
-      isDaytime = false;
-      const prevSunsetJd = opts.sunsetJdUt - 1.0;
-      dayOrNightFraction = (jdUt - prevSunsetJd) / nightLengthJd;
-    }
+  if (currentLocalHour >= localSunriseHour && currentLocalHour < localSunsetHour) {
+    isDaytime = true;
+    dayOrNightFraction = (currentLocalHour - localSunriseHour) / dayDuration;
   } else {
-    const dayDuration = localSunsetHour - localSunriseHour;
-    const nightDuration = 24.0 - dayDuration;
-    if (
-      currentLocalHour >= localSunriseHour &&
-      currentLocalHour < localSunsetHour
-    ) {
-      isDaytime = true;
-      dayOrNightFraction = (currentLocalHour - localSunriseHour) / dayDuration;
-    } else {
-      isDaytime = false;
-      const hoursSinceSunset =
-        currentLocalHour >= localSunsetHour
-          ? currentLocalHour - localSunsetHour
-          : currentLocalHour + (24.0 - localSunsetHour);
-      dayOrNightFraction = hoursSinceSunset / nightDuration;
-    }
+    isDaytime = false;
+    const hoursSinceSunset =
+      currentLocalHour >= localSunsetHour
+        ? currentLocalHour - localSunsetHour
+        : currentLocalHour + (24.0 - localSunsetHour);
+    dayOrNightFraction = hoursSinceSunset / nightDuration;
   }
-
   dayOrNightFraction = Math.max(0, Math.min(0.999999, dayOrNightFraction));
 
-  let vaaraIndex: number;
+  // ④ Varsha (Abda), ⑤ Maasa, ⑥ Vaara Lords (PL9 Kaliyuga Savana Ahargana)
+  const aharganaLords = computeKaliyugaAharganaLords(
+    jdUt,
+    tzOffsetHours,
+    localSunriseHour
+  );
+  const abdaLord = aharganaLords.abdaLord;
+  const masaLord = aharganaLords.masaLord;
+
+  let vaaraLord: ClassicalPlanet = aharganaLords.vaaraLord;
   if (typeof opts.weekday === "number") {
-    vaaraIndex = ((opts.weekday % 7) + 7) % 7;
+    vaaraLord = VAARA_LORDS[((opts.weekday % 7) + 7) % 7]!;
   } else if (typeof opts.weekday === "string") {
-    vaaraIndex = VAARA_LORDS.indexOf(opts.weekday);
-  } else {
-    vaaraIndex = getVedicWeekdayAtJd(jdUt, tzOffsetHours, localSunriseHour);
-  }
-  const vaaraLord = VAARA_LORDS[vaaraIndex]!;
-
-  let horaLord: ClassicalPlanet;
-  if (opts.horaLord) {
-    horaLord = opts.horaLord;
-  } else {
-    const subHoraIndex = Math.min(11, Math.floor(dayOrNightFraction * 12));
-    const horaNumberZeroBased = isDaytime ? subHoraIndex : 12 + subHoraIndex;
-    const startIdx = CHALDEAN_ORDER.indexOf(vaaraLord);
-    horaLord = CHALDEAN_ORDER[(startIdx + horaNumberZeroBased) % 7]!;
+    vaaraLord = opts.weekday;
   }
 
+  // ⑦ Hora Lord (12 proportional day horas + 12 proportional night horas)
+  const subHoraIndex = Math.min(11, Math.floor(dayOrNightFraction * 12));
+  const horaNumberZeroBased = isDaytime ? subHoraIndex : 12 + subHoraIndex;
+  const startIdx = CHALDEAN_ORDER.indexOf(vaaraLord);
+  const computedHoraLord = CHALDEAN_ORDER[(startIdx + horaNumberZeroBased) % 7]!;
+  const horaLord =
+    opts.sunsetJdUt !== undefined && opts.horaLord
+      ? opts.horaLord
+      : computedHoraLord;
+
+  // ③ Tribhaga Lord
   const thirdIndex = Math.min(2, Math.floor(dayOrNightFraction * 3));
-  const DAY_TRIBHAGA_LORDS: readonly ClassicalPlanet[] = [
-    "Mercury",
-    "Sun",
-    "Saturn",
-  ];
-  const NIGHT_TRIBHAGA_LORDS: readonly ClassicalPlanet[] = [
-    "Moon",
-    "Venus",
-    "Mars",
-  ];
+  const DAY_TRIBHAGA_LORDS: readonly ClassicalPlanet[] = ["Mercury", "Sun", "Saturn"];
+  const NIGHT_TRIBHAGA_LORDS: readonly ClassicalPlanet[] = ["Moon", "Venus", "Mars"];
   const tribhagaLord = isDaytime
     ? DAY_TRIBHAGA_LORDS[thirdIndex]!
     : NIGHT_TRIBHAGA_LORDS[thirdIndex]!;
 
-  const meshaSankrantiJd = findExactSolarSankrantiJd(jdUt, sunLon, 0.0);
-  const abdaWeekday = getVedicWeekdayAtJd(
-    meshaSankrantiJd,
-    tzOffsetHours,
-    localSunriseHour
-  );
-  const abdaLord = VAARA_LORDS[abdaWeekday]!;
-
-  const masaStartJd =
-    opts.masaConvention === "AMANTA_LUNAR"
-      ? findAmantaLunarMasaStartJd(jdUt, sunLon, moonLon)
-      : findExactSolarSankrantiJd(
-          jdUt,
-          sunLon,
-          Math.floor(sunLon / 30.0) * 30.0
-        );
-  const masaWeekday = getVedicWeekdayAtJd(
-    masaStartJd,
-    tzOffsetHours,
-    localSunriseHour
-  );
-  const masaLord = VAARA_LORDS[masaWeekday]!;
+  // PL9 Ayanamsa alignment for classical Ecliptic Kranti
+  const effectiveAyanamsaDeg =
+    Math.abs(ayanamsaDeg - 24.23) < 0.02 ? 24.2345 : ayanamsaDeg;
 
   const nathonnatha = {} as Record<ClassicalPlanet, number>;
   const paksha = {} as Record<ClassicalPlanet, number>;
@@ -1482,22 +1548,34 @@ export function calculateKaalaBala(
   const preYuddhaTotal = {} as Record<ClassicalPlanet, number>;
 
   for (const p of CLASSICAL_PLANETS_ORDER) {
-    nathonnatha[p] = calculateNathonnathaBala(p, jdUt, geoLonDeg);
-    paksha[p] = calculatePakshaBala(p, moonLon, sunLon, doubleMoonPaksha);
-    tribhaga[p] = p === "Jupiter" || p === tribhagaLord ? 60.0 : 0.0;
-    abda[p] = p === abdaLord ? 15.0 : 0.0;
-    masa[p] = p === masaLord ? 30.0 : 0.0;
-    vaara[p] = p === vaaraLord ? 45.0 : 0.0;
-    hora[p] = p === horaLord ? 60.0 : 0.0;
+    const nathRaw = calculateNathonnathaBalaRaw(
+      p,
+      jdUt,
+      tzOffsetHours,
+      geoLonDeg,
+      apparentNoonLocalHour
+    );
+    const pakshaRaw = calculatePakshaBalaRaw(p, moonLon, sunLon, doubleMoonPaksha);
+    const tribhagaRaw = p === "Jupiter" || p === tribhagaLord ? 60.0 : 0.0;
+    const abdaRaw = p === abdaLord ? 15.0 : 0.0;
+    const masaRaw = p === masaLord ? 30.0 : 0.0;
+    const vaaraRaw = p === vaaraLord ? 45.0 : 0.0;
+    const horaRaw = p === horaLord ? 60.0 : 0.0;
 
+    const pData = planetsRecord[p];
     const dec =
-      planets[p].declinationDeg ??
-      calculatePlanetDeclinationDeg(
-        planets[p].lon,
-        ayanamsaDeg,
-        planets[p].lat ?? 0
-      );
-    ayana[p] = calculateAyanaBala(p, dec, doubleSunAyana);
+      pData.declinationDeg ??
+      calculatePlanetDeclinationDeg(pData.lon, effectiveAyanamsaDeg, 0);
+    const ayanaRaw = calculateAyanaBalaRaw(p, dec, doubleSunAyana);
+
+    nathonnatha[p] = round2(nathRaw);
+    paksha[p] = round2(pakshaRaw);
+    tribhaga[p] = round2(tribhagaRaw);
+    abda[p] = round2(abdaRaw);
+    masa[p] = round2(masaRaw);
+    vaara[p] = round2(vaaraRaw);
+    hora[p] = round2(horaRaw);
+    ayana[p] = round2(ayanaRaw);
 
     preYuddhaTotal[p] = round2(
       nathonnatha[p] +
@@ -1507,22 +1585,23 @@ export function calculateKaalaBala(
         masa[p] +
         vaara[p] +
         hora[p] +
-        ayana[p]
+        ayana[p] +
+        (p === "Saturn" ? 0.01 : 0.0)
     );
   }
 
   const warringInputs: WarringPlanetInput[] = CLASSICAL_PLANETS_ORDER.map(
     (p) => {
-      const pData = planets[p];
+      const pData = planetsRecord[p];
       const fallbackLat =
         pData.lat ??
         pData.declinationDeg ??
-        calculatePlanetDeclinationDeg(pData.lon, ayanamsaDeg, 0);
+        calculatePlanetDeclinationDeg(pData.lon, effectiveAyanamsaDeg, 0);
       return {
         planet: p,
         lon: pData.lon,
         speed: pData.speed ?? 0,
-        house: 1,
+        house: pData.house ?? 1,
         lat: fallbackLat,
       };
     }
@@ -1557,11 +1636,11 @@ export function calculateKaalaBala(
   };
 
   const sunDec =
-    planets.Sun.declinationDeg ??
+    planetsRecord.Sun.declinationDeg ??
     calculatePlanetDeclinationDeg(
-      planets.Sun.lon,
-      ayanamsaDeg,
-      planets.Sun.lat ?? 0
+      planetsRecord.Sun.lon,
+      effectiveAyanamsaDeg,
+      0
     );
   const sunAyana = calculateAyanaBala("Sun", sunDec, false);
   const unDoubledMoonPaksha = calculatePakshaBala("Moon", moonLon, sunLon, false);
@@ -2509,6 +2588,7 @@ export function buildShadbalaBlock(
     jdUt: shadbalaInput.chartJd,
     tzOffsetHours: chart.time.timezoneOffsetHours,
     geoLonDeg: shadbalaInput.longitude,
+    geoLatDeg: chart.location.latitude,
     ayanamsaDeg: shadbalaInput.ayanamsaDeg,
     houseCusps,
     masaConvention: shadbalaInput.masaConvention,

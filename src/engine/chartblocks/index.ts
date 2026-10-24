@@ -41,6 +41,7 @@ import { buildDashaBlock } from "./dasha.ts";
 import {
   buildShadbalaBlock,
   CLASSICAL_PLANETS_ORDER,
+  computeLocalSunriseSunsetHours,
   ShadbalaInput,
 } from "./shadbala.ts";
 import { buildBhavaBalaBlock } from "./bhavaBala.ts";
@@ -194,16 +195,31 @@ export async function buildDssme16BlockResult(
 
   const effectiveSunriseJdUt = options.sunriseJdUt ?? panchanga?.vara.sunriseJdUT;
 
+  const solarEvents = computeLocalSunriseSunsetHours(
+    chart.time.julianDayUt,
+    chart.time.timezoneOffsetHours,
+    chart.location.longitude,
+    chart.location.latitude
+  );
+
+  const localJd = chart.time.julianDayUt + chart.time.timezoneOffsetHours / 24.0;
+  const currentLocalHour = (localJd + 0.5 - Math.floor(localJd + 0.5)) * 24.0;
+  const effectiveSunsetJdUt =
+    options.sunsetJdUt ??
+    chart.time.julianDayUt + (solarEvents.sunsetHour - currentLocalHour) / 24.0;
+
   // Estimate if night using JD comparison when sunriseJdUt/sunsetJdUt are available,
   // or by parsing the hour from the localIso string (not new Date().getHours() which
   // is machine-timezone dependent).
   const isNight = (() => {
-    if (effectiveSunriseJdUt !== undefined && options.sunsetJdUt !== undefined) {
-      return chart.time.julianDayUt >= options.sunsetJdUt ||
-             chart.time.julianDayUt < effectiveSunriseJdUt;
+    if (effectiveSunriseJdUt !== undefined && effectiveSunsetJdUt !== undefined) {
+      return (
+        chart.time.julianDayUt >= effectiveSunsetJdUt ||
+        chart.time.julianDayUt < effectiveSunriseJdUt
+      );
     }
-    if (options.sunsetJdUt !== undefined) {
-      return chart.time.julianDayUt >= options.sunsetJdUt;
+    if (effectiveSunsetJdUt !== undefined) {
+      return chart.time.julianDayUt >= effectiveSunsetJdUt;
     }
     // Fallback: parse hour from localIso directly (timezone-safe)
     const timePart = chart.time.localIso.split("T")[1] ?? "12:00:00";
@@ -212,7 +228,7 @@ export async function buildDssme16BlockResult(
   })();
 
   // Step 1: Shadbala (needed for BhavaBala and PLANETS block)
-  const horaResult = buildHoraBlock(ctx, effectiveSunriseJdUt, options.sunsetJdUt);
+  const horaResult = buildHoraBlock(ctx, effectiveSunriseJdUt, effectiveSunsetJdUt);
   const horaLord = horaResult.value?.planet ?? "Sun";
 
   const shadbalaInput: ShadbalaInput = {
@@ -226,9 +242,9 @@ export async function buildDssme16BlockResult(
     longitude: chart.location.longitude,
     ayanamsaDeg: chart.ayanamsa.value,
     sunriseJdUt: effectiveSunriseJdUt,
-    sunsetJdUt: options.sunsetJdUt,
-    masaConvention: "AMANTA_LUNAR",
-    doubleMoonPaksha: true,
+    sunsetJdUt: effectiveSunsetJdUt,
+    doubleMoonPaksha: false, // PL9 standard: 1x (20.99 Virupas for Chofu)
+    doubleSunAyana: false,   // PL9 standard: 1x (33.36 Virupas for Chofu)
   };
   const shadbalaResult = buildShadbalaBlock(ctx, shadbalaInput);
   const shadbalaTotals = shadbalaResult.value?.total_virupas ?? new Array(7).fill(300);

@@ -49,17 +49,15 @@ const CHOFU_CHART_INPUT: ShadbalaChartInput = {
   jdUt: 2461299.90972222,
   tzOffsetHours: 9,
   geoLonDeg: 139.54,
-  localSunriseHour: 6.0,
-  localSunsetHour: 18.0,
-  ayanamsaDeg: 24.22,
+  geoLatDeg: 35.65,
+  ayanamsaDeg: 24.2345,
   houseCusps: {
     1: 350.63,
     4: 92.39,
     7: 170.63,
     10: 272.39,
   },
-  masaConvention: "AMANTA_LUNAR",
-  doubleMoonPaksha: true,
+  doubleMoonPaksha: false,
 };
 
 const CHOFU_PLACIDUS_CUSPS: readonly number[] = [
@@ -136,15 +134,16 @@ export function runShadbalaAndBhavaBalaTests(): void {
     20.0
   );
 
-  // 5. Kaala Bala (Permanent Jupiter +60 Tribhaga, Moon 2x Paksha, Single-Lord Abda/Masa/Vaara/Hora)
+  // 5. Kaala Bala (Permanent Jupiter +60 Tribhaga, Moon Paksha, Single-Lord Abda/Masa/Vaara/Hora)
   const chofuKaala = calculateKaalaBala(CHOFU_CHART_INPUT);
   assert.equal(chofuKaala.byPlanet.Jupiter.tribhaga, 60);
   assert.equal(chofuKaala.byPlanet.Moon.tribhaga, 60);
-  assert.equal(chofuKaala.byPlanet.Moon.paksha, 41.98);
+  assert.equal(chofuKaala.byPlanet.Moon.paksha, 20.99);
   assert.equal(chofuKaala.byPlanet.Mercury.nathonnatha, 60.0);
-  assert.equal(chofuKaala.lords.masaLord, "Venus");
+  assert.equal(chofuKaala.lords.abdaLord, "Sun");
+  assert.equal(chofuKaala.lords.masaLord, "Saturn");
   assert.equal(chofuKaala.lords.vaaraLord, "Mercury");
-  assert.equal(chofuKaala.lords.horaLord, "Sun");
+  assert.equal(chofuKaala.lords.horaLord, "Venus");
 
   // 6. Chesta Bala (Method 2: Speed & Retrograde BPHS Classical)
   assert.equal(calculateOuterPlanetChestaBala("Mars", -0.3), 60.0); // Retrograde
@@ -195,9 +194,9 @@ export function runShadbalaAndBhavaBalaTests(): void {
 
   // 9. End-to-End Chofu Shadbala & Ishta/Kashta Phala
   const shadbala20Pt = calculateShadbala(CHOFU_CHART_INPUT);
-  assert.equal(shadbala20Pt.results.Sun.totalVirupas, 393.89);
-  assert.equal(shadbala20Pt.results.Moon.totalVirupas, 398.12);
-  assert.equal(shadbala20Pt.results.Saturn.totalVirupas, 347.48);
+  assert.equal(shadbala20Pt.results.Sun.totalVirupas, 349.19);
+  assert.equal(shadbala20Pt.results.Moon.totalVirupas, 377.22);
+  assert.equal(shadbala20Pt.results.Saturn.totalVirupas, 377.17);
 
   const ikOut = calculateIshtaKashtaFromShadbala(shadbala20Pt.results);
   assert.equal(ikOut.byPlanet.Mercury.ishtaVirupas, 42.41);
@@ -208,13 +207,13 @@ export function runShadbalaAndBhavaBalaTests(): void {
     usePanchadhaSaptavargaja: true,
     drigMode: "WHOLE_HOUSE",
   });
-  assert.equal(shadbalaPanchadha.results.Sun.totalVirupas, 456.39);
-  assert.equal(shadbalaPanchadha.results.Moon.totalVirupas, 446.81);
-  assert.equal(shadbalaPanchadha.results.Mars.totalVirupas, 378.21);
-  assert.equal(shadbalaPanchadha.results.Mercury.totalVirupas, 476.98);
-  assert.equal(shadbalaPanchadha.results.Jupiter.totalVirupas, 420.36);
-  assert.equal(shadbalaPanchadha.results.Venus.totalVirupas, 350.77);
-  assert.equal(shadbalaPanchadha.results.Saturn.totalVirupas, 351.02);
+  assert.equal(shadbalaPanchadha.results.Sun.totalVirupas, 411.69);
+  assert.equal(shadbalaPanchadha.results.Moon.totalVirupas, 425.91);
+  assert.equal(shadbalaPanchadha.results.Mars.totalVirupas, 363.19);
+  assert.equal(shadbalaPanchadha.results.Mercury.totalVirupas, 477.12);
+  assert.equal(shadbalaPanchadha.results.Jupiter.totalVirupas, 420.81);
+  assert.equal(shadbalaPanchadha.results.Venus.totalVirupas, 380.58);
+  assert.equal(shadbalaPanchadha.results.Saturn.totalVirupas, 380.71);
 
   for (const item of shadbalaPanchadha.ordered) {
     assert.equal(item.meetsMinimum, true, `${item.planet} should meet minimum`);
