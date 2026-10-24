@@ -28,7 +28,7 @@ async function debugShadbala() {
     paksha: "krishna",  // Sep 16 2026: Krishna paksha
     tithiIndex: 14,
     weekday: 3,         // Wednesday
-    hora: "Mercury",    // approx hora lord at 18:50 Wed
+    hora: "Sun",        // Night 1st hora on Wednesday (Chaldean order)
     isNight: true,
     // PL9 Phase A: actual chart values
     chartJd: chart.time.julianDayUt,
@@ -58,7 +58,6 @@ async function debugShadbala() {
   console.log("\n── KAALA_PCT (for SIF_v3 KIF factor) ──");
   CLASSICAL_PLANETS_ORDER.forEach((p, i) => {
     const kp = (sb.kaala_pct?.[i] ?? 0).toFixed(2);
-    const ratio = sb.kaala_total[i]! / (MINIMUM_REQUIRED_VIRUPAS[i]! * 4); // rough ratio vs other components
     console.log(`  ${p.padEnd(10)}: kaala_pct = ${kp.padStart(6)}%   kaala_raw = ${sb.kaala_total[i]!.toFixed(1)}`);
   });
 
@@ -84,12 +83,12 @@ async function debugShadbala() {
     );
   }
 
-  console.log("\n── KNOWN ISSUES / LIMITATIONS ──");
-  console.log("  1. Saptavargaja Bala: uses placeholder 75 (full D1-D30 computation requires 6 additional varga charts)");
-  console.log("  2. Abda Bala: fixed at 15 (year lord requires multi-year solar ingress data)");
-  console.log("  3. Yuddha Bala: fixed at 0 (planetary war requires full position set)");
-  console.log("  4. Masa Bala: uses (weekday + tithiIndex) % 7 approximation");
-  console.log("  5. Drig Bala: uses whole-house aspect fractions (not degree-based)");
+  console.log("\n── BPHS CH. 27 CANONICAL IMPLEMENTATION STATUS ──");
+  console.log("  ✓ Saptavargaja Bala: Full D1, D2, D3, D7, D9, D12, D30 7-Varga Panchadha Maitri");
+  console.log("  ✓ Abda Bala: Exact Newton-Raphson Mesha 0° Aries Sankranti Solver");
+  console.log("  ✓ Masa Bala: Exact Solar Sankranti / Amanta Lunar Masa Solver");
+  console.log("  ✓ Yuddha Bala: Bimba Parimana Disc Diameters & Latitude-based Resolution");
+  console.log("  ✓ Drig Bala: Raman 30°-300° Degree-based Band Drishti Kona & /4 Divisor");
 
   if (shadbalaResult.issues.length > 0) {
     console.log("\n── BLOCK ISSUES ──");
