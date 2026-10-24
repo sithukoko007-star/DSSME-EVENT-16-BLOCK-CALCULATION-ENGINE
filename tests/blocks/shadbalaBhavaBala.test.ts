@@ -142,7 +142,7 @@ export function runShadbalaAndBhavaBalaTests(): void {
   assert.equal(chofuKaala.byPlanet.Moon.tribhaga, 60);
   assert.equal(chofuKaala.byPlanet.Moon.paksha, 41.98);
   assert.equal(chofuKaala.byPlanet.Mercury.nathonnatha, 60.0);
-  assert.equal(chofuKaala.lords.masaLord, "Moon");
+  assert.equal(chofuKaala.lords.masaLord, "Venus");
   assert.equal(chofuKaala.lords.vaaraLord, "Mercury");
   assert.equal(chofuKaala.lords.horaLord, "Sun");
 
@@ -196,7 +196,7 @@ export function runShadbalaAndBhavaBalaTests(): void {
   // 9. End-to-End Chofu Shadbala & Ishta/Kashta Phala
   const shadbala20Pt = calculateShadbala(CHOFU_CHART_INPUT);
   assert.equal(shadbala20Pt.results.Sun.totalVirupas, 393.89);
-  assert.equal(shadbala20Pt.results.Moon.totalVirupas, 428.12);
+  assert.equal(shadbala20Pt.results.Moon.totalVirupas, 398.12);
   assert.equal(shadbala20Pt.results.Saturn.totalVirupas, 347.48);
 
   const ikOut = calculateIshtaKashtaFromShadbala(shadbala20Pt.results);
@@ -209,17 +209,17 @@ export function runShadbalaAndBhavaBalaTests(): void {
     drigMode: "WHOLE_HOUSE",
   });
   assert.equal(shadbalaPanchadha.results.Sun.totalVirupas, 456.39);
-  assert.equal(shadbalaPanchadha.results.Moon.totalVirupas, 476.81);
+  assert.equal(shadbalaPanchadha.results.Moon.totalVirupas, 446.81);
   assert.equal(shadbalaPanchadha.results.Mars.totalVirupas, 378.21);
   assert.equal(shadbalaPanchadha.results.Mercury.totalVirupas, 476.98);
   assert.equal(shadbalaPanchadha.results.Jupiter.totalVirupas, 420.36);
-  assert.equal(shadbalaPanchadha.results.Venus.totalVirupas, 320.77);
+  assert.equal(shadbalaPanchadha.results.Venus.totalVirupas, 350.77);
   assert.equal(shadbalaPanchadha.results.Saturn.totalVirupas, 351.02);
 
-  for (const item of shadbalaPanchadha.ordered.filter((x) => x.planet !== "Venus")) {
+  for (const item of shadbalaPanchadha.ordered) {
     assert.equal(item.meetsMinimum, true, `${item.planet} should meet minimum`);
   }
-  assert.equal(shadbalaPanchadha.results.Venus.meetsMinimum, false);
+  assert.equal(shadbalaPanchadha.results.Venus.meetsMinimum, true);
 
   // 10. 12-House Bhava Bala (Sign Nature Splits & Rankings)
   assert.equal(classifyBhavaSignNature(272.39).nature, "CHATUSHPADA"); // Cap 2.39 deg
