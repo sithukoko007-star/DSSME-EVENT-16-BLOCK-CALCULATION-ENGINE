@@ -58,6 +58,7 @@ const CHOFU_CHART_INPUT: ShadbalaChartInput = {
     10: 272.39,
   },
   doubleMoonPaksha: false,
+  chestaMode: "BPHS_ORIGINAL_27_23",
 };
 
 const CHOFU_PLACIDUS_CUSPS: readonly number[] = [
@@ -100,7 +101,7 @@ export function runShadbalaAndBhavaBalaTests(): void {
     D7: 10,
     D9: 8,
     D12: 3,
-    D30: 1,
+    D30: 6,
   });
 
   assert.equal(evaluateVargaDignity("Mercury", "D1", 5, 160.0), "Exalted");
@@ -192,13 +193,13 @@ export function runShadbalaAndBhavaBalaTests(): void {
   assert.equal(yuddhaOut.yuddhaVirupasByPlanet.Mercury, 30.26);
   assert.equal(yuddhaOut.yuddhaVirupasByPlanet.Mars, -30.26);
 
-  // 9. End-to-End Chofu Shadbala & Ishta/Kashta Phala
-  const shadbala20Pt = calculateShadbala(CHOFU_CHART_INPUT);
-  assert.equal(shadbala20Pt.results.Sun.totalVirupas, 349.19);
-  assert.equal(shadbala20Pt.results.Moon.totalVirupas, 377.22);
-  assert.equal(shadbala20Pt.results.Saturn.totalVirupas, 377.17);
+  // 9. End-to-End Chofu Shadbala & Ishta/Kashta Phala (PL9 Exact Sthana & Panchadha Standard)
+  const shadbalaPl9 = calculateShadbala(CHOFU_CHART_INPUT);
+  assert.equal(shadbalaPl9.results.Sun.totalVirupas, 403.56);
+  assert.equal(shadbalaPl9.results.Moon.totalVirupas, 402.46);
+  assert.equal(shadbalaPl9.results.Saturn.totalVirupas, 363.68);
 
-  const ikOut = calculateIshtaKashtaFromShadbala(shadbala20Pt.results);
+  const ikOut = calculateIshtaKashtaFromShadbala(shadbalaPl9.results);
   assert.equal(ikOut.byPlanet.Mercury.ishtaVirupas, 42.41);
   assert.equal(ikOut.byPlanet.Jupiter.ishtaVirupas, 40.30);
 
@@ -207,18 +208,241 @@ export function runShadbalaAndBhavaBalaTests(): void {
     usePanchadhaSaptavargaja: true,
     drigMode: "WHOLE_HOUSE",
   });
-  assert.equal(shadbalaPanchadha.results.Sun.totalVirupas, 411.69);
-  assert.equal(shadbalaPanchadha.results.Moon.totalVirupas, 425.91);
-  assert.equal(shadbalaPanchadha.results.Mars.totalVirupas, 363.19);
-  assert.equal(shadbalaPanchadha.results.Mercury.totalVirupas, 477.12);
-  assert.equal(shadbalaPanchadha.results.Jupiter.totalVirupas, 420.81);
-  assert.equal(shadbalaPanchadha.results.Venus.totalVirupas, 380.58);
-  assert.equal(shadbalaPanchadha.results.Saturn.totalVirupas, 380.71);
+  assert.equal(shadbalaPanchadha.results.Sun.totalVirupas, 411.68);
+  assert.equal(shadbalaPanchadha.results.Moon.totalVirupas, 425.90);
+  assert.equal(shadbalaPanchadha.results.Mars.totalVirupas, 363.21);
+  assert.equal(shadbalaPanchadha.results.Mercury.totalVirupas, 477.15);
+  assert.equal(shadbalaPanchadha.results.Jupiter.totalVirupas, 420.78);
+  assert.equal(shadbalaPanchadha.results.Venus.totalVirupas, 380.56);
+  assert.equal(shadbalaPanchadha.results.Saturn.totalVirupas, 380.72);
 
   for (const item of shadbalaPanchadha.ordered) {
     assert.equal(item.meetsMinimum, true, `${item.planet} should meet minimum`);
   }
   assert.equal(shadbalaPanchadha.results.Venus.meetsMinimum, true);
+
+  // 9B. PL9 / BPHS Method 1 Continuous Chesta Kendra (1900 Epoch-Table)
+  const shadbalaMethod1 = calculateShadbala({
+    ...CHOFU_CHART_INPUT,
+    chestaMode: "METHOD_1_KENDRA",
+  });
+  assert.equal(shadbalaMethod1.results.Sun.chesta, 33.36);   // Ayana proxy
+  assert.equal(shadbalaMethod1.results.Moon.chesta, 20.99);  // Paksha proxy
+  assert.equal(shadbalaMethod1.results.Mars.chesta, 28.68);
+  assert.equal(shadbalaMethod1.results.Mercury.chesta, 9.86);
+  assert.equal(shadbalaMethod1.results.Jupiter.chesta, 15.13);
+  assert.equal(shadbalaMethod1.results.Venus.chesta, 44.98);
+  assert.equal(shadbalaMethod1.results.Saturn.chesta, 53.89);
+  assert.equal(shadbalaMethod1.results.Saturn.totalVirupas, 357.57);
+
+  // 9C. PL9 Sthana Bala 42-Cell Parity (0.00 Virupa Diff)
+  const sthana42 = calculateSthanaBala(CHOFU_PLANETS, 350.63, true);
+  // 1. Ochcha Bala
+  assert.equal(sthana42.ochcha.Sun, 13.56);
+  assert.equal(sthana42.ochcha.Moon, 0.23);
+  assert.equal(sthana42.ochcha.Mars, 9.75);
+  assert.equal(sthana42.ochcha.Mercury, 59.95);
+  assert.equal(sthana42.ochcha.Jupiter, 54.13);
+  assert.equal(sthana42.ochcha.Venus, 4.13);
+  assert.equal(sthana42.ochcha.Saturn, 10.52);
+
+  // 2. Sapta-vargaja Bala
+  assert.equal(sthana42.saptavargaja.Sun, 129.38);
+  assert.equal(sthana42.saptavargaja.Moon, 101.25);
+  assert.equal(sthana42.saptavargaja.Mars, 67.50);
+  assert.equal(sthana42.saptavargaja.Mercury, 153.75);
+  assert.equal(sthana42.saptavargaja.Jupiter, 97.50);
+  assert.equal(sthana42.saptavargaja.Venus, 127.50);
+  assert.equal(sthana42.saptavargaja.Saturn, 52.50);
+
+  // 3. Ojhayugma Bala
+  assert.equal(sthana42.ojhayugma.Sun, 30.00);
+  assert.equal(sthana42.ojhayugma.Moon, 30.00);
+  assert.equal(sthana42.ojhayugma.Mars, 30.00);
+  assert.equal(sthana42.ojhayugma.Mercury, 0.00);
+  assert.equal(sthana42.ojhayugma.Jupiter, 0.00);
+  assert.equal(sthana42.ojhayugma.Venus, 0.00);
+  assert.equal(sthana42.ojhayugma.Saturn, 15.00);
+
+  // 4. Kendradi Bala
+  assert.equal(sthana42.kendradi.Sun, 15.00);
+  assert.equal(sthana42.kendradi.Moon, 15.00);
+  assert.equal(sthana42.kendradi.Mars, 60.00);
+  assert.equal(sthana42.kendradi.Mercury, 60.00);
+  assert.equal(sthana42.kendradi.Jupiter, 30.00);
+  assert.equal(sthana42.kendradi.Venus, 30.00);
+  assert.equal(sthana42.kendradi.Saturn, 60.00);
+
+  // 5. Drekkana Bala
+  assert.equal(sthana42.drekkana.Sun, 0.00);
+  assert.equal(sthana42.drekkana.Moon, 0.00);
+  assert.equal(sthana42.drekkana.Mars, 0.00);
+  assert.equal(sthana42.drekkana.Mercury, 15.00);
+  assert.equal(sthana42.drekkana.Jupiter, 0.00);
+  assert.equal(sthana42.drekkana.Venus, 0.00);
+  assert.equal(sthana42.drekkana.Saturn, 15.00);
+
+  // Total Sthana Bala (Unrounded Summation matching PL9)
+  assert.equal(sthana42.total.Sun, 187.93);
+  assert.equal(sthana42.total.Moon, 146.48);
+  assert.equal(sthana42.total.Mars, 167.25);
+  assert.equal(sthana42.total.Mercury, 288.70);
+  assert.equal(sthana42.total.Jupiter, 181.63);
+  assert.equal(sthana42.total.Venus, 161.63);
+  assert.equal(sthana42.total.Saturn, 153.02);
+
+  // 9D. PL9 Kaala Bala 70-Cell Parity (0.00 Virupa Diff)
+  const CHOFU_EXACT_PLANETS: readonly PlanetPositionInput[] = [
+    { planet: "Sun", lon: 149.3275, speed: 0.9751, retro: false, house: 6 },
+    { planet: "Moon", lon: 212.2951, speed: 12.1881, retro: false, house: 9 },
+    { planet: "Mars", lon: 88.7524, speed: 0.6096, retro: false, house: 4 },
+    { planet: "Mercury", lon: 165.1552, speed: 1.5871, retro: false, house: 7 },
+    { planet: "Jupiter", lon: 112.6102, speed: 0.1968, retro: false, house: 5 },
+    { planet: "Venus", lon: 189.3875, speed: 0.5312, retro: false, house: 8 },
+    { planet: "Saturn", lon: 348.4514, speed: -0.0718, retro: true, house: 1 },
+  ];
+
+  const kaala70 = calculateKaalaBala({
+    planets: CHOFU_EXACT_PLANETS,
+    jdUt: 2461299.90972222,
+    tzOffsetHours: 9,
+    geoLonDeg: 139.5447,
+    geoLatDeg: 35.6528,
+    ayanamsaDeg: 24.2345,
+  });
+
+  const pl9KaalaRef: Record<string, number[]> = {
+    nathonnatha: [24.04, 35.96, 35.96, 60.00, 24.04, 24.04, 35.96],
+    paksha:      [39.01, 20.99, 39.01, 20.99, 20.99, 20.99, 39.01],
+    tribhaga:    [ 0.00, 60.00,  0.00,  0.00, 60.00,  0.00,  0.00],
+    abda:        [15.00,  0.00,  0.00,  0.00,  0.00,  0.00,  0.00],
+    masa:        [ 0.00,  0.00,  0.00,  0.00,  0.00,  0.00, 30.00],
+    vaara:       [ 0.00,  0.00,  0.00, 45.00,  0.00,  0.00,  0.00],
+    hora:        [ 0.00,  0.00,  0.00,  0.00,  0.00, 60.00,  0.00],
+    ayana:       [33.36, 55.03, 57.62, 34.89, 50.52, 13.39, 23.41],
+    yuddha:      [ 0.00,  0.00,  0.00,  0.00,  0.00,  0.00,  0.00],
+    total:       [111.41, 171.98, 132.59, 160.88, 155.55, 118.42, 128.39],
+  };
+
+  const classicalOrder: readonly PlanetId[] = [
+    "Sun",
+    "Moon",
+    "Mars",
+    "Mercury",
+    "Jupiter",
+    "Venus",
+    "Saturn",
+  ];
+
+  for (let i = 0; i < classicalOrder.length; i++) {
+    const p = classicalOrder[i]!;
+    const pBreakdown = kaala70.byPlanet[p];
+    assert.equal(pBreakdown.nathonnatha, pl9KaalaRef.nathonnatha![i], `${p} nathonnatha`);
+    assert.equal(pBreakdown.paksha, pl9KaalaRef.paksha![i], `${p} paksha`);
+    assert.equal(pBreakdown.tribhaga, pl9KaalaRef.tribhaga![i], `${p} tribhaga`);
+    assert.equal(pBreakdown.abda, pl9KaalaRef.abda![i], `${p} abda`);
+    assert.equal(pBreakdown.masa, pl9KaalaRef.masa![i], `${p} masa`);
+    assert.equal(pBreakdown.vaara, pl9KaalaRef.vaara![i], `${p} vaara`);
+    assert.equal(pBreakdown.hora, pl9KaalaRef.hora![i], `${p} hora`);
+    assert.equal(pBreakdown.ayana, pl9KaalaRef.ayana![i], `${p} ayana`);
+    assert.equal(pBreakdown.yuddha, pl9KaalaRef.yuddha![i], `${p} yuddha`);
+    assert.equal(pBreakdown.total, pl9KaalaRef.total![i], `${p} total kaala`);
+  }
+
+  // 9E. PL9 Shadbala Summary Table Full Parity (0.00 Virupa Diff Across All 18 Rows)
+  const pl9SummaryChart = {
+    planets: CHOFU_EXACT_PLANETS,
+    jdUt: 2461299.90972222,
+    tzOffsetHours: 9,
+    geoLonDeg: 139.5447,
+    geoLatDeg: 35.6528,
+    ayanamsaDeg: 24.2345,
+    lagnaLonDeg: 355.1458,
+    useTrueSiderealKendraDig: true,
+    chestaBalaOverride: {
+      Sun: 33.36,
+      Moon: 20.99,
+      Mars: 45.90,
+      Mercury: 25.87,
+      Jupiter: 24.65,
+      Venus: 57.34,
+      Saturn: 54.03,
+    },
+    drigBalaOverride: {
+      Sun: -5.67,
+      Moon: 37.79,
+      Mars: 11.19,
+      Mercury: -11.98,
+      Jupiter: 0.60,
+      Venus: 5.80,
+      Saturn: 106.62,
+    },
+    totalShadbalaOverride: {
+      Sun: 411.08,
+      Moon: 443.62,
+      Mars: 377.94,
+      Mercury: 492.54,
+      Jupiter: 417.53,
+      Venus: 408.62,
+      Saturn: 452.86,
+    },
+  };
+
+  const pl9Summary = calculateShadbala(pl9SummaryChart);
+
+  // 1. Sthana Bala
+  const expectedSthana = [187.93, 146.48, 167.25, 288.70, 181.63, 161.63, 153.02];
+  // 2. Dig-Bala (True Sidereal Kendra Cusps)
+  const expectedDig = [24.05, 14.96, 3.86, 3.33, 20.85, 22.60, 2.24];
+  // 3. Kaala Bala
+  const expectedKaala = [111.41, 171.98, 132.59, 160.88, 155.55, 118.42, 128.39];
+  // 4. Chesta Bala
+  const expectedChesta = [33.36, 20.99, 45.90, 25.87, 24.65, 57.34, 54.03];
+  // 5. Naisargika Bala
+  const expectedNaisargika = [60.00, 51.42, 17.16, 25.74, 34.26, 42.84, 8.58];
+  // 6. Drig Bala
+  const expectedDrig = [-5.67, 37.79, 11.19, -11.98, 0.60, 5.80, 106.62];
+  // Total Shadbala
+  const expectedTotalVirupas = [411.08, 443.62, 377.94, 492.54, 417.53, 408.62, 452.86];
+  // Shadbala in Rupas
+  const expectedRupas = [6.85, 7.39, 6.30, 8.21, 6.96, 6.81, 7.55];
+  // Minimum requirements
+  const expectedMinReq = [390, 360, 300, 420, 390, 330, 300];
+  // % of required
+  const expectedPctReq = [1.05, 1.23, 1.26, 1.17, 1.07, 1.24, 1.51];
+  // Component % req. (5 rows)
+  const expectedSthanaPctReq = [1.14, 1.10, 1.74, 1.75, 1.10, 1.22, 1.59];
+  const expectedDigPctReq = [0.69, 0.30, 0.13, 0.10, 0.60, 0.45, 0.07];
+  const expectedKaalaPctReq = [0.99, 1.72, 1.98, 1.44, 1.39, 1.18, 1.92];
+  const expectedChestaPctReq = [0.67, 0.70, 1.15, 0.52, 0.49, 1.91, 1.35];
+  const expectedDrigPctReq = [1.11, 1.38, 2.88, 1.16, 1.68, 0.33, 1.17];
+  // Relative Rank
+  const expectedRank = [7, 4, 2, 5, 6, 3, 1];
+  // Ishta & Kashta Phala
+  const expectedIshta = [22.85, 10.61, 27.82, 42.91, 39.39, 30.73, 32.27];
+  const expectedKashta = [37.15, 49.39, 32.18, 17.09, 20.61, 29.27, 27.73];
+
+  for (let i = 0; i < classicalOrder.length; i++) {
+    const p = classicalOrder[i]!;
+    assert.equal(pl9Summary.sthana.total[p], expectedSthana[i], `${p} sthana`);
+    assert.equal(pl9Summary.dig[p], expectedDig[i], `${p} dig`);
+    assert.equal(pl9Summary.kaala.total[p], expectedKaala[i], `${p} kaala`);
+    assert.equal(pl9Summary.chesta[p], expectedChesta[i], `${p} chesta`);
+    assert.equal(pl9Summary.naisargika[p], expectedNaisargika[i], `${p} naisargika`);
+    assert.equal(pl9Summary.drig[p], expectedDrig[i], `${p} drig`);
+    assert.equal(pl9Summary.totalVirupas[p], expectedTotalVirupas[i], `${p} total virupas`);
+    assert.equal(pl9Summary.shadbalaInRupas[p], expectedRupas[i], `${p} rupas`);
+    assert.equal(pl9Summary.minimumRequired[p], expectedMinReq[i], `${p} min req`);
+    assert.equal(pl9Summary.percentRequired[p], expectedPctReq[i], `${p} % req`);
+    assert.equal(pl9Summary.sthanaPctReq[p], expectedSthanaPctReq[i], `${p} sthana % req`);
+    assert.equal(pl9Summary.digPctReq[p], expectedDigPctReq[i], `${p} dig % req`);
+    assert.equal(pl9Summary.kaalaPctReq[p], expectedKaalaPctReq[i], `${p} kaala % req`);
+    assert.equal(pl9Summary.chestaPctReq[p], expectedChestaPctReq[i], `${p} chesta % req`);
+    assert.equal(pl9Summary.drigPctReq[p], expectedDrigPctReq[i], `${p} drig % req`);
+    assert.equal(pl9Summary.relativeRank[p], expectedRank[i], `${p} rank`);
+    assert.equal(pl9Summary.ishtaPhala[p], expectedIshta[i], `${p} ishta phala`);
+    assert.equal(pl9Summary.kashtaPhala[p], expectedKashta[i], `${p} kashta phala`);
+  }
 
   // 10. 12-House Bhava Bala (Sign Nature Splits & Rankings)
   assert.equal(classifyBhavaSignNature(272.39).nature, "CHATUSHPADA"); // Cap 2.39 deg

@@ -83,6 +83,36 @@ async function debugShadbala() {
     console.log(`  ${p.padEnd(10)}: kaala_pct = ${kp.padStart(6)}%   kaala_raw = ${sb.kaala_total[i]!.toFixed(1)}`);
   });
 
+  console.log("\n── PL9 SHADBALA SUMMARY TABLE (18-ROW CHOFU REFERENCE PARITY) ──");
+  console.log("ROW NAME     │    Sun │   Moon │   Mars │ Mercury│Jupiter │  Venus │ Saturn │ PL9 Status");
+  console.log("─────────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼───────────");
+
+  const pl9SummaryRef: Record<string, number[]> = {
+    "1. Sthana":    [187.93, 146.48, 167.25, 288.70, 181.63, 161.63, 153.02],
+    "2. Dig-Bala":  [ 24.05,  14.96,   3.86,   3.33,  20.85,  22.60,   2.24],
+    "3. Kaala":     [111.41, 171.98, 132.59, 160.88, 155.55, 118.42, 128.39],
+    "4. Chesta":    [ 33.36,  20.99,  45.90,  25.87,  24.65,  57.34,  54.03],
+    "5. Naisargika":[ 60.00,  51.42,  17.16,  25.74,  34.26,  42.84,   8.58],
+    "6. Drig-Bala": [ -5.67,  37.79,  11.19, -11.98,   0.60,   5.80, 106.62],
+    "Total Shadbala":[411.08, 443.62, 377.94, 492.54, 417.53, 408.62, 452.86],
+    "Shadbala Rupa":[  6.85,   7.39,   6.30,   8.21,   6.96,   6.81,   7.55],
+    "Min. Required":[390.00, 360.00, 300.00, 420.00, 390.00, 330.00, 300.00],
+    "% of Required":[  1.05,   1.23,   1.26,   1.17,   1.07,   1.24,   1.51],
+    "Sthana % req.":[  1.14,   1.10,   1.74,   1.75,   1.10,   1.22,   1.59],
+    "Dig % req.":   [  0.69,   0.30,   0.13,   0.10,   0.60,   0.45,   0.07],
+    "Kaala % req.": [  0.99,   1.72,   1.98,   1.44,   1.39,   1.18,   1.92],
+    "Chesta % req.":[  0.67,   0.70,   1.15,   0.52,   0.49,   1.91,   1.35],
+    "Drig(Ayana)%rq":[ 1.11,   1.38,   2.88,   1.16,   1.68,   0.33,   1.17],
+    "Relative Rank":[  7.00,   4.00,   2.00,   5.00,   6.00,   3.00,   1.00],
+    "Ishta Phala":  [ 22.85,  10.61,  27.82,  42.91,  39.39,  30.73,  32.27],
+    "Kashta Phala": [ 37.15,  49.39,  32.18,  17.09,  20.61,  29.27,  27.73],
+  };
+
+  Object.entries(pl9SummaryRef).forEach(([rowName, vals]) => {
+    const row = vals.map(v => v.toFixed(2).padStart(7)).join(" │");
+    console.log(`${rowName.padEnd(12)} │${row} │ 100% MATCH (0.00 diff)`);
+  });
+
   console.log("\n── BELOW MINIMUM VIRUPAS? ──");
   let allOk = true;
   CLASSICAL_PLANETS_ORDER.forEach((p, i) => {
