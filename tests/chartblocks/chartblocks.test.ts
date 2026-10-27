@@ -39,6 +39,12 @@ import {
   buildNavamshaBlock,
   buildYogaListBlock,
 } from "../../src/engine/chartblocks/index.ts";
+import {
+  evaluateZ2LunarMaleficAspects,
+  evaluatePasIAspectFactor,
+  calculateAspectsOnPlanets,
+  calculateAspectsOnBhavas,
+} from "../../src/engine/chartblocks/aspects.ts";
 import { getLagnaType } from "../../src/engine/chartblocks/identity.ts";
 import { getFullHoraSchedule } from "../../src/engine/chartblocks/hora.ts";
 import {
@@ -161,6 +167,53 @@ export async function runChartblocksTests(): Promise<void> {
   // Verify universal 7th aspect present
   assert.ok(ASPECTS_PLANETS.length > 0);
   assert.ok(Object.keys(ASPECTS_BHAVAS).length === 12);
+
+  // Dynamic Swiss Ephemeris chart node aspect checks
+  assert.ok(Math.abs((ASPECTS_BHAVAS["1"].aspects.Rahu?.score ?? 0) - 9) <= 1);
+  assert.ok(Math.abs((ASPECTS_BHAVAS["1"].aspects.Ketu?.score ?? 0) - 54) <= 1);
+  assert.equal(ASPECTS_BHAVAS["10"].aspects.Rahu, undefined);
+  assert.ok(Math.abs((ASPECTS_BHAVAS["10"].aspects.Ketu?.score ?? 0) - 40) <= 1);
+
+  // Downstream DSSME Zero-Wave Gate Z-2 check on dynamic chart
+  const z2Eval = evaluateZ2LunarMaleficAspects(ASPECTS_PLANETS);
+  assert.equal(z2Eval.triggersDampedPressure, false, "Gate Z-2 must be OPEN for Chofu chart");
+  assert.equal(z2Eval.qualifyingMalefics.length, 1, "Only Ketu qualifies with score >= 40");
+  assert.equal(z2Eval.qualifyingMalefics[0]!.from, "Ketu");
+
+  // Downstream Stage S9 PAS_v3 I_aspect check
+  const moonPasAspect = evaluatePasIAspectFactor("Moon", ASPECTS_PLANETS);
+  assert.ok(moonPasAspect.iAspect);
+
+  // Exact PL9 Aspects.pdf reference vector conformance
+  const pl9Bodies = [
+    { body: "Sun" as const, lon: 149.316667, house: 6 },
+    { body: "Moon" as const, lon: 212.283333, house: 9 },
+    { body: "Mars" as const, lon: 88.75, house: 4 },
+    { body: "Mercury" as const, lon: 165.15, house: 7 },
+    { body: "Jupiter" as const, lon: 112.60, house: 5 },
+    { body: "Venus" as const, lon: 189.383333, house: 8 },
+    { body: "Saturn" as const, lon: 348.45, house: 1 },
+    { body: "Rahu" as const, lon: 305.316667, house: 11 },
+    { body: "Ketu" as const, lon: 125.316667, house: 5 },
+  ];
+  const pl9Lagna = 355.15;
+  const pl9Cusps: Record<number, number> = {};
+  for (let h = 1; h <= 12; h++) {
+    pl9Cusps[h] = (pl9Lagna + (h - 1) * 30) % 360;
+  }
+  const pl9PlanetsAspects = calculateAspectsOnPlanets(pl9Bodies, { pl9ParityMode: true });
+  const pl9BhavasAspects = calculateAspectsOnBhavas(pl9Bodies, pl9Cusps as any, undefined, { pl9ParityMode: true });
+
+  assert.equal(pl9BhavasAspects["1"].aspects.Rahu?.score, 9);
+  assert.equal(pl9BhavasAspects["1"].aspects.Ketu?.score, 54);
+  assert.equal(pl9BhavasAspects["10"].aspects.Rahu, undefined);
+  assert.equal(pl9BhavasAspects["10"].aspects.Ketu?.score, 40);
+
+  const pl9Z2 = evaluateZ2LunarMaleficAspects(pl9PlanetsAspects.entries);
+  assert.equal(pl9Z2.triggersDampedPressure, false);
+  assert.equal(pl9Z2.qualifyingMalefics.length, 1);
+  assert.equal(pl9Z2.qualifyingMalefics[0]!.from, "Ketu");
+  assert.equal(pl9Z2.qualifyingMalefics[0]!.score, 41);
 
   // ==========================================================================
   // 5. DIGNITY: getClassicalDignity & buildDignityBlock
