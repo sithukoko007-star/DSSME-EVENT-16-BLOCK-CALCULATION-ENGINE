@@ -57,6 +57,7 @@ import { computeAshtakavarga } from "./ashtakavarga.ts";
 import { buildSignClustersBlock } from "./signClusters.ts";
 import {
   type AspectsBlockOptions,
+  type AspectBodyInput,
   buildAspectsBhavasBlock,
   buildAspectsBlocks,
   buildAspectsPlanetsBlock,
@@ -94,6 +95,7 @@ import {
   computeLocalSunriseSunsetHours,
   type DrigCalculationMode,
   type DrigWeightingMode,
+  type PlanetPositionInput,
   type ShadbalaChartInput,
   type ShadbalaInput,
 } from "./shadbala.ts";
@@ -148,6 +150,7 @@ export {
   evaluateZ2LunarMaleficAspects,
   evaluatePasIAspectFactor,
   type AspectsBlockOptions,
+  type AspectBodyInput,
   buildDashaBlock,
   buildHoraBlock,
   // Level 4
@@ -170,6 +173,7 @@ export {
   calculateIshtaKashtaFromShadbala,
   type ShadbalaInput,
   type ShadbalaChartInput,
+  type PlanetPositionInput,
   type DrigCalculationMode,
   type DrigWeightingMode,
   type ChestaBalaMode,

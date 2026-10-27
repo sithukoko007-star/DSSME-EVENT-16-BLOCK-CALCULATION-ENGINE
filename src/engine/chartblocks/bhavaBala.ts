@@ -264,76 +264,45 @@ export function calculateBhavaAdhipatiBala(
  *   - CHATUSHPADA (Quadruped): Aries (0), Taurus (1), Leo (4), Sagittarius 15-30 deg (8), Capricorn 0-15 deg (9) -> Max in H10
  *   - KEETA (Insect/Reptile): Scorpio (7) -> Max in H7
  */
-export function classifyBhavaSignNature(cuspSiderealLon: number): {
-  rasi: RasiIndex;
-  degInSign: number;
-  nature: BhavaSignNature;
-  peakHouse: CardinalHouse;
-} {
+export function classifyBhavaSignNature(cuspSiderealLon: number): BhavaSignNature {
   const norm = norm360(cuspSiderealLon);
   const rasi = Math.floor(norm / 30) as RasiIndex;
   const degInSign = norm - rasi * 30;
-
-  let nature: BhavaSignNature;
-  let peakHouse: CardinalHouse;
 
   switch (rasi) {
     case 2:  // Gemini
     case 5:  // Virgo
     case 6:  // Libra
     case 10: // Aquarius
-      nature = "NARA";
-      peakHouse = 1;
-      break;
+      return "NARA";
 
     case 3:  // Cancer
     case 11: // Pisces
-      nature = "JALA";
-      peakHouse = 4;
-      break;
+      return "JALA";
 
     case 0:  // Aries
     case 1:  // Taurus
     case 4:  // Leo
-      nature = "CHATUSHPADA";
-      peakHouse = 10;
-      break;
+      return "CHATUSHPADA";
 
     case 7:  // Scorpio
-      nature = "KEETA";
-      peakHouse = 7;
-      break;
+      return "KEETA";
 
     case 8:  // Sagittarius: 0-15 deg Nara (H1), 15-30 deg Chatushpada (H10)
-      if (degInSign < 15.0) {
-        nature = "NARA";
-        peakHouse = 1;
-      } else {
-        nature = "CHATUSHPADA";
-        peakHouse = 10;
-      }
-      break;
+      return degInSign < 15.0 ? "NARA" : "CHATUSHPADA";
 
     case 9:  // Capricorn: 0-15 deg Chatushpada (H10), 15-30 deg Jala (H4)
-      if (degInSign < 15.0) {
-        nature = "CHATUSHPADA";
-        peakHouse = 10;
-      } else {
-        nature = "JALA";
-        peakHouse = 4;
-      }
-      break;
+      return degInSign < 15.0 ? "CHATUSHPADA" : "JALA";
   }
-
-  return { rasi, degInSign, nature, peakHouse };
 }
 
 export function getBhavaSignNature(cuspSiderealLon: number): BhavaSignNature {
-  return classifyBhavaSignNature(cuspSiderealLon).nature;
+  return classifyBhavaSignNature(cuspSiderealLon);
 }
 
 export function getBhavaDigMaxHouse(cuspSiderealLon: number): CardinalHouse {
-  return classifyBhavaSignNature(cuspSiderealLon).peakHouse;
+  const nature = classifyBhavaSignNature(cuspSiderealLon);
+  return BHAVA_NATURE_MAX_HOUSE[nature];
 }
 
 /**
@@ -346,9 +315,10 @@ export function calculateBhavaDigBala(
   cardinalCuspLongitudes?: Partial<Record<CardinalHouse, number>>
 ): BhavaDigBalaDetail {
   const normalized = norm360(cuspSiderealLon);
-  const { rasi, degInSign, nature, peakHouse } =
-    classifyBhavaSignNature(normalized);
-  const maxHouse = peakHouse;
+  const rasi = Math.floor(normalized / 30) as RasiIndex;
+  const degInSign = normalized - rasi * 30;
+  const nature = classifyBhavaSignNature(normalized);
+  const maxHouse = BHAVA_NATURE_MAX_HOUSE[nature];
 
   const rawHouseDiff = Math.abs(house - maxHouse) % 12;
   const houseDistance = Math.min(rawHouseDiff, 12 - rawHouseDiff);
