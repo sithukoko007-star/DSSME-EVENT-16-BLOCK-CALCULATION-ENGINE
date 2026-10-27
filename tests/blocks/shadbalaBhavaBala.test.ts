@@ -174,6 +174,20 @@ export function runShadbalaAndBhavaBalaTests(): void {
     Saturn: 12.96,
   });
 
+  // 7B. PL9 Parity Drig Bala (Continuous Knot + Jupiter/Mercury 1.0x Full Weighting)
+  const drigPl9 = calculateDetailedDrigBala(CHOFU_PLANETS, {
+    mode: "DEGREE_CONTINUOUS_KNOT",
+    weightingMode: "PL9_JUP_MERC_FULL",
+  });
+  // On 2-decimal rounded CHOFU_PLANETS: Sun is -5.68 (within 0.01 of exact -5.67)
+  assert.equal(Math.abs(drigPl9.virupasByPlanet.Sun - -5.67) <= 0.01, true);
+  assert.equal(drigPl9.virupasByPlanet.Moon, 37.79);
+  assert.equal(drigPl9.virupasByPlanet.Mars, 11.19);
+  assert.equal(drigPl9.virupasByPlanet.Mercury, -11.98);
+  assert.equal(drigPl9.virupasByPlanet.Jupiter, 0.60);
+  assert.equal(drigPl9.virupasByPlanet.Venus, 5.80);
+  assert.equal(drigPl9.virupasByPlanet.Saturn, 106.62);
+
   // 8. Yuddha Bala (Bimba Parimana Planetary War)
   const marsMercWar = CHOFU_PLANETS.map((p) => {
     if (p.planet === "Mars") return { ...p, lon: 164.80, lat: 0.40 };
@@ -350,6 +364,20 @@ export function runShadbalaAndBhavaBalaTests(): void {
   }
 
   // 9E. PL9 Shadbala Summary Table Full Parity (0.00 Virupa Diff Across All 18 Rows)
+  const drigPl9Exact = calculateDetailedDrigBala(CHOFU_EXACT_PLANETS, {
+    mode: "DEGREE_CONTINUOUS_KNOT",
+    weightingMode: "PL9_JUP_MERC_FULL",
+  });
+  assert.deepEqual(drigPl9Exact.virupasByPlanet, {
+    Sun: -5.67,
+    Moon: 37.79,
+    Mars: 11.19,
+    Mercury: -11.98,
+    Jupiter: 0.60,
+    Venus: 5.80,
+    Saturn: 106.62,
+  });
+
   const pl9SummaryChart = {
     planets: CHOFU_EXACT_PLANETS,
     jdUt: 2461299.90972222,
@@ -359,6 +387,7 @@ export function runShadbalaAndBhavaBalaTests(): void {
     ayanamsaDeg: 24.2345,
     lagnaLonDeg: 355.1458,
     useTrueSiderealKendraDig: true,
+    pl9ParityMode: true,
     chestaBalaOverride: {
       Sun: 33.36,
       Moon: 20.99,
@@ -367,15 +396,6 @@ export function runShadbalaAndBhavaBalaTests(): void {
       Jupiter: 24.65,
       Venus: 57.34,
       Saturn: 54.03,
-    },
-    drigBalaOverride: {
-      Sun: -5.67,
-      Moon: 37.79,
-      Mars: 11.19,
-      Mercury: -11.98,
-      Jupiter: 0.60,
-      Venus: 5.80,
-      Saturn: 106.62,
     },
     totalShadbalaOverride: {
       Sun: 411.08,

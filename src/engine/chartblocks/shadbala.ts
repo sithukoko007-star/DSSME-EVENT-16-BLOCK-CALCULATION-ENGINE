@@ -78,6 +78,7 @@ export const PL9_NAISARGIKA_BALA_VIRUPAS: Readonly<Record<ClassicalPlanet, numbe
 };
 
 export const NAISARGIKA_BALA: Record<PlanetId, number> = PL9_NAISARGIKA_BALA_VIRUPAS;
+export const PL9_NAISARGIKA_BALA: Record<PlanetId, number> = PL9_NAISARGIKA_BALA_VIRUPAS;
 
 export function calculateNaisargikaBala(planet: ClassicalPlanet): number {
   return PL9_NAISARGIKA_BALA_VIRUPAS[planet];
@@ -170,6 +171,10 @@ export type DrigCalculationMode =
   | "DEGREE_CONTINUOUS_KNOT"
   | "WHOLE_HOUSE";
 
+export type DrigWeightingMode =
+  | "BPHS_EQUAL_DIV_4"   // All 7 planets weighted at 1/4 of raw Drishti (BPHS Ch. 27 standard)
+  | "PL9_JUP_MERC_FULL"; // Parashara's Light 9.0 parity: Jupiter & Mercury at 1.0x (100%), other 5 planets at 1/4 (25%)
+
 export type ChestaBalaMode =
   | "BPHS_ORIGINAL_27_23"
   | "MODERN_SOFTWARE"
@@ -190,11 +195,13 @@ export interface ShadbalaChartInput {
   masaConvention?: MasaConvention;
   usePanchadhaSaptavargaja?: boolean;
   drigMode?: DrigCalculationMode;
+  drigWeightingMode?: DrigWeightingMode;
   chestaMode?: ChestaBalaMode;
   weekday?: number | ClassicalPlanet;
   horaLord?: ClassicalPlanet;
   doubleMoonPaksha?: boolean;
   doubleSunAyana?: boolean;
+  pl9ParityMode?: boolean;
 }
 
 // ============================================================================
@@ -1253,6 +1260,22 @@ export function computeTropicalIcLonDeg(jdUt: number, geoLonDeg: number): number
 }
 
 /**
+ * Computes the astronomical Sidereal Midheaven (MC / 10th Cusp) and Nadir (IC / 4th Cusp)
+ * from Julian Day (UT), geographic longitude, and Ayanamsa.
+ */
+export function computeAstronomicalMcIcSidereal(
+  jdUt: number,
+  geoLonDeg: number,
+  ayanamsaDeg: number
+): { mcSiderealLon: number; icSiderealLon: number } {
+  const icTropicalDeg = computeTropicalIcLonDeg(jdUt, geoLonDeg);
+  const mcTropicalDeg = norm360(icTropicalDeg + 180.0);
+  const mcSiderealLon = norm360(mcTropicalDeg - ayanamsaDeg);
+  const icSiderealLon = norm360(icTropicalDeg - ayanamsaDeg);
+  return { mcSiderealLon, icSiderealLon };
+}
+
+/**
  * Computes local standard time Sunrise, Sunset, and Apparent Noon hours
  * using Spherical Astronomy when explicit sunriseJdUt / sunsetJdUt are not provided.
  */
@@ -1512,6 +1535,18 @@ export function computeKaliyugaAharganaLords(
   };
 }
 
+export function calculateSavanaAharganaVarshaMasaLords(
+  jdUt: number,
+  tzOffsetHours: number,
+  localSunriseHour = 6.0
+): { abdaLord: PlanetId; masaLord: PlanetId; aharganaDays: number } {
+  const { abdaLord, masaLord, ahargana } = computeKaliyugaAharganaLords(
+    jdUt,
+    tzOffsetHours,
+    localSunriseHour
+  );
+  return { abdaLord, masaLord, aharganaDays: ahargana };
+}
 
 export function getVedicWeekdayAtJd(
   jdUt: number,
@@ -2741,8 +2776,22 @@ export interface PlanetDrigBreakdown {
   receivedAspects: PairwiseAspectDetail[];
 }
 
+export function getDrigWeightFactor(
+  aspector: PlanetId,
+  weightingMode: DrigWeightingMode = "BPHS_EQUAL_DIV_4"
+): number {
+  if (
+    weightingMode === "PL9_JUP_MERC_FULL" &&
+    (aspector === "Jupiter" || aspector === "Mercury")
+  ) {
+    return 1.0;
+  }
+  return 0.25;
+}
+
 export interface DrigBalaOptions {
   mode?: DrigCalculationMode;
+  weightingMode?: DrigWeightingMode;
   dynamicMoonBenefic?: boolean;
 }
 
@@ -2750,9 +2799,11 @@ export function evaluatePairwiseDrishti(
   aspector: PlanetPositionInput,
   target: PlanetPositionInput,
   polarity: 1 | -1,
-  mode: DrigCalculationMode = "DEGREE_RAMAN_BAND"
+  mode: DrigCalculationMode = "DEGREE_RAMAN_BAND",
+  weightingMode: DrigWeightingMode = "BPHS_EQUAL_DIV_4"
 ): PairwiseAspectDetail {
   const drishtiKonaDeg = computeDrishtiKona(aspector.lon, target.lon);
+  const weightFactor = getDrigWeightFactor(aspector.planet, weightingMode);
 
   if (mode === "WHOLE_HOUSE") {
     const houseSpan = (((target.house - aspector.house) % 12) + 12) % 12 + 1;
@@ -2788,7 +2839,7 @@ export function evaluatePairwiseDrishti(
       specialBonusVirupas,
       totalRawVirupas,
       polarity,
-      netContributionVirupas: round2((polarity * totalRawVirupas) / 4),
+      netContributionVirupas: round2(polarity * totalRawVirupas * weightFactor),
     };
   }
 
@@ -2804,7 +2855,7 @@ export function evaluatePairwiseDrishti(
       specialBonusVirupas: round2(specialBonusVirupas),
       totalRawVirupas: round2(totalRawVirupas),
       polarity,
-      netContributionVirupas: round2((polarity * totalRawVirupas) / 4),
+      netContributionVirupas: round2(polarity * totalRawVirupas * weightFactor),
     };
   }
 
@@ -2823,7 +2874,7 @@ export function evaluatePairwiseDrishti(
     specialBonusVirupas: round2(specialBonusVirupas),
     totalRawVirupas: round2(totalRawVirupas),
     polarity,
-    netContributionVirupas: round2((polarity * totalRawVirupas) / 4),
+    netContributionVirupas: round2(polarity * totalRawVirupas * weightFactor),
   };
 }
 
@@ -2834,7 +2885,11 @@ export function calculateDetailedDrigBala(
   virupasByPlanet: Record<PlanetId, number>;
   breakdowns: Record<PlanetId, PlanetDrigBreakdown>;
 } {
-  const { mode = "DEGREE_RAMAN_BAND", dynamicMoonBenefic = false } = options;
+  const {
+    mode = "DEGREE_RAMAN_BAND",
+    weightingMode = "BPHS_EQUAL_DIV_4",
+    dynamicMoonBenefic = false,
+  } = options;
 
   const sunPos = planets.find((p) => p.planet === "Sun");
   const moonPos = planets.find((p) => p.planet === "Moon");
@@ -2855,18 +2910,50 @@ export function calculateDetailedDrigBala(
 
   for (const target of planets) {
     let rawSignedSum = 0;
+    let weightedSum = 0;
     const receivedAspects: PairwiseAspectDetail[] = [];
 
     for (const aspector of planets) {
       if (aspector.planet === target.planet) continue;
 
       const polarity: 1 | -1 = benefics.has(aspector.planet) ? 1 : -1;
-      const detail = evaluatePairwiseDrishti(aspector, target, polarity, mode);
+      const weightFactor = getDrigWeightFactor(aspector.planet, weightingMode);
+
+      let rawVirupas: number;
+      if (mode === "DEGREE_CONTINUOUS_KNOT") {
+        const theta = computeDrishtiKona(aspector.lon, target.lon);
+        rawVirupas = computeContinuousKnotDrishti(
+          aspector.planet,
+          theta
+        ).totalRawVirupas;
+      } else {
+        const detailPreview = evaluatePairwiseDrishti(
+          aspector,
+          target,
+          polarity,
+          mode,
+          weightingMode
+        );
+        rawVirupas = detailPreview.totalRawVirupas;
+      }
+
+      const detail = evaluatePairwiseDrishti(
+        aspector,
+        target,
+        polarity,
+        mode,
+        weightingMode
+      );
       receivedAspects.push(detail);
-      rawSignedSum += polarity * detail.totalRawVirupas;
+
+      rawSignedSum += polarity * rawVirupas;
+      weightedSum += polarity * rawVirupas * weightFactor;
     }
 
-    const drigBalaVirupas = round2(rawSignedSum / 4.0);
+    const drigBalaVirupas =
+      weightingMode === "PL9_JUP_MERC_FULL"
+        ? round2(weightedSum)
+        : round2(rawSignedSum / 4.0);
 
     virupasByPlanet[target.planet] = drigBalaVirupas;
     breakdowns[target.planet] = {
@@ -2947,8 +3034,23 @@ export function calculateDrigBala(
     | Record<ClassicalPlanet, { lon: number }>
     | readonly PlanetPositionInput[],
   mode: DrigBalaMode = "DEGREE_RAMAN_BAND",
-  drigBalaOverride?: Partial<Record<ClassicalPlanet, number>>
+  drigBalaOverrideOrWeighting?:
+    | Partial<Record<ClassicalPlanet, number>>
+    | DrigWeightingMode,
+  weightingModeArg: DrigWeightingMode = "BPHS_EQUAL_DIV_4"
 ): Record<PlanetId, number> {
+  let drigBalaOverride: Partial<Record<ClassicalPlanet, number>> | undefined;
+  let weightingMode: DrigWeightingMode = weightingModeArg;
+
+  if (typeof drigBalaOverrideOrWeighting === "string") {
+    weightingMode = drigBalaOverrideOrWeighting as DrigWeightingMode;
+  } else if (
+    drigBalaOverrideOrWeighting &&
+    typeof drigBalaOverrideOrWeighting === "object"
+  ) {
+    drigBalaOverride = drigBalaOverrideOrWeighting;
+  }
+
   if (drigBalaOverride) {
     const res = {} as Record<PlanetId, number>;
     for (const p of CLASSICAL_PLANETS_ORDER) {
@@ -2962,6 +3064,7 @@ export function calculateDrigBala(
   if (Array.isArray(planets)) {
     return calculateDetailedDrigBala(planets, {
       mode: mode as DrigCalculationMode,
+      weightingMode,
     }).virupasByPlanet;
   }
 
@@ -2975,6 +3078,7 @@ export function calculateDrigBala(
 
   return calculateDetailedDrigBala(list, {
     mode: mode as DrigCalculationMode,
+    weightingMode,
   }).virupasByPlanet;
 }
 
@@ -3202,6 +3306,14 @@ export const COMPONENT_MINIMUM_VIRUPAS = {
   },
 } as const;
 
+export const COMPONENT_MIN_REQUIRED_VIRUPAS = {
+  sthana: COMPONENT_MINIMUM_VIRUPAS.sthana,
+  dig: COMPONENT_MINIMUM_VIRUPAS.dig,
+  kaala: COMPONENT_MINIMUM_VIRUPAS.kaala,
+  chesta: COMPONENT_MINIMUM_VIRUPAS.chesta,
+  ayana: COMPONENT_MINIMUM_VIRUPAS.ayanaForDrigPct,
+};
+
 /**
  * Compute PL9 Ishta Phala and Kashta Phala (in Virupas, where Ishta + Kashta = 60.00)
  *   - For Moon, Mars, Mercury, Jupiter, Venus, Saturn:
@@ -3301,10 +3413,12 @@ export interface CalculateShadbalaFullOptions extends Partial<CalculateKaalaBala
   usePanchadhaSaptavargaja?: boolean;
   chestaMode?: ChestaBalaMode;
   drigMode?: DrigBalaMode;
+  drigWeightingMode?: DrigWeightingMode;
   drigBalaOverride?: Partial<Record<ClassicalPlanet, number>>;
   chestaBalaOverride?: Partial<Record<ClassicalPlanet, number>>;
   totalShadbalaOverride?: Partial<Record<ClassicalPlanet, number>>;
   useTrueSiderealKendraDig?: boolean;
+  pl9ParityMode?: boolean;
 }
 
 /**
@@ -3368,7 +3482,7 @@ export function calculateShadbala(
   const digRaw = {} as Record<ClassicalPlanet, number>;
   const dig = {} as Record<ClassicalPlanet, number>;
   for (const p of CLASSICAL_PLANETS_ORDER) {
-    if (fullOpts.useTrueSiderealKendraDig || !opts.houseCusps) {
+    if (fullOpts.useTrueSiderealKendraDig || fullOpts.pl9ParityMode || !opts.houseCusps) {
       digRaw[p] = calculateDigBalaRaw(
         p,
         planetsRecord[p].lon,
@@ -3445,10 +3559,18 @@ export function calculateShadbala(
   }
 
   // 6. Drig Bala
+  const isPl9Parity = Boolean((opts as CalculateShadbalaFullOptions).pl9ParityMode);
+  const resolvedDrigMode: DrigBalaMode =
+    opts.drigMode ?? (isPl9Parity ? "DEGREE_CONTINUOUS_KNOT" : "DEGREE_RAMAN_BAND");
+  const resolvedWeightingMode: DrigWeightingMode =
+    (opts as CalculateShadbalaFullOptions).drigWeightingMode ??
+    (isPl9Parity ? "PL9_JUP_MERC_FULL" : "BPHS_EQUAL_DIV_4");
+
   const drig = calculateDrigBala(
     planetsArray,
-    opts.drigMode ?? "DEGREE_RAMAN_BAND",
-    fullOpts.drigBalaOverride
+    resolvedDrigMode,
+    fullOpts.drigBalaOverride,
+    resolvedWeightingMode
   );
 
   // 7. Totals, Rupas, % Required, Component % req., Relative Rank, Ishta & Kashta Phala
@@ -3607,6 +3729,8 @@ export interface ShadbalaInput {
   doubleSunAyana?: boolean;
   usePanchadhaSaptavargaja?: boolean;
   drigMode?: DrigCalculationMode;
+  drigWeightingMode?: DrigWeightingMode;
+  pl9ParityMode?: boolean;
   chestaMode?: ChestaBalaMode;
 }
 
@@ -3647,6 +3771,8 @@ export function buildShadbalaBlock(
     10: chart.houses["10"]?.cuspLongitude ?? norm360(lagnaLon + 270),
   };
 
+  const pl9ParityMode = shadbalaInput.pl9ParityMode ?? true;
+
   const engineOut = calculateShadbala({
     planets: planetsInput,
     jdUt: shadbalaInput.chartJd ?? chart.time.julianDayUt,
@@ -3665,7 +3791,13 @@ export function buildShadbalaBlock(
     doubleMoonPaksha: shadbalaInput.doubleMoonPaksha ?? false,
     doubleSunAyana: shadbalaInput.doubleSunAyana ?? false,
     usePanchadhaSaptavargaja: shadbalaInput.usePanchadhaSaptavargaja ?? true,
-    drigMode: shadbalaInput.drigMode ?? "DEGREE_RAMAN_BAND",
+    pl9ParityMode,
+    drigMode:
+      shadbalaInput.drigMode ??
+      (pl9ParityMode ? "DEGREE_CONTINUOUS_KNOT" : "DEGREE_RAMAN_BAND"),
+    drigWeightingMode:
+      shadbalaInput.drigWeightingMode ??
+      (pl9ParityMode ? "PL9_JUP_MERC_FULL" : "BPHS_EQUAL_DIV_4"),
     chestaMode: shadbalaInput.chestaMode,
   });
 

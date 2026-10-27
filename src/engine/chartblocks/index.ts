@@ -56,6 +56,23 @@ import { buildNavamshaBlock } from "./navamsha.ts";
 import { buildYogaListBlock } from "./yoga.ts";
 import { SIGN_LORDS, NINE_BODIES_ORDER } from "../astronomy/planetaryPositions.ts";
 
+export {
+  buildIdentityBlock,
+  buildDashaBlock,
+  buildShadbalaBlock,
+  buildBhavaBalaBlock,
+  computeAshtakavarga,
+  computeAspects,
+  buildDignityBlock,
+  getClassicalDignity,
+  buildCombustBlock,
+  buildSignClustersBlock,
+  buildHoraBlock,
+  buildPhaseStressBlock,
+  buildNavamshaBlock,
+  buildYogaListBlock,
+};
+
 export interface ChartblocksOptions {
   /** Session parameters passed through to IDENTITY block */
   session?: IdentitySessionParams;

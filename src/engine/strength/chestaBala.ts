@@ -3,8 +3,8 @@
  * Source of truth: Brihat Parashara Hora Shastra (BPHS) Ch.27
  */
 
-import { PlanetState } from '../types.js';
-import { SHADBALA_PLANETS } from './shadbalaConstants.js';
+import { PlanetState } from '../types.ts';
+import { SHADBALA_PLANETS } from './shadbalaConstants.ts';
 
 // ── Planet index constants ────────────────────────────────────────────────────
 const SUN = 0, MOON = 1;
