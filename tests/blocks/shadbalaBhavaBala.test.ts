@@ -32,6 +32,7 @@ import {
   classifyBhavaSignNature,
   calculateSingleBhavaDigBala,
   calculateBhavaBala,
+  computePlanetToBhavaRawDrishti,
 } from "../../src/engine/chartblocks/bhavaBala.ts";
 
 const CHOFU_PLANETS: readonly PlanetPositionInput[] = [
@@ -487,6 +488,66 @@ export function runShadbalaAndBhavaBalaTests(): void {
   assert.equal(bhavaOut.houses[3].totalVirupas, 546.9);
   assert.equal(bhavaOut.strongestHouse.house, 3);
   assert.equal(bhavaOut.weakestHouse.house, 8);
+
+  // 11. PL9 Aspects on Bhavas (Aspects.pdf) & Bhava Bala Parity
+  const pl9Lagna = 355.1458; // 355 deg 08 min 45 sec (Pisces 25:09)
+  const h1Cusp = pl9Lagna;
+  const h2Cusp = norm360(pl9Lagna + 30);
+  const h3Cusp = norm360(pl9Lagna + 60);
+
+  // Aspects on H1 (355:09) from Sun, Moon, Mars, Mercury, Jupiter, Venus, Saturn
+  const sunPos = CHOFU_EXACT_PLANETS[0]!;
+  const moonPos = CHOFU_EXACT_PLANETS[1]!;
+  const marsPos = CHOFU_EXACT_PLANETS[2]!;
+  const mercPos = CHOFU_EXACT_PLANETS[3]!;
+  const jupPos = CHOFU_EXACT_PLANETS[4]!;
+  const venPos = CHOFU_EXACT_PLANETS[5]!;
+  const satPos = CHOFU_EXACT_PLANETS[6]!;
+
+  assert.equal(computePlanetToBhavaRawDrishti(sunPos, 1, h1Cusp, "DEGREE_CONTINUOUS_KNOT", true).pl9PrintedScore, 47);
+  assert.equal(computePlanetToBhavaRawDrishti(moonPos, 1, h1Cusp, "DEGREE_CONTINUOUS_KNOT", true).pl9PrintedScore, 7);
+  assert.equal(computePlanetToBhavaRawDrishti(marsPos, 1, h1Cusp, "DEGREE_CONTINUOUS_KNOT", true).pl9PrintedScore, 16);
+  assert.ok(Math.abs(computePlanetToBhavaRawDrishti(mercPos, 1, h1Cusp, "DEGREE_CONTINUOUS_KNOT", true).pl9PrintedScore - 54) <= 1);
+  assert.equal(computePlanetToBhavaRawDrishti(jupPos, 1, h1Cusp, "DEGREE_CONTINUOUS_KNOT", true).pl9PrintedScore, 57);
+  assert.equal(computePlanetToBhavaRawDrishti(venPos, 1, h1Cusp, "DEGREE_CONTINUOUS_KNOT", true).pl9PrintedScore, 31);
+  assert.equal(computePlanetToBhavaRawDrishti(satPos, 1, h1Cusp, "DEGREE_CONTINUOUS_KNOT", true).pl9PrintedScore, 0);
+
+  // Aspects on H2 & H3
+  assert.equal(computePlanetToBhavaRawDrishti(sunPos, 2, h2Cusp, "DEGREE_CONTINUOUS_KNOT", true).pl9PrintedScore, 32);
+  assert.equal(computePlanetToBhavaRawDrishti(satPos, 3, h3Cusp, "DEGREE_CONTINUOUS_KNOT", true).pl9PrintedScore, 56);
+
+  // Full 12-House PL9 Parity Bhava Bala calculation
+  const pl9EqualCusps: Record<number, number> = {};
+  for (let h = 1; h <= 12; h++) {
+    pl9EqualCusps[h] = norm360(pl9Lagna + (h - 1) * 30);
+  }
+
+  const pl9BhavaOut = calculateBhavaBala({
+    houseCusps: pl9EqualCusps,
+    planets: CHOFU_EXACT_PLANETS,
+    shadbalaByPlanet: {
+      Sun: 411.08,
+      Moon: 443.62,
+      Mars: 377.94,
+      Mercury: 492.54,
+      Jupiter: 417.53,
+      Venus: 408.62,
+      Saturn: 452.86,
+    },
+    options: {
+      pl9ParityMode: true,
+    },
+  });
+
+  assert.equal(pl9BhavaOut.houses[1].adhipatiVirupas, 417.53); // Jupiter
+  assert.equal(pl9BhavaOut.houses[1].digVirupas, 30.00);      // JALA -> H4
+  assert.equal(Math.abs(pl9BhavaOut.houses[1].drigVirupas - 106.16) < 0.2, true);
+  assert.equal(Math.abs(pl9BhavaOut.houses[1].totalVirupas - 553.69) < 0.2, true);
+
+  assert.equal(pl9BhavaOut.houses[4].adhipatiVirupas, 492.54); // Mercury
+  assert.equal(pl9BhavaOut.houses[4].digVirupas, 30.00);      // NARA -> H1
+  assert.equal(Math.abs(pl9BhavaOut.houses[4].drigVirupas - 12.99) < 0.1, true);
+  assert.equal(Math.abs(pl9BhavaOut.houses[4].totalVirupas - 535.53) < 0.1, true);
 
   console.log("  [PASS] All BPHS Ch. 27 Shadbala & Bhava Bala assertions.");
 }

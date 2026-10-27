@@ -334,6 +334,7 @@ export interface KaalaBalaComponents {
 export interface BhavaBalaEntry {
   sign: ZodiacSign;
   lord_contrib?: number;
+  dig_bala?: number;
   drishti?: number;
   total: number;
 }

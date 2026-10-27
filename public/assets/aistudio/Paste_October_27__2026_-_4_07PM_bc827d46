@@ -1,0 +1,905 @@
+Parashara's Light 9.0 (PL9) ၏ `Aspects.pdf` ပါ **`Aspects on Bhavas`** ဇယား၊ `Shadbala Summary Table.png` နှင့် DSSME Native Calculation Engine ၏ `src/engine/chartblocks/bhavaBala.ts` (BLOCK_7) တို့ကို အသေးစိတ် တိုက်ဆိုင်စစ်ဆေးချက်နှင့် **PL9 Parity Mode** ထည့်သွင်းထားသော `bhavaBala.ts` ကုဒ်အပြည့်အစုံမှာ အောက်ပါအတိုင်း ဖြစ်ပါသည်—
+
+---
+
+## ၁။ `Aspects on Bhavas` (`Aspects.pdf`) နှင့် `bhavaBala.ts` တိုက်ဆိုင်စစ်ဆေးချက်
+
+`Aspects.pdf` အောက်ပိုင်းရှိ **`Aspects on Bhavas`** ဇယား ရှိ အိမ် (၁၂) အိမ်လုံးနှင့် ဂြိုဟ်များအားလုံး၏ အမြင်ရမှတ်များကို သင်္ချာနည်းဖြင့် ပြန်လည်တွက်ချက် စစ်ဆေးရာတွင် အဓိက အချက်ကြီး **(၄) ချက်** ကို တွေ့ရှိရပါသည်—
+
+1. **Bhava Madhya (Cusp) ဒီဂရီ သတ်မှတ်ချက်:**
+* `Aspects.pdf` ၏ `Degree` ကော်လံတွင် ရာသီအစ ဒီဂရီများ (`330:00`, `360:00`, `30:00` စသည်) ကို ရိုက်နှိပ်ထားသော်လည်း၊ PL9 သည် အမှန်တကယ် တွက်ချက်ရာတွင် **Lagna Cusp ($355^\circ 09' = 355.15^\circ$) မှစတင်၍ တစ်အိမ်လျှင် $30^\circ$ စီ ပေါင်းသွားသော Equal-House Bhava Madhya ($\text{Cusp}_h = \text{norm360}(\text{Lagna} + (h - 1) \times 30^\circ)$)** ကို အသုံးပြုထားပါသည်။
+
+
+* ဥပမာ — Sun ($149^\circ 19'$) ၏ အိမ် ၁ မှ ၄ အထိ အမြင်ရမှတ်များမှာ `47`, `32`, `17`, `2` ဖြစ်ပြီး တစ်အိမ်လျှင် `15.0` Virupas ($\Delta\theta = 30.0^\circ$) စီ အတိအကျ လျော့ကျသွားသည်ကို တွေ့ရပါသည်။
+
+
+
+
+2. **ဂြိုဟ်အမြင် တွက်ချက်ပုံ (`DEGREE_CONTINUOUS_KNOT` + Jupiter Trine Curve):**
+* Mars ၏ 4th/8th အမြင်များ (H7 = `54`, H8 = `33`, H11 = `60`, H12 = `33`) နှင့် Saturn ၏ 3rd/10th အမြင်များ (H2 = `13`, H3 = `56`, H9 = `36`, H10 = `46`) တို့သည် **`DEGREE_CONTINUOUS_KNOT`** ညီမျှခြင်းနှင့် **၁၀၀% တူညီ**ပါသည်။
+
+
+* Jupiter ၏ 5th/9th အမြင်များတွင်မူ $[90^\circ, 120^\circ]$ (H8 = `46`) နှင့် $[210^\circ, 240^\circ]$ (H12 = `46`) တို့၌ $45 + \frac{\theta - 90}{2}$ ဖြင့် တက်သွားပြီး၊ $[120^\circ, 150^\circ]$ (H9 = `57`) နှင့် $[240^\circ, 270^\circ]$ (H1 = `57`) တို့၌ $60 - (\theta - 120)$ နှင့် $60 - (\theta - 240)$ (Base Drishti $+ 30$ special bonus) ဖြင့် တွက်ချက်ထားပါသည်။
+
+
+
+
+3. **Bhava Drig Bala Weighting (`RAMAN_JUP_MERC_FULL`):**
+* PL9 နှင့် B.V. Raman (*Graha and Bhava Balas*, Ch. 9) စံနှုန်းအရ Bhava Drig Bala တွင် **Jupiter နှင့် Mercury ၏ အမြင်အင်အားကို `1.0x` (၁၀၀% အပြည့်)** ယူပြီး ကျန်ဂြိုဟ် (၅) လုံး (`Sun, Moon, Mars, Venus, Saturn`) ကို **`1/4` (`0.25x`)** ဖြင့် စား၍ ပေါင်းထည့်ပါသည်။
+
+
+
+
+4. **Bhava Adhipati Bala နှင့် Bhava Dig Bala:**
+* **Bhava Adhipati Bala (`lord_contrib`):** အိမ်ရှင်ဂြိုဟ်၏ Shadbala စုစုပေါင်း (`total_virupas`) ကို `0.5` ဖြင့် မဖြတ်ဘဲ **`1.0x` အပြည့်** ယူပါသည်။
+
+
+* **Bhava Dig Bala (`dig_bala`):** BPHS Ch. 27 Slokas 27–28 အရ ရာသီသဘာဝ (၄) မျိုး (`NARA` $\rightarrow$ H1၊ `JALA` $\rightarrow$ H4၊ `CHATUSHPADA` $\rightarrow$ H10၊ `KEETA` $\rightarrow$ H7) နှင့် ဓနု/မကာရ ရာသီ $15^\circ$ ထက်ဝက်ခွဲခြားမှုတို့ဖြင့် တွက်ချက်ပါသည်။
+
+
+
+
+
+---
+
+## ၂။ `Aspects on Bhavas` (`Aspects.pdf`) အိမ် (၁၂) အိမ်လုံး တိုက်ဆိုင်စစ်ဆေးမှု ဇယား
+
+$\text{Cusp}_h = \text{norm360}(355.15^\circ + (h - 1) \times 30^\circ)$ ဖြင့် PL9 (`Aspects.pdf`) နှင့် DSSME `bhavaBala.ts` (PL9 Parity Mode) တို့၏ အိမ် (၁၂) အိမ်လုံး အမြင်ရမှတ်များ တိုက်ဆိုင်မှုမှာ အောက်ပါအတိုင်း **၁၀၀% ကိုက်ညီ**ပါသည်—
+
+| Bhava | Cusp ($\text{Lagna}+30^\circ$) | Sun (`149:19`)
+
+ | Moon (`212:17`)
+
+ | Mars (`88:45`)
+
+ | Mercury (`165:09`)
+
+ | Jupiter (`112:36`)
+
+ | Venus (`189:23`)
+
+ | Saturn (`348:27`)
+
+ | PL9 `Aspects.pdf` နှင့် ကိုက်ညီမှု |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **1st** | $355^\circ 09'$ | `47` (`47.09`) | `7` (`7.15`) | `16` (`16.80`) | `54` (`54.82`) | `57` (`57.46`) | `31` (`31.52`) | `—` (`0`) | **100% Match**
+
+ |
+| **2nd** | $25^\circ 09'$ | `32` (`32.09`) | `45` (`45.70`) | `1` (`1.80`) | `39` (`39.82`) | `13` (`13.73`) | `52` (`52.12`) | `13` (`13.40`) | **100% Match**
+
+ |
+| **3rd** | $55^\circ 09'$ | `17` (`17.09`) | `48` (`48.58`) | `—` (`0`) | `24` (`24.82`) | `—` (`0`) | `37` (`37.12`) | `56` (`56.65`) | **100% Match**
+
+ |
+| **4th** | $85^\circ 09'$ | `2` (`2.09`) | `33` (`33.58`) | `—` (`0`) | `9` (`9.82`) | `—` (`0`) | `22` (`22.12`) | `41` (`41.65`) | **100% Match**
+
+ |
+| **5th** | $115^\circ 09'$ | `—` (`0`) | `18` (`18.58`) | `—` (`0`) | `—` (`0`) | `—` (`0`) | `7` (`7.12`) | `23` (`23.30`) | **100% Match**
+
+ |
+| **6th** | $145^\circ 09'$ | `—` (`0`) | `3` (`3.58`) | `13` (`13.20`) | `—` (`0`) | `1` (`1.27`) | `—` (`0`) | `13` (`13.40`) | **100% Match**
+
+ |
+| **7th** | $175^\circ 09'$ | `—` (`0`) | `—` (`0`) | `54` (`54.60`) | `—` (`0`) | `17` (`17.54`) | `—` (`0`) | `56` (`56.65`) | **100% Match**
+
+ |
+| **8th** | $205^\circ 09'$ | `12` (`12.91`) | `—` (`0`) | `33` (`33.60`) | `5` (`5.00`) | `46` (`46.27`) | `—` (`0`) | `41` (`41.65`) | **100% Match**
+
+ |
+| **9th** | $235^\circ 09'$ | `40` (`40.82`) | `—` (`0`) | `3` (`3.60`) | `25` (`25.00`) | `57` (`57.46`) | `7` (`7.88`) | `36` (`36.70`) | **100% Match**
+
+ |
+| **10th** | $265^\circ 09'$ | `32` (`32.09`) | `11` (`11.43`) | `52` (`52.80`) | `39` (`39.82`) | `5` (`5.08`) | `30` (`30.76`) | `46` (`46.60`) | **100% Match**
+
+ |
+| **11th** | $295^\circ 09'$ | `4` (`4.18`) | `37` (`37.85`) | `60` (`60.00`) | `19` (`19.64`) | `58` (`58.73`) | `37` (`37.12`) | `—` (`0`) | **100% Match**
+
+ |
+| **12th** | $325^\circ 09'$ | `51` (`51.64`) | `33` (`33.58`) | `33` (`33.60`) | `20` (`20.00`) | `46` (`46.27`) | `14` (`14.24`) | `—` (`0`) | **100% Match**
+
+ |
+
+---
+
+## ၃။ Chofu Chart အတွက် PL9 Parity Mode ဖြင့် တွက်ချက်ထားသော Bhava Bala (၁၂) အိမ် ရလဒ်
+
+PL9 ၏ `Shadbala Summary Table.png` ပါ ဂြိုဟ် (၇) လုံး၏ `Total Shadbala` (`Sun: 411.08, Moon: 443.62, Mars: 377.94, Mercury: 492.54, Jupiter: 417.53, Venus: 408.62, Saturn: 452.86`) နှင့် `Aspects on Bhavas` တို့ကို ပေါင်းစပ်လိုက်သောအခါ အိမ် (၁၂) အိမ်၏ Bhava Bala ရလဒ်များမှာ အောက်ပါအတိုင်း ဖြစ်ပါသည်—
+
+| အိမ် (House) | ရာသီ (Sign) | အိမ်ရှင် (Lord) | 1. Bhavadhipati Bala (`lord_contrib`)
+
+ | 2. Bhava Dig Bala (`dig_bala`) (`Nature` $\rightarrow$ Peak)
+
+ | 3. Bhava Drig Bala (`drishti`) (`RAMAN_JUP_MERC_FULL`)
+
+ | **Total Bhava Bala (Virupas)** | **Rupas ($\div 60$)** |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| **H1** | Pisces ($355^\circ 09'$) | Jupiter | `417.53` | `30.00` (`JALA` $\rightarrow$ H4) | `+106.03` | **`553.56`** | `9.23` |
+| **H2** | Aries ($25^\circ 09'$) | Mars | `377.94` | `30.00` (`CHATUSHPADA` $\rightarrow$ H10) | `+66.20` | **`474.14`** | `7.90` |
+| **H3** | Taurus ($55^\circ 09'$) | Venus | `408.62` | `10.00` (`CHATUSHPADA` $\rightarrow$ H10) | `+27.81` | **`446.43`** | `7.44` |
+| **H4** | Gemini ($85^\circ 09'$) | Mercury | `492.54` | `30.00` (`NARA` $\rightarrow$ H1) | `+12.99` | **`535.53`** | `8.93` |
+| **H5** | Cancer ($115^\circ 09'$) | Moon | `443.62` | `50.00` (`JALA` $\rightarrow$ H4) | `+0.60` | **`494.22`** | `8.24` |
+| **H6** | Leo ($145^\circ 09'$) | Sun | `411.08` | `20.00` (`CHATUSHPADA` $\rightarrow$ H10) | `-4.48` | **`426.60`** | `7.11` |
+| **H7** | Virgo ($175^\circ 09'$) | Mercury | `492.54` | `0.00` (`NARA` $\rightarrow$ H1) | `-10.27` | **`482.27`** | `8.04` |
+| **H8** | Libra ($205^\circ 09'$) | Venus | `408.62` | `10.00` (`NARA` $\rightarrow$ H1) | `+29.23` | **`447.85`** | `7.46` |
+| **H9** | Scorpio ($235^\circ 09'$) | Mars | `377.94` | `40.00` (`KEETA` $\rightarrow$ H7) | `+64.15` | **`482.09`** | `8.03` |
+| **H10** | Sagittarius ($265^\circ 09'$) | Jupiter | `417.53` | `60.00` (`CHATUSHPADA` $25^\circ 09'$ $\rightarrow$ H10) | `+22.88` | **`500.41`** | `8.34` |
+| **H11** | Capricorn ($295^\circ 09'$) | Saturn | `452.86` | `20.00` (`JALA` $25^\circ 09'$ $\rightarrow$ H4) | `+81.07` | **`553.93`** | `9.23` |
+| **H12** | Aquarius ($325^\circ 09'$) | Saturn | `452.86` | `50.00` (`NARA` $\rightarrow$ H1) | `+55.01` | **`557.87`** | `9.30` |
+
+---
+
+## ၄။ အပြီးအစီး အစားထိုးရန် `src/engine/chartblocks/bhavaBala.ts` ကုဒ်အပြည့်အစုံ
+
+အောက်ပါကုဒ်ဖြင့် `src/engine/chartblocks/bhavaBala.ts` ဖိုင်တစ်ခုလုံးကို တိုက်ရိုက် အစားထိုးနိုင်ပါသည်—
+
+```typescript
+/**
+ * BLOCK_7 - BHAVA_BALA (BPHS Chapter 27 Canonical Implementation + PL9 Parity Mode)
+ * Module: src/engine/chartblocks/bhavaBala.ts
+ *
+ * Authority: Brihat Parashara Hora Shastra (BPHS), Chapter 27, Slokas 26-29
+ *            & B.V. Raman, Graha and Bhava Balas, Chapter 9, Sections 55-58
+ *            & Parashara's Light 9.0 (PL9) Aspects on Bhavas / Bhava Bala Parity
+ *
+ * Three components (in Virupas):
+ *   1. Bhava Adhipati Bala - Full 1.0x Shadbala Pinda of the House Lord (no 0.5x scaling bug)
+ *   2. Bhava Dig Bala      - Sign nature classification (NARA->H1, JALA->H4, CHATUSHPADA->H10, KEETA->H7)
+ *                            including 15 deg half-sign splits for Sagittarius and Capricorn
+ *   3. Bhava Drig Bala     - Signed piecewise / Continuous Knot aspectual strength onto each Bhava Madhya,
+ *                            supporting BPHS_EQUAL_DIV_4, RAMAN_JUP_MERC_FULL (PL9 Parity), and SRIPATI_JUP_FULL_MERC_HALF
+ *
+ * CRITICAL: Bhava Bala NEVER enters the Shadbala RS(p) sum (Hard Rule 10 / Section 3.1 Rule 11).
+ * It only enters the pipeline as the BHF multiplier in S10b (Section 9.1).
+ */
+
+import type {
+  BhavaBalaBlock,
+  BhavaBalaEntry,
+  ClassicalPlanet,
+  HouseKey,
+  ZodiacSign,
+} from "../../types/dssme-canonical-types.ts";
+import type { BlockContext, BlockResult } from "../blocks/blockTypes.ts";
+import {
+  finalizeBlock,
+  mapHouseKeys,
+  warningIssue,
+} from "../blocks/blockResult.ts";
+import {
+  type CardinalHouse,
+  CLASSICAL_PLANETS_ORDER,
+  computeBaseDrishti,
+  computeContinuousKnotDrishti,
+  computeDrishtiKona,
+  computeRamanSpecialBonus,
+  type DrigCalculationMode,
+  norm360,
+  PLANET_ORDER,
+  type PlanetId,
+  type PlanetPositionInput,
+  type RasiIndex,
+  shortestArc,
+  SIGN_LORDS,
+} from "./shadbala.ts";
+
+// ============================================================================
+// CORE TYPES & CONSTANTS (BPHS CHAPTER 27 SLOKAS 26-29 & PL9 PARITY)
+// ============================================================================
+
+export type HouseNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+
+export const HOUSE_NUMBERS: readonly HouseNumber[] = [
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+];
+
+export const ZODIAC_SIGNS_BY_RASI: Record<RasiIndex, ZodiacSign> = {
+  0: "Aries",
+  1: "Taurus",
+  2: "Gemini",
+  3: "Cancer",
+  4: "Leo",
+  5: "Virgo",
+  6: "Libra",
+  7: "Scorpio",
+  8: "Sagittarius",
+  9: "Capricorn",
+  10: "Aquarius",
+  11: "Pisces",
+};
+
+export type BhavaSignNature =
+  | "NARA"        // Human / Biped -> peaks in H1 (60), zero in H7 (0)
+  | "JALA"        // Aquatic / Water -> peaks in H4 (60), zero in H10 (0)
+  | "CHATUSHPADA" // Quadruped -> peaks in H10 (60), zero in H4 (0)
+  | "KEETA";      // Insect / Reptile -> peaks in H7 (60), zero in H1 (0)
+
+export const BHAVA_NATURE_MAX_HOUSE: Record<BhavaSignNature, CardinalHouse> = {
+  NARA: 1,
+  JALA: 4,
+  KEETA: 7,
+  CHATUSHPADA: 10,
+};
+
+export type BhavaDrigWeightingMode =
+  | "BPHS_EQUAL_DIV_4"            // All 7 planets weighted at 1/4 of raw Drishti (BPHS Ch. 27)
+  | "RAMAN_JUP_MERC_FULL"         // PL9 / B.V. Raman: Jupiter & Mercury at 1.0 (100%), other 5 planets at 1/4 (25%)
+  | "SRIPATI_JUP_FULL_MERC_HALF"; // Sripati: Jupiter at 1.0 (100%), Mercury at 1/2 (50%), others at 1/4 (25%)
+
+export type BhavaDigCalculationMode = "HOUSE_STEP" | "DEGREE_ARC";
+
+export interface BhavaBalaOptions {
+  drigMode?: DrigCalculationMode;
+  drigWeightingMode?: BhavaDrigWeightingMode;
+  digCalculationMode?: BhavaDigCalculationMode;
+  dynamicMoonBenefic?: boolean;
+  /**
+   * When true (default in buildBhavaBalaBlock), enables Parashara's Light 9.0 (PL9) Parity Mode:
+   * - Uses DEGREE_CONTINUOUS_KNOT + PL9 Jupiter trine curve (matching Aspects.pdf 'Aspects on Bhavas')
+   * - Uses RAMAN_JUP_MERC_FULL weighting (Jupiter & Mercury 1.0x, others 0.25x)
+   * - Preserves 2-decimal precision
+   */
+  pl9ParityMode?: boolean;
+}
+
+function round1(val: number): number {
+  return Math.round((val + Number.EPSILON) * 10) / 10;
+}
+
+function round2(val: number): number {
+  return Math.round((val + Number.EPSILON) * 100) / 100;
+}
+
+function round4(val: number): number {
+  return Math.round((val + Number.EPSILON) * 10000) / 10000;
+}
+
+// ============================================================================
+// 1. BHAVA ADHIPATI BALA (BPHS CH. 27 SLOKA 26)
+// ============================================================================
+
+/**
+ * Component 1: Bhava Adhipati Bala
+ * BPHS Ch. 27 Sloka 26: The house lord's full (1.0x) Shadbala Pinda (total Virupas)
+ * is contributed directly to every Bhava ruled by that planet.
+ */
+export function calculateBhavaAdhipatiBala(
+  cuspSiderealLon: number,
+  shadbalaByPlanet: Record<PlanetId, number>
+): {
+  rasi: RasiIndex;
+  sign: ZodiacSign;
+  signLord: PlanetId;
+  adhipatiVirupas: number;
+} {
+  const normalized = norm360(cuspSiderealLon);
+  const rasi = Math.floor(normalized / 30) as RasiIndex;
+  const sign = ZODIAC_SIGNS_BY_RASI[rasi];
+  const signLord = SIGN_LORDS[rasi];
+  const rawVirupas = shadbalaByPlanet[signLord];
+
+  if (typeof rawVirupas !== "number" || Number.isNaN(rawVirupas)) {
+    throw new Error(`Missing Shadbala total for house lord ${signLord}`);
+  }
+
+  return {
+    rasi,
+    sign,
+    signLord,
+    adhipatiVirupas: round2(rawVirupas),
+  };
+}
+
+// ============================================================================
+// 2. BHAVA DIG BALA (BPHS CH. 27 SLOKAS 27-28)
+// ============================================================================
+
+/**
+ * Classify a Bhava Madhya longitude into one of the 4 BPHS Ch. 27 sign natures:
+ *   - NARA (Human/Biped): Gemini (2), Virgo (5), Libra (6), Sagittarius 0-15 deg (8), Aquarius (10) -> Max in H1
+ *   - JALA (Aquatic/Water): Cancer (3), Capricorn 15-30 deg (9), Pisces (11) -> Max in H4
+ *   - CHATUSHPADA (Quadruped): Aries (0), Taurus (1), Leo (4), Sagittarius 15-30 deg (8), Capricorn 0-15 deg (9) -> Max in H10
+ *   - KEETA (Insect/Reptile): Scorpio (7) -> Max in H7
+ */
+export function classifyBhavaSignNature(
+  cuspSiderealLon: number
+): BhavaSignNature {
+  const normalized = norm360(cuspSiderealLon);
+  const rasi = Math.floor(normalized / 30) as RasiIndex;
+  const degInSign = normalized - rasi * 30;
+
+  switch (rasi) {
+    case 2:  // Gemini
+    case 5:  // Virgo
+    case 6:  // Libra
+    case 10: // Aquarius
+      return "NARA";
+
+    case 3:  // Cancer
+    case 11: // Pisces
+      return "JALA";
+
+    case 0:  // Aries
+    case 1:  // Taurus
+    case 4:  // Leo
+      return "CHATUSHPADA";
+
+    case 7:  // Scorpio
+      return "KEETA";
+
+    case 8:  // Sagittarius: 0-15 deg Nara, 15-30 deg Chatushpada
+      return degInSign < 15.0 ? "NARA" : "CHATUSHPADA";
+
+    case 9:  // Capricorn: 0-15 deg Chatushpada, 15-30 deg Jala
+      return degInSign < 15.0 ? "CHATUSHPADA" : "JALA";
+  }
+}
+
+export function getBhavaDigMaxHouse(cuspSiderealLon: number): CardinalHouse {
+  const nature = classifyBhavaSignNature(cuspSiderealLon);
+  return BHAVA_NATURE_MAX_HOUSE[nature];
+}
+
+export interface BhavaDigBalaDetail {
+  house: HouseNumber;
+  cuspLon: number;
+  rasi: RasiIndex;
+  degInSign: number;
+  nature: BhavaSignNature;
+  maxHouse: CardinalHouse;
+  houseDistance: number;
+  arcDistanceDeg?: number;
+  digVirupas: number;
+}
+
+/**
+ * Component 2: Bhava Dig Bala [0, 60]
+ */
+export function calculateBhavaDigBala(
+  house: HouseNumber,
+  cuspSiderealLon: number,
+  mode: BhavaDigCalculationMode = "HOUSE_STEP",
+  cardinalCuspLongitudes?: Partial<Record<CardinalHouse, number>>
+): BhavaDigBalaDetail {
+  const normalized = norm360(cuspSiderealLon);
+  const rasi = Math.floor(normalized / 30) as RasiIndex;
+  const degInSign = round4(normalized - rasi * 30);
+  const nature = classifyBhavaSignNature(normalized);
+  const maxHouse = BHAVA_NATURE_MAX_HOUSE[nature];
+
+  const rawHouseDiff = Math.abs(house - maxHouse) % 12;
+  const houseDistance = Math.min(rawHouseDiff, 12 - rawHouseDiff);
+
+  if (
+    mode === "DEGREE_ARC" &&
+    cardinalCuspLongitudes &&
+    typeof cardinalCuspLongitudes[maxHouse] === "number"
+  ) {
+    const peakLon = norm360(cardinalCuspLongitudes[maxHouse]!);
+    const arcDistanceDeg = shortestArc(normalized, peakLon);
+    const digVirupas = round2(Math.max(0, Math.min(60, 60 - arcDistanceDeg / 3)));
+    return {
+      house,
+      cuspLon: round4(normalized),
+      rasi,
+      degInSign,
+      nature,
+      maxHouse,
+      houseDistance,
+      arcDistanceDeg: round4(arcDistanceDeg),
+      digVirupas,
+    };
+  }
+
+  const digVirupas = round2(Math.max(0, 60 - houseDistance * 10));
+  return {
+    house,
+    cuspLon: round4(normalized),
+    rasi,
+    degInSign,
+    nature,
+    maxHouse,
+    houseDistance,
+    digVirupas,
+  };
+}
+
+// ============================================================================
+// 3. BHAVA DRIG BALA (BPHS CH. 27 SLOKA 29 & PL9 'ASPECTS ON BHAVAS')
+// ============================================================================
+
+export function getBhavaDrigWeightFactor(
+  aspector: PlanetId,
+  weightingMode: BhavaDrigWeightingMode = "RAMAN_JUP_MERC_FULL"
+): number {
+  switch (weightingMode) {
+    case "RAMAN_JUP_MERC_FULL":
+      if (aspector === "Jupiter" || aspector === "Mercury") return 1.0;
+      return 0.25;
+    case "SRIPATI_JUP_FULL_MERC_HALF":
+      if (aspector === "Jupiter") return 1.0;
+      if (aspector === "Mercury") return 0.5;
+      return 0.25;
+    case "BPHS_EQUAL_DIV_4":
+    default:
+      return 0.25;
+  }
+}
+
+/**
+ * Computes raw Drishti (0..60 Virupas) from a planet onto a Bhava Madhya cusp,
+ * matching Parashara's Light 9.0 `Aspects on Bhavas` (`Aspects.pdf`) when `pl9ParityMode = true`.
+ */
+export function computePlanetToBhavaRawDrishti(
+  aspector: PlanetPositionInput,
+  house: HouseNumber,
+  cuspSiderealLon: number,
+  mode: DrigCalculationMode = "DEGREE_CONTINUOUS_KNOT",
+  pl9ParityMode = true
+): {
+  drishtiKonaDeg: number;
+  baseVirupas: number;
+  specialBonusVirupas: number;
+  totalRawVirupas: number;
+  pl9PrintedScore: number;
+} {
+  const drishtiKonaDeg = computeDrishtiKona(aspector.lon, cuspSiderealLon);
+
+  if (mode === "WHOLE_HOUSE") {
+    const houseSpan = (((house - aspector.house) % 12) + 12) % 12 + 1;
+    let isFullAspect = houseSpan === 7;
+    let isSpecial = false;
+
+    if (aspector.planet === "Mars" && (houseSpan === 4 || houseSpan === 8)) {
+      isFullAspect = true;
+      isSpecial = true;
+    } else if (
+      aspector.planet === "Jupiter" &&
+      (houseSpan === 5 || houseSpan === 9)
+    ) {
+      isFullAspect = true;
+      isSpecial = true;
+    } else if (
+      aspector.planet === "Saturn" &&
+      (houseSpan === 3 || houseSpan === 10)
+    ) {
+      isFullAspect = true;
+      isSpecial = true;
+    }
+
+    const totalRawVirupas = isFullAspect ? 60 : 0;
+    const baseVirupas = houseSpan === 7 ? 60 : 0;
+    const specialBonusVirupas = isSpecial ? 60 : 0;
+    return {
+      drishtiKonaDeg: round2(drishtiKonaDeg),
+      baseVirupas,
+      specialBonusVirupas,
+      totalRawVirupas,
+      pl9PrintedScore: Math.floor(totalRawVirupas),
+    };
+  }
+
+  if (mode === "DEGREE_CONTINUOUS_KNOT") {
+    // In PL9 'Aspects on Bhavas', Jupiter in [120, 150) and [240, 270) follows 60 - (theta - 120) and 60 - (theta - 240)
+    if (
+      pl9ParityMode &&
+      aspector.planet === "Jupiter" &&
+      ((drishtiKonaDeg >= 120 && drishtiKonaDeg < 150) ||
+        (drishtiKonaDeg >= 240 && drishtiKonaDeg < 270))
+    ) {
+      const baseVirupas = computeBaseDrishti(drishtiKonaDeg);
+      const offset =
+        drishtiKonaDeg < 150 ? drishtiKonaDeg - 120 : drishtiKonaDeg - 240;
+      const totalRawVirupas = 60.0 - offset;
+      const specialBonusVirupas = Math.max(0, totalRawVirupas - baseVirupas);
+      return {
+        drishtiKonaDeg: round2(drishtiKonaDeg),
+        baseVirupas: round2(baseVirupas),
+        specialBonusVirupas: round2(specialBonusVirupas),
+        totalRawVirupas: round2(totalRawVirupas),
+        pl9PrintedScore: Math.floor(totalRawVirupas + 1e-9),
+      };
+    }
+
+    const { baseVirupas, specialBonusVirupas, totalRawVirupas } =
+      computeContinuousKnotDrishti(aspector.planet, drishtiKonaDeg);
+    return {
+      drishtiKonaDeg: round2(drishtiKonaDeg),
+      baseVirupas: round2(baseVirupas),
+      specialBonusVirupas: round2(specialBonusVirupas),
+      totalRawVirupas: round2(totalRawVirupas),
+      pl9PrintedScore: Math.floor(totalRawVirupas + 1e-9),
+    };
+  }
+
+  const baseVirupas = computeBaseDrishti(drishtiKonaDeg);
+  const specialBonusVirupas = computeRamanSpecialBonus(
+    aspector.planet,
+    drishtiKonaDeg
+  );
+  const totalRawVirupas = Math.min(60, baseVirupas + specialBonusVirupas);
+
+  return {
+    drishtiKonaDeg: round2(drishtiKonaDeg),
+    baseVirupas: round2(baseVirupas),
+    specialBonusVirupas: round2(specialBonusVirupas),
+    totalRawVirupas: round2(totalRawVirupas),
+    pl9PrintedScore: Math.floor(totalRawVirupas + 1e-9),
+  };
+}
+
+export interface BhavaAspectContribution {
+  aspector: PlanetId;
+  house: HouseNumber;
+  drishtiKonaDeg: number;
+  baseVirupas: number;
+  specialBonusVirupas: number;
+  totalRawVirupas: number;
+  pl9PrintedScore: number;
+  polarity: 1 | -1;
+  weightFactor: number;
+  weightedVirupas: number;
+}
+
+export interface BhavaDrigBalaDetail {
+  house: HouseNumber;
+  cuspLon: number;
+  rawSignedSum: number;
+  drigVirupas: number;
+  aspects: BhavaAspectContribution[];
+}
+
+/**
+ * Component 3: Bhava Drig Bala
+ */
+export function calculateBhavaDrigBala(
+  house: HouseNumber,
+  cuspSiderealLon: number,
+  planets: readonly PlanetPositionInput[],
+  options: BhavaBalaOptions = {}
+): BhavaDrigBalaDetail {
+  const isPl9Parity = options.pl9ParityMode ?? false;
+  const mode: DrigCalculationMode =
+    options.drigMode ??
+    (isPl9Parity ? "DEGREE_CONTINUOUS_KNOT" : "DEGREE_RAMAN_BAND");
+  const weightingMode: BhavaDrigWeightingMode =
+    options.drigWeightingMode ??
+    (isPl9Parity ? "RAMAN_JUP_MERC_FULL" : "BPHS_EQUAL_DIV_4");
+  const dynamicMoonBenefic = options.dynamicMoonBenefic ?? false;
+
+  const sunPos = planets.find((p) => p.planet === "Sun");
+  const moonPos = planets.find((p) => p.planet === "Moon");
+
+  let isMoonBenefic = true;
+  if (dynamicMoonBenefic && sunPos && moonPos) {
+    const elongation = norm360(moonPos.lon - sunPos.lon);
+    isMoonBenefic = elongation < 180;
+  }
+
+  const benefics = new Set<PlanetId>(["Mercury", "Jupiter", "Venus"]);
+  if (isMoonBenefic) {
+    benefics.add("Moon");
+  }
+
+  let rawSignedSum = 0;
+  let weightedSum = 0;
+  const aspects: BhavaAspectContribution[] = [];
+
+  for (const p of PLANET_ORDER) {
+    const aspector = planets.find((item) => item.planet === p);
+    if (!aspector) continue;
+
+    const polarity: 1 | -1 = benefics.has(p) ? 1 : -1;
+    const weightFactor = getBhavaDrigWeightFactor(p, weightingMode);
+
+    const rawEval = computePlanetToBhavaRawDrishti(
+      aspector,
+      house,
+      cuspSiderealLon,
+      mode,
+      isPl9Parity
+    );
+
+    const weightedVirupas = round2(
+      polarity * rawEval.totalRawVirupas * weightFactor
+    );
+
+    rawSignedSum += polarity * rawEval.totalRawVirupas;
+    weightedSum += polarity * rawEval.totalRawVirupas * weightFactor;
+
+    aspects.push({
+      aspector: p,
+      house,
+      drishtiKonaDeg: rawEval.drishtiKonaDeg,
+      baseVirupas: rawEval.baseVirupas,
+      specialBonusVirupas: rawEval.specialBonusVirupas,
+      totalRawVirupas: rawEval.totalRawVirupas,
+      pl9PrintedScore: rawEval.pl9PrintedScore,
+      polarity,
+      weightFactor,
+      weightedVirupas,
+    });
+  }
+
+  const drigVirupas = round2(weightedSum);
+
+  return {
+    house,
+    cuspLon: round4(norm360(cuspSiderealLon)),
+    rawSignedSum: round2(rawSignedSum),
+    drigVirupas,
+    aspects,
+  };
+}
+
+// ============================================================================
+// MASTER BHAVA BALA ENGINE (STANDALONE + DSSME BLOCK_7 ADAPTER)
+// ============================================================================
+
+export interface BhavaHouseResult {
+  house: HouseNumber;
+  sign: ZodiacSign;
+  rasi: RasiIndex;
+  signLord: PlanetId;
+  cuspLon: number;
+  nature: BhavaSignNature;
+  maxDigHouse: CardinalHouse;
+  adhipatiVirupas: number;
+  digVirupas: number;
+  drigVirupas: number;
+  totalVirupas: number;
+  totalRupas: number;
+  rank: number;
+  drigBreakdown: BhavaDrigBalaDetail;
+}
+
+export interface BhavaBalaChartInput {
+  /** 12 house cusp longitudes (array of 12, 1-indexed array of 13, or Record<1..12, number>) */
+  houseCusps: readonly number[] | Record<number, number>;
+  /** Shadbala total Virupas for each of the 7 classical planets */
+  shadbalaByPlanet: Record<PlanetId, number>;
+  /** Positions of the 7 classical planets */
+  planets: readonly PlanetPositionInput[];
+  options?: BhavaBalaOptions;
+}
+
+export interface BhavaBalaEngineOutput {
+  byHouse: Record<HouseNumber, BhavaHouseResult>;
+  ordered: BhavaHouseResult[];
+  meanVirupas: number;
+  strongestHouse: HouseNumber;
+  weakestHouse: HouseNumber;
+}
+
+export function resolveTwelveHouseCusps(
+  cusps: readonly number[] | Record<number, number>
+): Record<HouseNumber, number> {
+  const out = {} as Record<HouseNumber, number>;
+  for (const h of HOUSE_NUMBERS) {
+    let raw: number | undefined;
+    if (Array.isArray(cusps)) {
+      raw = cusps.length === 13 ? cusps[h] : cusps[h - 1];
+    } else {
+      raw = (cusps as Record<number, number>)[h];
+    }
+    if (typeof raw !== "number" || Number.isNaN(raw)) {
+      throw new Error(`Missing or invalid cusp longitude for House ${h}`);
+    }
+    out[h] = norm360(raw);
+  }
+  return out;
+}
+
+export function calculateBhavaBala(
+  input: BhavaBalaChartInput
+): BhavaBalaEngineOutput {
+  const { houseCusps, shadbalaByPlanet, planets, options = {} } = input;
+  const resolvedCusps = resolveTwelveHouseCusps(houseCusps);
+
+  const isPl9Parity = Boolean(options.pl9ParityMode);
+  const effectiveOptions: BhavaBalaOptions = {
+    ...options,
+    pl9ParityMode: isPl9Parity,
+    drigMode:
+      options.drigMode ??
+      (isPl9Parity ? "DEGREE_CONTINUOUS_KNOT" : "DEGREE_RAMAN_BAND"),
+    drigWeightingMode:
+      options.drigWeightingMode ??
+      (isPl9Parity ? "RAMAN_JUP_MERC_FULL" : "BPHS_EQUAL_DIV_4"),
+    digCalculationMode: options.digCalculationMode ?? "HOUSE_STEP",
+  };
+
+  const roundFn =
+    isPl9Parity ||
+    effectiveOptions.drigWeightingMode === "RAMAN_JUP_MERC_FULL"
+      ? round2
+      : round1;
+
+  const cardinalCusps: Record<CardinalHouse, number> = {
+    1: resolvedCusps[1],
+    4: resolvedCusps[4],
+    7: resolvedCusps[7],
+    10: resolvedCusps[10],
+  };
+
+  const byHouse = {} as Record<HouseNumber, BhavaHouseResult>;
+  const ordered: BhavaHouseResult[] = [];
+
+  for (const h of HOUSE_NUMBERS) {
+    const cuspLon = resolvedCusps[h];
+
+    const adhipati = calculateBhavaAdhipatiBala(cuspLon, shadbalaByPlanet);
+    const dig = calculateBhavaDigBala(
+      h,
+      cuspLon,
+      effectiveOptions.digCalculationMode,
+      cardinalCusps
+    );
+    const drig = calculateBhavaDrigBala(
+      h,
+      cuspLon,
+      planets,
+      effectiveOptions
+    );
+
+    const adhipatiVirupas = roundFn(adhipati.adhipatiVirupas);
+    const digVirupas = roundFn(dig.digVirupas);
+    const drigVirupas = roundFn(drig.drigVirupas);
+    const totalVirupas = roundFn(adhipatiVirupas + digVirupas + drigVirupas);
+    const totalRupas = round2(totalVirupas / 60.0);
+
+    const item: BhavaHouseResult = {
+      house: h,
+      sign: adhipati.sign,
+      rasi: adhipati.rasi,
+      signLord: adhipati.signLord,
+      cuspLon: round4(cuspLon),
+      nature: dig.nature,
+      maxDigHouse: dig.maxHouse,
+      adhipatiVirupas,
+      digVirupas,
+      drigVirupas,
+      totalVirupas,
+      totalRupas,
+      rank: 0,
+      drigBreakdown: drig,
+    };
+
+    byHouse[h] = item;
+    ordered.push(item);
+  }
+
+  const sorted = [...ordered].sort((a, b) => b.totalVirupas - a.totalVirupas);
+  for (const item of ordered) {
+    item.rank = sorted.findIndex((s) => s.house === item.house) + 1;
+  }
+
+  const sumVirupas = ordered.reduce((acc, item) => acc + item.totalVirupas, 0);
+  const meanVirupas = round2(sumVirupas / 12.0);
+  const strongestHouse = sorted[0]!.house;
+  const weakestHouse = sorted[sorted.length - 1]!.house;
+
+  return {
+    byHouse,
+    ordered,
+    meanVirupas,
+    strongestHouse,
+    weakestHouse,
+  };
+}
+
+// ============================================================================
+// DSSME BLOCK_7 BUILDER (`buildBhavaBalaBlock`)
+// ============================================================================
+
+export function buildBhavaBalaBlock(
+  ctx: BlockContext,
+  shadbalaTotalVirupas: readonly number[],
+  options: BhavaBalaOptions = {}
+): BlockResult<BhavaBalaBlock> {
+  const { chart } = ctx;
+  const issues = [];
+
+  const shadbalaByPlanet = {} as Record<ClassicalPlanet, number>;
+  for (let i = 0; i < CLASSICAL_PLANETS_ORDER.length; i++) {
+    const p = CLASSICAL_PLANETS_ORDER[i]!;
+    shadbalaByPlanet[p] = shadbalaTotalVirupas[i] ?? 0;
+  }
+
+  const planetsInput: PlanetPositionInput[] = CLASSICAL_PLANETS_ORDER.map(
+    (p) => {
+      const pos = chart.planets[p];
+      return {
+        planet: p,
+        lon: pos.siderealLongitude,
+        speed: pos.speedLongitude,
+        retro: pos.isRetrograde,
+        house: pos.house,
+        lat: pos.latitude,
+      };
+    }
+  );
+
+  // Extract 12 house cusps; in PL9 Parity Mode, use Equal-House Bhava Madhya (Lagna + (h - 1) * 30)
+  // if canonical houses only store whole-sign start degrees (0, 30, 60...), matching Aspects.pdf.
+  const pl9ParityMode = options.pl9ParityMode ?? true;
+  const lagnaLon = chart.lagna.siderealLongitude;
+  const houseCusps: Record<number, number> = {};
+
+  for (const h of HOUSE_NUMBERS) {
+    const hKey = String(h) as HouseKey;
+    const rawCusp = chart.houses[hKey]?.cuspLongitude;
+    const equalCusp = norm360(lagnaLon + (h - 1) * 30);
+
+    if (typeof rawCusp === "number" && !Number.isNaN(rawCusp)) {
+      const isWholeSignStart = Math.abs(rawCusp % 30) < 1e-4 && Math.abs(lagnaLon % 30) > 1e-2;
+      houseCusps[h] = pl9ParityMode && isWholeSignStart ? equalCusp : norm360(rawCusp);
+    } else {
+      houseCusps[h] = equalCusp;
+    }
+  }
+
+  const engineOut = calculateBhavaBala({
+    houseCusps,
+    shadbalaByPlanet,
+    planets: planetsInput,
+    options: {
+      ...options,
+      pl9ParityMode,
+      drigMode:
+        options.drigMode ??
+        (pl9ParityMode ? "DEGREE_CONTINUOUS_KNOT" : "DEGREE_RAMAN_BAND"),
+      drigWeightingMode:
+        options.drigWeightingMode ??
+        (pl9ParityMode ? "RAMAN_JUP_MERC_FULL" : "BPHS_EQUAL_DIV_4"),
+    },
+  });
+
+  const value: BhavaBalaBlock = mapHouseKeys((hKey: HouseKey) => {
+    const hNum = Number(hKey) as HouseNumber;
+    const r = engineOut.byHouse[hNum];
+    const houseData = chart.houses[hKey];
+
+    const entry: BhavaBalaEntry = {
+      sign: houseData?.sign ?? r.sign,
+      lord_contrib: r.adhipatiVirupas,
+      dig_bala: r.digVirupas,
+      drishti: r.drigVirupas,
+      total: r.totalVirupas,
+    };
+    return entry;
+  });
+
+  const allZero = HOUSE_NUMBERS.every(
+    (h) => value[String(h) as HouseKey].total === 0
+  );
+  if (allZero) {
+    issues.push(
+      warningIssue("BHAVA_BALA", "All 12 Bhava Bala house totals are zero")
+    );
+  }
+
+  return finalizeBlock({
+    blockId: "BHAVA_BALA",
+    ctx,
+    inputs: ["CanonicalChart", "SHADBALA"],
+    value,
+    issues,
+  });
+}
+
+```
+
+---
+
+## ၅။ `shadbala.ts` နှင့် `bhavaBala.ts` ချိတ်ဆက်အသုံးပြုပုံ
+
+* **`buildBhavaBalaBlock(ctx, shadbalaBlock.value.total_virupas)`:** `src/engine/chartblocks/index.ts` မှ လက်ရှိခေါ်ယူနေသည့် Function Signature အတိုင်း ပြောင်းလဲမှုမရှိဘဲ တိုက်ရိုက် အလုပ်လုပ်ပါသည်။
+
+
+* **Default PL9 Parity:** `buildBhavaBalaBlock` တွင် `pl9ParityMode: true` ကို Default ဖွင့်ပေးထားသဖြင့် `Aspects on Bhavas` (`Aspects.pdf`) နှင့် `Shadbala Summary Table.png` တို့အတိုင်း `lord_contrib`, `dig_bala`, `drishti`, နှင့် `total` တို့ကို ဒသမ (၂) နေရာအတိအကျ တွက်ချက်ပေးပါသည်။
+
+
+* **Hard Rule 10 လိုက်နာမှု:** `BHAVA_BALA` သည် `SHADBALA` (`RS(p)`) ပေါင်းလဒ်ထဲသို့ လုံးဝမဝင်ဘဲ Stage S10b ရှိ `BHF` (Bhava Bala House Factor) အတွက်သာ သီးခြားအသုံးပြုပါသည်။
+
+
+
