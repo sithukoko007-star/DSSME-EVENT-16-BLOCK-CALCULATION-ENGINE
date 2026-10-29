@@ -2070,7 +2070,11 @@ export function calculateKaalaBala(
         ayana[p]
     );
 
-    const sumRaw = round2(
+    // sumRounded: component-wise round2() ပေါင်း (logging / breakdown display အတွက်သာ)
+    // Fix #1: Saturn-specific hardcode (>= 128.39) ဖယ်ရှားခြင်း
+    // မူရင်း unrounded raw floats ဂြိုဟ် ၇ လုံးအတွက် ပေါင်းပြီးမှ round2() တစ်ကြိမ်သာ လုပ်သည်။
+    // Chofu verification: 35.963 + 39.012 + 30.000 + 23.412 = 128.387 → round2 → 128.39 ✓
+    const rawPreYuddhaSum =
       nathRaw +
         pakshaRaw +
         tribhagaRaw +
@@ -2078,12 +2082,9 @@ export function calculateKaalaBala(
         masaRaw +
         vaaraRaw +
         horaRaw +
-        ayanaRaw
-    );
+        ayanaRaw;
 
-    // PL9 sums unrounded raw floats so Saturn lands on 128.39, while components match sum of rounded virupas
-    preYuddhaTotal[p] =
-      p === "Saturn" ? (sumRaw >= 128.39 ? sumRaw : 128.39) : sumRounded;
+    preYuddhaTotal[p] = round2(rawPreYuddhaSum);
   }
 
   const warringInputs: WarringPlanetInput[] = CLASSICAL_PLANETS_ORDER.map(
@@ -2776,6 +2777,22 @@ export interface PlanetDrigBreakdown {
   receivedAspects: PairwiseAspectDetail[];
 }
 
+/**
+ * Fix #2: Drig Bala Weighting Mode — ရှင်းလင်းချက်
+ *
+ * `PL9_JUP_MERC_FULL` mode တွင် Jupiter နှင့် Mercury ၏ drishti ကို `1.0×` (100%)
+ * ဖြင့် weight ပေးသည်။ ဤကြောင့် Chofu ဇာတာတွင် Saturn ၏ Drig Bala = 106.62
+ * ဖြစ်ပေါ်ရသည် (Mercury 4/4 = 58 Virupas + Jupiter 4/4 = 57 Virupas full weight)။
+ *
+ * SIF_v3 ၏ AIF (Single-Axis Dominance Factor) sub-factor သည် ဤ one-axis inflation ကို
+ * RS(p) level တွင် penalty ဖြင့် ထိန်းချုပ်သည်—
+ *   Saturn (Chofu): |106.62| / 452.86 = 23.5% ≤ 45% → AIF = 1.00 (penalty မပေး) ✓
+ *   Threshold: > 45% → 0.95 penalty; > 60% → 0.88 penalty.
+ *
+ * Weighting Modes:
+ *   `BPHS_EQUAL_DIV_4`  — ဂြိုဟ်အားလုံး 0.25× (BPHS Ch. 27 standard, Ch. 27.26)
+ *   `PL9_JUP_MERC_FULL` — Jupiter, Mercury: 1.0×; others: 0.25× (PL9 parity mode)
+ */
 export function getDrigWeightFactor(
   aspector: PlanetId,
   weightingMode: DrigWeightingMode = "BPHS_EQUAL_DIV_4"
@@ -2784,9 +2801,9 @@ export function getDrigWeightFactor(
     weightingMode === "PL9_JUP_MERC_FULL" &&
     (aspector === "Jupiter" || aspector === "Mercury")
   ) {
-    return 1.0;
+    return 1.0; // Jupiter, Mercury → full weight (PL9 parity)
   }
-  return 0.25;
+  return 0.25;  // BPHS standard: all planets ÷ 4
 }
 
 export interface DrigBalaOptions {

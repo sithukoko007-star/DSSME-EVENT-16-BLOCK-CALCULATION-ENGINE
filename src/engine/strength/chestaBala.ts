@@ -1,33 +1,87 @@
 /**
- * DSSME EVENT ENGINE V1.0 - CHESTA BALA (MOTIONAL STRENGTH) -- METHOD 2: SPEED & RETROGRADE
- * Source of truth: Brihat Parashara Hora Shastra (BPHS) Ch.27
+ * DEPRECATED FACADE — src/engine/strength/chestaBala.ts
+ *
+ * ဤဖိုင်သည် Backward Compatibility အတွက်သာ ထိန်းသိမ်းထားသည်။
+ * Chesta Bala ၏ canonical engine မှာ `src/engine/chartblocks/shadbala.ts` ဖြစ်သည်။
+ *
+ * Fix #3: Dual Chesta Entry Point → Single Source of Truth
+ * Fix #4: Mercury/Venus Geocentric Speed Bug
+ *   ယခင် MEAN_DAILY_MOTION တွင် Mercury 4.0923°/d, Venus 1.60215°/d (heliocentric) အမှားများ
+ *   ပါဝင်နေသည်။ Canonical geocentric values (Mercury: 0.9856°/d, Venus: 0.9856°/d) ကို
+ *   TARA_MEAN_DAILY_SPEED_DEG (shadbala.ts) မှ ရယူသင့်သည်။
+ *
+ * Backward Compat Stubs:
+ *   Test files (tests/strength/chestaBala.test.ts, tests/phase8/chesta_method2.run.ts)
+ *   import လုပ်နေသော legacy functions / constants တို့ကို ဤ facade မှ re-export
+ *   သို့မဟုတ် shim ဖြင့် ပံ့ပိုးသည်။ New code တွင် shadbala.ts ကိုသာ import ပြုလုပ်ပါ။
  */
 
-import { PlanetState } from '../types.ts';
-import { SHADBALA_PLANETS } from './shadbalaConstants.ts';
+import type { PlanetState } from '../types.ts';
+export { SHADBALA_PLANETS, type ShadbalaPlanet } from "./shadbalaConstants.ts";
 
-// ── Planet index constants ────────────────────────────────────────────────────
-const SUN = 0, MOON = 1;
+// ── Re-export canonical types & functions from shadbala.ts ────────────────────
+export {
+  TARA_MEAN_DAILY_SPEED_DEG,
+  TARA_MAX_DAILY_SPEED_DEG,
+  ASHTA_GATI_VIRUPAS_BPHS_ORIGINAL,
+  ASHTA_GATI_VIRUPAS_MODERN_VARIANT,
+  DEFAULT_ASHTA_GATI_THRESHOLDS,
+  CHESTA_EPOCH_JD_1900,
+  UJJAIN_LONGITUDE_DEG,
+  EPOCH_1900_TABLE,
+  type AshtaGatiState,
+  type LuminaryChestaState,
+  type PlanetGatiClassification,
+  type ChestaBalaMode,
+  type ChestaPlanetInput,
+  type PlanetChestaBalaDetail,
+  type AshtaGatiThresholds,
+  type ChestaEpochContext,
+  type Epoch1900PlanetData,
+  computeDailySpeedFromLongitudes,
+  compute1900EpochMeanAndSeeghrocha,
+  calculateMethod1ChestaKendraBala,
+  classifyTaraGrahaAshtaGati,
+  evaluatePlanetChestaBala,
+  calculateChestaBala,
+  chestaBala,
+  calculateAyanaBalaRaw,
+  calculateAyanaBala,
+  calculatePakshaBalaRaw,
+  calculatePakshaBala,
+} from "../chartblocks/shadbala.ts";
 
-// ── Mean daily motions (degrees/day) — Surya-Siddhanta / BPHS ───────────────
-export const MEAN_DAILY_MOTION: Record<string, number> = {
-  Mars:    0.524,
-  Mercury: 4.0923,
-  Jupiter: 0.0831,
-  Venus:   1.60215,
-  Saturn:  0.033439,
-};
+// ── Legacy context interface (backward compat) ────────────────────────────────
+export interface ChestaContext {
+  ayanamsaDegrees?: number;
+  localJulianDay?:  number;
+  placeLongitude?:  number;
+}
 
-/** Fraction of mean motion below which a planet is considered stationary. */
+// ── STATIONARY_THRESHOLD (backward compat constant) ──────────────────────────
+/** @deprecated Use DEFAULT_ASHTA_GATI_THRESHOLDS.vikalaMaxRatio from shadbala.ts */
 export const STATIONARY_THRESHOLD = 0.05;
 
-// ── Ayana declination table (7-point, Surya-Siddhanta) ───────────────────────
-const AYANA_BHUJA      = [0, 15, 30, 45, 60, 75, 90];
-const AYANA_DECL_TABLE = [0, 362 / 60, 703 / 60, 1002 / 60, 1238 / 60, 1388 / 60, 1440 / 60];
+// ── MEAN_DAILY_MOTION (backward compat — heliocentric bug preserved for test parity) ──
+/**
+ * @deprecated Fix #4: Mercury (4.0923) and Venus (1.60215) are HELIOCENTRIC speeds.
+ * For Ashta-Gati geocentric ratio calculation use TARA_MEAN_DAILY_SPEED_DEG (shadbala.ts).
+ *
+ * Kept here ONLY because tests/strength/chestaBala.test.ts imports and asserts these
+ * exact legacy values. Do not use in new code.
+ */
+export const MEAN_DAILY_MOTION: Record<string, number> = {
+  Mars:    0.524,      // ✓ matches geocentric
+  Mercury: 4.0923,     // ❌ heliocentric — geocentric: 0.9856°/d
+  Jupiter: 0.0831,     // ✓ matches geocentric
+  Venus:   1.60215,    // ❌ heliocentric — geocentric: 0.9856°/d
+  Saturn:  0.033439,   // ✓ matches geocentric
+};
 
-// ── Pure math helpers ────────────────────────────────────────────────────────
+// ── Legacy Sun Chesta Bala (Ayana Lagrange interpolation model) ───────────────
+const AYANA_BHUJA       = [0, 15, 30, 45, 60, 75, 90];
+const AYANA_DECL_TABLE  = [0, 362 / 60, 703 / 60, 1002 / 60, 1238 / 60, 1388 / 60, 1440 / 60];
 
-/** Python-compatible round(x, 2): exact 0.5 ties → nearest even digit. */
 function pyRound2(x: number): number {
   const s = x * 100, fl = Math.floor(s);
   if (s - fl === 0.5) return (fl % 2 === 0 ? fl : fl + 1) / 100;
@@ -36,7 +90,6 @@ function pyRound2(x: number): number {
 
 const mod360 = (x: number): number => ((x % 360) + 360) % 360;
 
-/** Lagrange inverse interpolation (7-point table). */
 function inverseLagrange(xArr: number[], yArr: number[], ya: number): number {
   let total = 0;
   for (let i = 0; i < xArr.length; i++) {
@@ -49,7 +102,10 @@ function inverseLagrange(xArr: number[], yArr: number[], ya: number): number {
   return total;
 }
 
-// ── Sun Chesta Bala (Ayana model) ─────────────────────────────────────────────
+/**
+ * @deprecated Legacy Sun Chesta model. Use calculateAyanaBalaRaw() from shadbala.ts.
+ * Kept for tests/strength/chestaBala.test.ts backward compatibility.
+ */
 export function calculateSunChestaBala(sunSiderealLon: number, ayanamsaDeg: number): number {
   const trop = mod360(sunSiderealLon + ayanamsaDeg);
   let bhuja = trop;
@@ -62,40 +118,38 @@ export function calculateSunChestaBala(sunSiderealLon: number, ayanamsaDeg: numb
   return pyRound2((24.0 + decl) * 1.25) * 2;
 }
 
-// ── Moon Chesta Bala (Paksha model) ──────────────────────────────────────────
+/**
+ * @deprecated Legacy Moon Paksha model. Use calculatePakshaBalaRaw() from shadbala.ts.
+ * Kept for tests/strength/chestaBala.test.ts backward compatibility.
+ */
 export function calculateMoonChestaBala(moonSiderealLon: number, sunSiderealLon: number): number {
   return pyRound2(Math.abs(moonSiderealLon - sunSiderealLon) / 3);
 }
 
-// ── Outer planet Chesta Bala (Speed & Retrograde — BPHS Method 2) ────────────
+/**
+ * @deprecated Fix #4: Uses MEAN_DAILY_MOTION (heliocentric) → wrong ratio for Mercury/Venus.
+ * Use evaluatePlanetChestaBala() from shadbala.ts (BPHS_ORIGINAL_27_23 mode).
+ * Kept for tests/strength/chestaBala.test.ts and tests/phase8/chesta_method2.run.ts.
+ */
 export function calculateOuterPlanetChestaBala(planetName: string, speedLonDeg: number): number {
   const meanSpeed = MEAN_DAILY_MOTION[planetName];
   if (!meanSpeed) return 0;
-
-  // Retrograde motion → full 60 virupas
   if (speedLonDeg < 0) return 60.0;
-
   const absSpeed = Math.abs(speedLonDeg);
-
-  // Stationary (speed < 5% of mean) → 0 virupas
   if (absSpeed < meanSpeed * STATIONARY_THRESHOLD) return 0.0;
-
-  // Direct motion → proportional, capped at 60
   return Math.min(pyRound2((absSpeed / meanSpeed) * 60), 60);
 }
 
-// ── Context interface ─────────────────────────────────────────────────────────
-export interface ChestaContext {
-  ayanamsaDegrees?: number;
-  localJulianDay?:  number;
-  placeLongitude?:  number;
-}
-
-// ── Main export ───────────────────────────────────────────────────────────────
+/**
+ * @deprecated Use evaluatePlanetChestaBala() per-planet from shadbala.ts instead.
+ * Kept for backward compatibility with legacy callers and batch test suites.
+ */
 export function calculateChestaBalaAll(
   planets: Record<string, PlanetState>,
   ctx?: ChestaContext
 ): number[] {
+  const PLANET_ORDER = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"] as const;
+
   const getLon = (name: string): number => {
     const v = planets[name]?.totalLongitude;
     if (typeof v !== 'number' || !Number.isFinite(v))
@@ -105,28 +159,22 @@ export function calculateChestaBalaAll(
 
   const getSpeed = (name: string): number => {
     const v = planets[name]?.speedLongitude;
-    if (typeof v !== 'number' || !Number.isFinite(v)) {
-      return 0;
-    }
-    return v;
+    return (typeof v === 'number' && Number.isFinite(v)) ? v : 0;
   };
 
   const sunLon  = getLon('Sun');
   const moonLon = getLon('Moon');
 
-  // ── Sun (Ayana model) ──
   let sunChesta = 0;
   if (typeof ctx?.ayanamsaDegrees === 'number' && Number.isFinite(ctx.ayanamsaDegrees)) {
     sunChesta = calculateSunChestaBala(sunLon, ctx.ayanamsaDegrees);
   }
 
-  // ── Moon (Paksha model) ──
   const moonChesta = calculateMoonChestaBala(moonLon, sunLon);
 
-  // ── Outer 5 (Speed & Retrograde method) ──
-  return SHADBALA_PLANETS.map((name, i) => {
-    if (i === SUN)  return sunChesta;
-    if (i === MOON) return moonChesta;
+  return PLANET_ORDER.map((name, i) => {
+    if (i === 0) return sunChesta;
+    if (i === 1) return moonChesta;
     return calculateOuterPlanetChestaBala(name, getSpeed(name));
   });
 }
