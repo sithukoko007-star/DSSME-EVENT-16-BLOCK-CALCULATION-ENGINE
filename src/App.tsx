@@ -39,6 +39,8 @@ import { getDefaultLocationForTimezone } from "./data/timezoneLocations.ts";
 import { buildDssme16BlockResult } from "./engine/chartblocks/index.ts";
 import { runDssmeEngine } from "./engine/dssme/dssmeEngine.ts";
 import type { DssmeRunResult } from "./engine/dssme/types.ts";
+import { ResponsiveTimeInput } from "./components/ResponsiveTimeInput.tsx";
+import { normalizePresetTime, validateCanonicalTime } from "./utils/timeValidation.ts";
 
 const PRESET_CHOFU: DssmeCalculationInput = {
   date: "2026-09-16",
@@ -152,7 +154,16 @@ export default function App() {
     setLoading(true);
     setError(null);
 
-    // Front-end pre-validation for international IANA timezone reliability
+    // Front-end pre-validation for time and international IANA timezone reliability
+    const timeVal = validateCanonicalTime(inputData.time);
+    if (!timeVal.isValid) {
+      setError(
+        `INVALID_TIME: ${timeVal.errorMessage || "Time must be in 24-hour HH:MM:SS format."}`
+      );
+      setLoading(false);
+      return;
+    }
+
     if (!isValidIanaTimezone(inputData.timezone)) {
       setError(
         `INVALID_INPUT: "${inputData.timezone}" is not a recognized IANA timezone identifier (e.g. Asia/Tokyo, Asia/Yangon, America/New_York). Please select or enter a valid timezone.`
@@ -353,8 +364,12 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => {
-                  setInput(PRESET_CHOFU);
-                  handleCalculate(PRESET_CHOFU);
+                  const normalizedPreset = {
+                    ...PRESET_CHOFU,
+                    time: normalizePresetTime(PRESET_CHOFU.time),
+                  };
+                  setInput(normalizedPreset);
+                  handleCalculate(normalizedPreset);
                 }}
                 className="px-2.5 py-1 rounded text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
               >
@@ -385,17 +400,9 @@ export default function App() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1 flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5 text-slate-500" />
-                Time (HH:MM:SS)
-              </label>
-              <input
-                type="text"
+              <ResponsiveTimeInput
                 value={input.time}
-                onChange={(e) => handleTimeChange(e.target.value)}
-                placeholder="14:30:00"
-                required
-                className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-amber-500 font-mono"
+                onChange={(newTime) => handleTimeChange(newTime)}
               />
             </div>
 
@@ -490,8 +497,8 @@ export default function App() {
 
               <button
                 type="submit"
-                disabled={loading}
-                className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-semibold text-sm shadow-md shadow-amber-500/20 flex items-center gap-2 transition disabled:opacity-50 cursor-pointer"
+                disabled={loading || !validateCanonicalTime(input.time).isValid}
+                className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-semibold text-sm shadow-md shadow-amber-500/20 flex items-center gap-2 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {loading ? (
                   <>Calculating...</>

@@ -43,7 +43,7 @@ export const RB: Record<NineBody, number> = {
 
 // ============================================================================
 // Natural Planetary Friendship Table (§9.2)
-// Used by DRF, DLR, NF, HP.
+// Used by DRF (natural friendship baseline), DLR, NF, HP.
 // Rahu → use Saturn's row; Ketu → use Mars's row.
 // ============================================================================
 
@@ -66,11 +66,97 @@ function proxyPlanet(p: NineBody): ClassicalPlanet {
   return p as ClassicalPlanet;
 }
 
+/**
+ * Natural friendship level (Naisargika Maitri) using the §9.2 table.
+ * Rahu/Ketu use Saturn/Mars as proxy. Returns "Friend", "Neutral", or "Enemy"
+ * (never "Grt.Friend" / "Grt.Enemy" — those require compound friendship; see getCompoundFriendLevel).
+ */
 export function getFriendLevel(p: NineBody, other: NineBody): FriendLevel {
   const pProxy = proxyPlanet(p);
   const otherProxy = proxyPlanet(other);
   if (pProxy === otherProxy) return "Friend"; // same planet = friendly
   return FRIENDSHIP[pProxy]?.[otherProxy] ?? "Neutral";
+}
+
+// ============================================================================
+// Tatkalika Maitri (Temporary Friendship) & Panchadha Maitri (Compound Friendship)
+// BPHS: a planet is a temporary friend of p if it occupies the 2nd, 3rd, 4th,
+// 10th, 11th, or 12th house counted FROM p's house at the time of the chart.
+// Used only in DRF Step 3 to unlock the Grt.Friend / Grt.Enemy tiers.
+// ============================================================================
+
+/** Houses counted from p's house that make another planet a temporary friend. */
+const TATKALIKA_FRIEND_OFFSETS = new Set([2, 3, 4, 10, 11, 12]);
+
+/**
+ * Temporary (Tatkalika) friendship of `other` toward `p`.
+ * Uses actual HOUSE_POSITIONS (Rahu/Ketu use their own house, not proxy).
+ * Returns "Friend" or "Enemy"; if house data is missing or invalid (outside 1–12),
+ * returns "Neutral" (conservative — avoids promoting/demoting without clean data).
+ */
+export function getTemporaryFriendship(
+  p: NineBody,
+  other: NineBody,
+  chart: Dssme16BlockResult
+): "Friend" | "Enemy" | "Neutral" {
+  const pHouse = chart.HOUSE_POSITIONS?.[p]?.house;
+  const otherHouse = chart.HOUSE_POSITIONS?.[other]?.house;
+  if (
+    typeof pHouse !== "number" ||
+    typeof otherHouse !== "number" ||
+    !Number.isInteger(pHouse) ||
+    !Number.isInteger(otherHouse) ||
+    pHouse < 1 || pHouse > 12 ||
+    otherHouse < 1 || otherHouse > 12
+  ) {
+    return "Neutral"; // data absent or out-of-range (1..12) → preserve natural level
+  }
+  // Offset: which house is `other` counted FROM `p`'s house? (1 = same house → Enemy per BPHS)
+  const offset = ((otherHouse - pHouse + 12) % 12) + 1;
+  return TATKALIKA_FRIEND_OFFSETS.has(offset) ? "Friend" : "Enemy";
+}
+
+/**
+ * Panchadha Maitri (Five-fold / Compound Friendship).
+ * Combines Naisargika (natural) and Tatkalika (temporary) friendship.
+ *
+ * | Natural \ Temporary | Friend     | Enemy   |
+ * |---------------------|-----------|---------|
+ * | Friend              | Grt.Friend | Neutral |
+ * | Neutral             | Friend     | Enemy   |
+ * | Enemy               | Neutral    | Grt.Enemy |
+ *
+ * If temporary is "Neutral" (data absent), natural friendship is preserved unchanged.
+ */
+export function compoundFriendship(
+  natural: FriendLevel,
+  temporary: "Friend" | "Enemy" | "Neutral"
+): FriendLevel {
+  if (temporary === "Neutral") return natural; // no data → identity
+  if (natural === "Friend"  && temporary === "Friend") return "Grt.Friend";
+  if (natural === "Friend"  && temporary === "Enemy")  return "Neutral";
+  if (natural === "Neutral" && temporary === "Friend") return "Friend";
+  if (natural === "Neutral" && temporary === "Enemy")  return "Enemy";
+  if (natural === "Enemy"   && temporary === "Friend") return "Neutral";
+  if (natural === "Enemy"   && temporary === "Enemy")  return "Grt.Enemy";
+  // Pass-through for Grt.Friend/Grt.Enemy (shouldn't occur from FRIENDSHIP table)
+  return natural;
+}
+
+/**
+ * Compound (Panchadha Maitri) friend level of `p` toward `other`.
+ * Used exclusively by DRF Step 3 (§9.2) to unlock the Grt.Friend / Grt.Enemy
+ * tiers that were dead-code when using natural friendship alone (§22.2.4 fix).
+ * TM_v3 sub-factors (DLR/NF/HP) continue to use natural friendship only per §10.
+ */
+export function getCompoundFriendLevel(
+  p: NineBody,
+  other: NineBody,
+  chart: Dssme16BlockResult
+): FriendLevel {
+  const natural = getFriendLevel(p, other);
+  const temporary = getTemporaryFriendship(p, other, chart);
+  return compoundFriendship(natural, temporary);
 }
 
 function friendLevelToDRF(level: FriendLevel): number {
@@ -453,11 +539,14 @@ function computeDRF(chart: Dssme16BlockResult, p: NineBody): number {
   // Step 2: AD-lord identity (p ≠ MD)
   if (p === ad) return 1.05;
 
-  // Step 3: Primary MD relationship tier
-  const mdLevel = getFriendLevel(p, md);
+  // Step 3: Primary MD relationship tier — uses Panchadha Maitri (compound friendship,
+  // §22.2.4 fix) to unlock Grt.Friend (1.04) and Grt.Enemy (0.88) tiers.
+  // Tatkalika Maitri is computed from HOUSE_POSITIONS at chart time.
+  const mdLevel = getCompoundFriendLevel(p, md, chart);
   const drfBase = friendLevelToDRF(mdLevel);
 
-  // Step 4: AD-secondary modifier (applied exactly once)
+  // Step 4: AD-secondary modifier (applied exactly once).
+  // Uses natural (Naisargika) friendship only per §10 — no compound expansion here.
   const adLevel = getFriendLevel(p, ad);
   let adMod = 1.00;
   if (adLevel === "Friend" || adLevel === "Grt.Friend") adMod = 1.01;
